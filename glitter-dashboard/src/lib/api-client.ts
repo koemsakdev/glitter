@@ -17,19 +17,17 @@ export const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// ----- Request interceptor: attach access token ------------------------------
 apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const token = tokenStorage.getAccessToken();
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error),
+    (config: InternalAxiosRequestConfig) => {
+      const token = tokenStorage.getAccessToken();
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    },
+    (error) => Promise.reject(error),
 );
 
-// ----- Response interceptor: auto-refresh on 401 -----------------------------
 interface RetryableRequest extends AxiosRequestConfig {
   _retry?: boolean;
 }
@@ -49,74 +47,76 @@ const processQueue = (error: unknown, token: string | null) => {
 };
 
 apiClient.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError) => {
-    const originalRequest = error.config as RetryableRequest | undefined;
-    const status = error.response?.status;
+    (response) => response,
+    async (error: AxiosError) => {
+      const originalRequest = error.config as RetryableRequest | undefined;
+      const status = error.response?.status;
 
-    if (
-      status === 401 &&
-      originalRequest &&
-      !originalRequest._retry &&
-      tokenStorage.getRefreshToken() &&
-      !originalRequest.url?.includes('/auth/refresh')
-    ) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({
-            resolve: (token) => {
-              if (originalRequest.headers) {
-                originalRequest.headers.Authorization = `Bearer ${token}`;
-              }
-              resolve(apiClient(originalRequest));
-            },
-            reject,
+      if (
+          status === 401 &&
+          originalRequest &&
+          !originalRequest._retry &&
+          tokenStorage.getRefreshToken() &&
+          !originalRequest.url?.includes('/auth/refresh')
+      ) {
+        if (isRefreshing) {
+          return new Promise((resolve, reject) => {
+            failedQueue.push({
+              resolve: (token) => {
+                if (originalRequest.headers) {
+                  originalRequest.headers.Authorization = `Bearer ${token}`;
+                }
+                resolve(apiClient(originalRequest));
+              },
+              reject,
+            });
           });
-        });
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const refreshToken = tokenStorage.getRefreshToken();
-        // Use raw axios to skip our interceptors. Note: API path includes /api
-        const { data } = await axios.post<RefreshResponse>(
-          `${API_URL}/api/auth/refresh`,
-          { refreshToken },
-        );
-
-        tokenStorage.setTokens(data.accessToken, data.refreshToken);
-
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
         }
 
-        processQueue(null, data.accessToken);
-        return apiClient(originalRequest);
-      } catch (refreshError) {
-        processQueue(refreshError, null);
-        tokenStorage.clearTokens();
-        authCookie.clear();
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
-        }
-        return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
-      }
-    }
+        originalRequest._retry = true;
+        isRefreshing = true;
 
-    return Promise.reject(error);
-  },
+        try {
+          const refreshToken = tokenStorage.getRefreshToken();
+          const { data } = await axios.post<RefreshResponse>(
+              `${API_URL}/api/auth/refresh`,
+              { refreshToken },
+          );
+
+          // Backend returns { tokens: { accessToken, refreshToken, ... } }
+          tokenStorage.setTokens(
+              data.tokens.accessToken,
+              data.tokens.refreshToken,
+          );
+
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${data.tokens.accessToken}`;
+          }
+
+          processQueue(null, data.tokens.accessToken);
+          return apiClient(originalRequest);
+        } catch (refreshError) {
+          processQueue(refreshError, null);
+          tokenStorage.clearTokens();
+          authCookie.clear();
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+          return Promise.reject(refreshError);
+        } finally {
+          isRefreshing = false;
+        }
+      }
+
+      return Promise.reject(error);
+    },
 );
 
-// ----- Error message extraction ---------------------------------------------
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as
-      | { message?: string | string[] }
-      | undefined;
+        | { message?: string | string[] }
+        | undefined;
     if (data?.message) {
       if (Array.isArray(data.message)) return data.message.join(', ');
       return data.message;

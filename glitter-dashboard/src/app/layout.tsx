@@ -1,3 +1,4 @@
+import React from "react";
 import localFont from "next/font/local";
 import type { Metadata } from "next";
 import "./globals.css";
@@ -6,7 +7,7 @@ import { AuthProvider } from "@/features/auth/auth-provider";
 import { QueryProvider } from "@/lib/query-provider";
 import { Toaster } from "sonner";
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { ThemeProvider } from "next-themes";
+import { ThemeProvider } from '@/lib/theme-provider';
 
 const googleSans = localFont({
   src: [
@@ -35,12 +36,7 @@ export default function RootLayout({
           googleSans.variable
         )}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <ThemeProvider>
           <QueryProvider>
             <AuthProvider>
               <TooltipProvider>

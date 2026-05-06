@@ -12,17 +12,13 @@ export function useLogin() {
   return useMutation({
     mutationFn: (dto: LoginDto) => authApi.login(dto),
     onSuccess: (data) => {
-      tokenStorage.setTokens(data.accessToken, data.refreshToken);
+      tokenStorage.setTokens(data.tokens.accessToken, data.tokens.refreshToken);
       authCookie.set();
       setUser(data.user);
     },
   });
 }
 
-/**
- * Logout mutation hook. Clears tokens + cookie + user state.
- * Always succeeds even if the backend call fails.
- */
 export function useLogout() {
   const clear = useAuthStore((s) => s.clear);
 

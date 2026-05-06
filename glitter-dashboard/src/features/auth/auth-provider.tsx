@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useEffect, type ReactNode } from 'react';
 import { authApi } from '@/features/auth/auth-api';
@@ -14,14 +14,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function bootstrap() {
-      // No tokens? Make sure cookie is also cleared.
       if (!tokenStorage.hasTokens()) {
         authCookie.clear();
-        setHydrated(true);
+        if (!cancelled) setHydrated(true);
         return;
       }
 
-      // Tokens exist → make sure cookie matches
       authCookie.set();
 
       try {
@@ -29,9 +27,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           setUser(user);
         }
-      } catch {
-        // Token invalid and refresh failed. The api-client interceptor
-        // already cleared tokens + cookie. Just mark as not logged in.
+      } catch (error) {
+        console.error('[AuthProvider] Failed to load current user:', error);
         if (!cancelled) {
           setUser(null);
         }
