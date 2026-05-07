@@ -40,9 +40,7 @@ export default function RootLayout({
           <QueryProvider>
             <AuthProvider>
               <TooltipProvider>
-                <main className="relative flex flex-col min-h-screen">
-                  {children}
-                </main>
+                {children}
                 <Toaster position="top-right" richColors />
               </TooltipProvider>
             </AuthProvider>

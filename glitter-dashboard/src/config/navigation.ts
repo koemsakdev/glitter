@@ -1,7 +1,3 @@
-/**
- * Navigation configuration. Defines all sidebar items, their groups,
- * icons, and which roles can see each.
- */
 import {
     Award,
     Boxes,
@@ -144,9 +140,6 @@ export const navigation: NavGroup[] = [
     },
 ];
 
-/**
- * Filter navigation by user role. Hides groups that have no visible items.
- */
 export function filterNavigationByRole(role: UserRole): NavGroup[] {
     return navigation
         .map((group) => ({

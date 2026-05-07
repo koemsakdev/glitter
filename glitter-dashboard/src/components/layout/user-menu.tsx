@@ -15,9 +15,6 @@ import { useLogout } from '@/features/auth/use-auth';
 import { useI18n } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/auth-store';
 
-/**
- * Compute initials from a full name. Returns 'U' as fallback.
- */
 function getInitials(fullName: string | null | undefined): string {
     if (!fullName) return 'U';
     return (
@@ -35,7 +32,7 @@ export function UserMenu() {
     const router = useRouter();
     const user = useAuthStore((s) => s.user);
     const logout = useLogout();
-    const { t, language } = useI18n();
+    const { t } = useI18n();
 
     if (!user) return null;
 
@@ -47,8 +44,6 @@ export function UserMenu() {
         await logout.mutateAsync();
         router.replace('/login');
     }
-
-    const khmerClass = language === 'km' ? 'font-khmer' : '';
 
     return (
         <DropdownMenu>
@@ -62,7 +57,7 @@ export function UserMenu() {
                             {user.profileImageUrl && (
                                 <AvatarImage src={user.profileImageUrl} alt={fullName} />
                             )}
-                            <AvatarFallback className="bg-primary text-xs text-primary-foreground">
+                            <AvatarFallback className="bg-pink-400 text-xs text-white dark:bg-pink-300 dark:text-pink-950">
                                 {initials}
                             </AvatarFallback>
                         </Avatar>
@@ -77,7 +72,6 @@ export function UserMenu() {
                 }
             />
             <DropdownMenuContent align="end" className="w-56">
-                {/* Header info — plain div, not DropdownMenuLabel (Base UI requires Group context) */}
                 <div className="flex flex-col gap-0.5 px-2 py-1.5">
                     <span className="text-sm font-medium">{fullName}</span>
                     <span className="truncate text-xs text-muted-foreground">
@@ -89,14 +83,14 @@ export function UserMenu() {
 
                 <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>
                     <UserIcon className="mr-2 size-4" />
-                    <span className={khmerClass}>{t('user.profile')}</span>
+                    <span>{t('user.profile')}</span>
                 </DropdownMenuItem>
 
                 <DropdownMenuItem
                     onClick={() => router.push('/dashboard/change-password')}
                 >
                     <Key className="mr-2 size-4" />
-                    <span className={khmerClass}>{t('user.changePassword')}</span>
+                    <span>{t('user.changePassword')}</span>
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
@@ -106,7 +100,7 @@ export function UserMenu() {
                     className="text-destructive focus:text-destructive"
                 >
                     <LogOut className="mr-2 size-4" />
-                    <span className={khmerClass}>{t('user.logout')}</span>
+                    <span>{t('user.logout')}</span>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

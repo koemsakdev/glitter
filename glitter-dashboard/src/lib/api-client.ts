@@ -1,3 +1,6 @@
+/**
+ * Axios API client for all backend requests.
+ */
 import axios, {
   AxiosError,
   type AxiosInstance,
@@ -46,6 +49,14 @@ const processQueue = (error: unknown, token: string | null) => {
   failedQueue = [];
 };
 
+function forceLogout() {
+  tokenStorage.clearTokens();
+  authCookie.clear();
+  if (typeof window !== 'undefined') {
+    window.location.replace('/login');
+  }
+}
+
 apiClient.interceptors.response.use(
     (response) => response,
     async (error: AxiosError) => {
@@ -83,7 +94,6 @@ apiClient.interceptors.response.use(
               { refreshToken },
           );
 
-          // Backend returns { tokens: { accessToken, refreshToken, ... } }
           tokenStorage.setTokens(
               data.tokens.accessToken,
               data.tokens.refreshToken,
@@ -97,15 +107,16 @@ apiClient.interceptors.response.use(
           return apiClient(originalRequest);
         } catch (refreshError) {
           processQueue(refreshError, null);
-          tokenStorage.clearTokens();
-          authCookie.clear();
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          }
+          forceLogout();
           return Promise.reject(refreshError);
         } finally {
           isRefreshing = false;
         }
+      }
+
+      // No refresh possible (no refresh token, or already retried) → kick out
+      if (status === 401 && !originalRequest?.url?.includes('/auth/')) {
+        forceLogout();
       }
 
       return Promise.reject(error);

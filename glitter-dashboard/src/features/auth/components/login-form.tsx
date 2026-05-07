@@ -64,7 +64,7 @@ export function LoginForm() {
                 <LanguageToggle/>
             </div>
 
-            {/*<div className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-primary via-accent to-primary"/>*/}
+            <div className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-pink-300 via-accent to-pink-300 dark:from-pink-800 dark:via-accent dark:to-pink-800"/>
 
             <CardContent className="px-8 pb-8 pt-12">
                 <div className="mb-8 flex flex-col items-center gap-3 text-center">
@@ -109,7 +109,7 @@ export function LoginForm() {
                                         placeholder={t('login.email.placeholder')}
                                         autoComplete="off"
                                         aria-invalid={fieldState.invalid}
-                                        className="h-11 shadow-none focus:shadow-none focus-visible:shadow-none focus:outline-0 focus-visible:outline-none focus:ring-0 focus-visible:ring-0 rounded-xs focus-visible:border-pink-500 dark:focus-visible:border-pink-800"
+                                        className="h-11 shadow-none focus:shadow-none focus-visible:shadow-none focus:outline-0 focus-visible:outline-none focus:ring-0 focus-visible:ring-0 rounded-lg focus-visible:border-pink-500 dark:focus-visible:border-pink-800"
                                         aria-autocomplete={"none"}
                                     />
                                     {fieldState.invalid && fieldState.error && (
@@ -145,7 +145,7 @@ export function LoginForm() {
                                             autoComplete="current-password"
                                             placeholder={t('login.password.placeholder')}
                                             aria-invalid={fieldState.invalid}
-                                            className="h-11 pr-10 w-full shadow-none focus:shadow-none focus-visible:shadow-none focus:outline-0 focus-visible:outline-none focus:ring-0 focus-visible:ring-0 rounded-xs focus-visible:border-pink-500 dark:focus-visible:border-pink-800"
+                                            className="h-11 pr-10 w-full shadow-none focus:shadow-none focus-visible:shadow-none focus:outline-0 focus-visible:outline-none focus:ring-0 focus-visible:ring-0 rounded-lg focus-visible:border-pink-500 dark:focus-visible:border-pink-800"
                                         />
                                         <button
                                             type="button"
@@ -184,7 +184,7 @@ export function LoginForm() {
 
                         <Button
                             type="submit"
-                            className={`mt-2 h-11 w-full text-base font-semibold dark:text-white transition-shadow rounded-xs bg-pink-400 dark:bg-pink-800 hover:bg-pink-500 dark:hover:bg-pink-900`}
+                            className={`h-11 w-full bg-pink-400 text-base font-semibold text-white shadow-pink-400/30 transition-all hover:bg-pink-500 hover:shadow-lg hover:shadow-pink-800/40 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800 rounded-lg`}
                             disabled={login.isPending}
                         >
                             {login.isPending && (

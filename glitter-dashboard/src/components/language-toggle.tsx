@@ -29,7 +29,7 @@ export function LanguageToggle() {
                         aria-label={t('language.toggle')}
                     >
                         <Globe className="h-4 w-4" />
-                        <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-primary px-1 text-[8px] font-bold leading-tight text-primary-foreground">
+                        <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-pink-400 px-1 text-[8px] font-bold leading-tight text-white dark:bg-pink-300 dark:text-pink-950">
               {language === 'en' ? 'EN' : 'KH'}
             </span>
                     </Button>
@@ -44,7 +44,9 @@ export function LanguageToggle() {
                     >
                         {opt.label}
                         {language === opt.code && (
-                            <span className="ml-auto text-primary">✓</span>
+                            <span className="ml-auto text-pink-500 dark:text-pink-300">
+                ✓
+              </span>
                         )}
                     </DropdownMenuItem>
                 ))}
