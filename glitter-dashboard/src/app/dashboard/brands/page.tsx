@@ -1,187 +1,235 @@
 'use client';
 
-import { Plus, Search } from 'lucide-react';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Plus } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
+    DataTable,
+    DataTableEmpty,
+    DataTableFilterTabs,
+    DataTablePagination,
+    DataTableSearch,
+    DataTableSortButton,
+    DataTableToolbar,
+} from '@/components/data-table';
+import type { FilterTabOption, SortOption } from '@/components/data-table';
+import { Button } from '@/components/ui/button';
+import {
+    BRAND_FILTER_OPTIONS,
+    BRAND_SORT_OPTIONS,
+    DEFAULT_BRAND_SORT,
+    type BrandStatusFilter,
+} from '@/features/brands/brand-config';
+import { getBrandColumns } from '@/features/brands/components/brand-columns';
 import { BrandFormDialog } from '@/features/brands/components/brand-form-dialog';
-import { BrandTable } from '@/features/brands/components/brand-table';
 import { DeleteBrandDialog } from '@/features/brands/components/delete-brand-dialog';
+import { useCreateBrandModal } from '@/features/brands/hooks/use-create-brand-modal';
+import { useDeleteBrandModal } from '@/features/brands/hooks/use-delete-brand-modal';
+import { useModifyBrandModal } from '@/features/brands/hooks/use-modify-brand-modal';
 import { useBrands } from '@/features/brands/use-brands';
 import { useI18n } from '@/lib/i18n';
-import type { Brand, BrandStatus } from '@/types/brand';
-
-const PAGE_SIZE = 10;
+import type {
+    Brand,
+    BrandSortBy,
+    BrandSortOrder,
+} from '@/types/brand';
 
 export default function BrandsPage() {
     const { t } = useI18n();
 
-    // Filters
-    const [page, setPage] = useState(1);
-    const [search, setSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState<BrandStatus | 'all'>('all');
+    // Modal hooks (URL-driven open/close state)
+    const createModal = useCreateBrandModal();
+    const modifyModal = useModifyBrandModal();
+    const deleteModal = useDeleteBrandModal();
 
-    // Dialog state
-    const [formDialogOpen, setFormDialogOpen] = useState(false);
+    // Selected brand (data state, not URL state)
     const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
     const [deletingBrand, setDeletingBrand] = useState<Brand | null>(null);
+
+    // Filters
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState<BrandStatusFilter>('all');
+    const [sortBy, setSortBy] = useState<BrandSortBy>(
+        DEFAULT_BRAND_SORT.sortBy,
+    );
+    const [sortOrder, setSortOrder] = useState<BrandSortOrder>(
+        DEFAULT_BRAND_SORT.sortOrder,
+    );
 
     // Data
     const { data, isLoading, isFetching } = useBrands({
         page,
-        limit: PAGE_SIZE,
+        limit: pageSize,
         search: search || undefined,
         status: statusFilter === 'all' ? undefined : statusFilter,
+        sortBy,
+        sortOrder,
     });
 
     const brands = data?.data ?? [];
     const total = data?.total ?? 0;
-    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-    function openCreate() {
-        setEditingBrand(null);
-        setFormDialogOpen(true);
+    // Translate config options
+    const filterOptions: FilterTabOption<BrandStatusFilter>[] = useMemo(
+        () =>
+            BRAND_FILTER_OPTIONS.map((opt) => ({
+                value: opt.value,
+                label: t(opt.labelKey),
+            })),
+        [t],
+    );
+
+    const sortOptions: SortOption[] = useMemo(
+        () =>
+            BRAND_SORT_OPTIONS.map((opt) => ({
+                value: opt.value,
+                label: t(opt.labelKey),
+                sortBy: opt.sortBy,
+                sortOrder: opt.sortOrder,
+            })),
+        [t],
+    );
+
+    const currentSortValue = `${sortBy}-${sortOrder}`;
+
+    // Columns — wired to open the right modals
+    const columns = useMemo(
+        () =>
+            getBrandColumns({
+                t,
+                onEdit: (brand) => {
+                    setEditingBrand(brand);
+                    modifyModal.open();
+                },
+                onDelete: (brand) => {
+                    setDeletingBrand(brand);
+                    deleteModal.open();
+                },
+            }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [t],
+    );
+
+    // Handlers
+    function handleStatusChange(value: BrandStatusFilter) {
+        setStatusFilter(value);
+        setPage(1);
     }
 
-    function openEdit(brand: Brand) {
-        setEditingBrand(brand);
-        setFormDialogOpen(true);
+    function handleSearchChange(value: string) {
+        setSearch(value);
+        setPage(1);
+    }
+
+    function handleSortChange(option: SortOption) {
+        setSortBy(option.sortBy as BrandSortBy);
+        setSortOrder(option.sortOrder);
+        setPage(1);
+    }
+
+    function handlePageSizeChange(size: number) {
+        setPageSize(size);
+        setPage(1);
     }
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                    <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
                         {t('brand.list.title')}
                     </h1>
-                    <p className="mt-1 text-muted-foreground">
+                    <p className="mt-1 text-sm text-muted-foreground sm:text-base">
                         {t('brand.list.subtitle')}
                     </p>
                 </div>
-                <Button onClick={openCreate}>
+                <Button
+                    onClick={createModal.open}
+                    className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800 sm:shrink-0"
+                >
                     <Plus className="mr-2 size-4" />
                     {t('brand.action.create')}
                 </Button>
             </div>
 
-            {/* Filters */}
-            <Card>
-                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            type="search"
-                            placeholder={t('brand.list.search')}
-                            value={search}
-                            onChange={(e) => {
-                                setSearch(e.target.value);
-                                setPage(1);
-                            }}
-                            className="pl-9"
-                        />
-                    </div>
-                    <Select
+            {/* Toolbar */}
+            <DataTableToolbar
+                left={
+                    <DataTableFilterTabs
+                        options={filterOptions}
                         value={statusFilter}
-                        onValueChange={(value) => {
-                            setStatusFilter(value as BrandStatus | 'all');
-                            setPage(1);
-                        }}
-                    >
-                        <SelectTrigger className="w-full sm:w-[180px]">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">{t('brand.status.all')}</SelectItem>
-                            <SelectItem value="active">{t('brand.status.active')}</SelectItem>
-                            <SelectItem value="inactive">
-                                {t('brand.status.inactive')}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                </CardContent>
-            </Card>
+                        onChange={handleStatusChange}
+                    />
+                }
+                right={
+                    <>
+                        <DataTableSortButton
+                            options={sortOptions}
+                            value={currentSortValue}
+                            onChange={handleSortChange}
+                            label={t('brand.sort.label')}
+                        />
+                        <DataTableSearch
+                            value={search}
+                            onChange={handleSearchChange}
+                            placeholder={t('brand.list.search')}
+                            className="w-full sm:w-[260px]"
+                        />
+                    </>
+                }
+            />
 
-            {/* Table card */}
-            <Card>
-                <CardContent className="p-0">
-                    {isLoading ? (
-                        <div className="space-y-3 p-6">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                                <Skeleton key={i} className="h-12 w-full" />
-                            ))}
-                        </div>
-                    ) : (
-                        <div
-                            className={
-                                isFetching ? 'opacity-60 transition-opacity' : 'transition-opacity'
-                            }
-                        >
-                            <BrandTable
-                                brands={brands}
-                                onEdit={openEdit}
-                                onDelete={setDeletingBrand}
-                            />
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+            {/* Table */}
+            <DataTable
+                data={brands}
+                columns={columns}
+                isLoading={isLoading}
+                isFetching={isFetching}
+                emptyState={
+                    <DataTableEmpty
+                        title={t('brand.list.empty')}
+                        action={
+                            <Button
+                                onClick={createModal.open}
+                                size="sm"
+                                className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
+                            >
+                                <Plus className="mr-2 size-4" />
+                                {t('brand.action.create')}
+                            </Button>
+                        }
+                    />
+                }
+            />
 
             {/* Pagination */}
-            {totalPages > 1 && (
-                <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                        Showing {(page - 1) * PAGE_SIZE + 1}–
-                        {Math.min(page * PAGE_SIZE, total)} of {total}
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setPage((p) => Math.max(1, p - 1))}
-                            disabled={page === 1 || isFetching}
-                        >
-                            Previous
-                        </Button>
-                        <span className="text-sm text-muted-foreground">
-              Page {page} of {totalPages}
-            </span>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                            disabled={page >= totalPages || isFetching}
-                        >
-                            Next
-                        </Button>
-                    </div>
-                </div>
+            {!isLoading && (
+                <DataTablePagination
+                    page={page}
+                    pageSize={pageSize}
+                    total={total}
+                    onPageChange={setPage}
+                    onPageSizeChange={handlePageSizeChange}
+                    disabled={isFetching}
+                />
             )}
 
-            {/* Dialogs */}
+            {/* Create dialog — uses useCreateBrandModal internally */}
+            <BrandFormDialog brand={null} />
+
+            {/* Edit dialog — uses useModifyBrandModal internally */}
             <BrandFormDialog
-                open={formDialogOpen}
-                onOpenChange={(open) => {
-                    setFormDialogOpen(open);
-                    if (!open) setEditingBrand(null);
-                }}
+                key={editingBrand?.id}
                 brand={editingBrand}
+                onClose={() => setEditingBrand(null)}
             />
+
+            {/* Delete dialog — uses useDeleteBrandModal internally */}
             <DeleteBrandDialog
                 brand={deletingBrand}
-                onOpenChange={(open) => {
-                    if (!open) setDeletingBrand(null);
-                }}
+                onClose={() => setDeletingBrand(null)}
             />
         </div>
     );

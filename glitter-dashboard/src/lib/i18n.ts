@@ -30,6 +30,7 @@ const translations = {
         'language.khmer': 'ភាសាខ្មែរ',
 
         // Sidebar groups
+        'nav.main': 'Main',
         'nav.dashboard': 'Dashboard',
         'nav.group.catalog': 'Catalog',
         'nav.group.operations': 'Operations',
@@ -113,6 +114,12 @@ const translations = {
         'brand.validation.slugRequired': 'Slug is required',
         'brand.validation.slugFormat': 'Slug must be lowercase letters, numbers, and hyphens only',
         'brand.validation.urlInvalid': 'Must be a valid URL',
+        'brand.sort.label': 'Sort',
+        'brand.sort.newest': 'Newest First',
+        'brand.sort.oldest': 'Oldest First',
+        'brand.sort.nameAsc': 'Name (A → Z)',
+        'brand.sort.nameDesc': 'Name (Z → A)',
+        'brand.sort.recentlyUpdated': 'Recently Updated',
     },
     km: {
         // Login
@@ -137,6 +144,7 @@ const translations = {
         'language.khmer': 'ភាសាខ្មែរ',
 
         // Sidebar groups
+        'nav.main': 'ទំព័រដើម',
         'nav.dashboard': 'ផ្ទាំងគ្រប់គ្រង',
         'nav.group.catalog': 'ផលិតផល',
         'nav.group.operations': 'ប្រតិបត្តិការ',
@@ -220,6 +228,12 @@ const translations = {
         'brand.validation.slugRequired': 'តម្រូវឲ្យបញ្ចូលស្លាក',
         'brand.validation.slugFormat': 'ស្លាកត្រូវមានតែអក្សរតូច លេខ និងសញ្ញា - ប៉ុណ្ណោះ',
         'brand.validation.urlInvalid': 'ត្រូវជា URL ត្រឹមត្រូវ',
+        'brand.sort.label': 'តម្រៀប',
+        'brand.sort.newest': 'ថ្មីបំផុតមុន',
+        'brand.sort.oldest': 'ចាស់បំផុតមុន',
+        'brand.sort.nameAsc': 'ឈ្មោះ (A → Z)',
+        'brand.sort.nameDesc': 'ឈ្មោះ (Z → A)',
+        'brand.sort.recentlyUpdated': 'បានកែសម្រួលថ្មីៗ',
     },
 } as const;
 

@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
     Sidebar,
     SidebarContent,
-    SidebarFooter,
+    // SidebarFooter,
     SidebarGroup,
     SidebarGroupContent,
     SidebarGroupLabel,
@@ -15,7 +15,6 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
     SidebarRail,
-    SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { filterNavigationByRole } from '@/config/navigation';
 import { useI18n } from '@/lib/i18n';
@@ -32,12 +31,12 @@ export function DashboardSidebar() {
 
     return (
         <Sidebar collapsible="icon" className="border-r">
-            <SidebarHeader className="border-b border-sidebar-border p-2">
-                <SidebarMenu>
-                    <SidebarMenuItem>
+            <SidebarHeader className="h-16! p-0! border-b border-sidebar-border">
+                <SidebarMenu className="h-full">
+                    <SidebarMenuItem className="h-full">
                         <Link
                             href="/dashboard"
-                            className="flex items-center gap-3 rounded-md p-2 transition-colors hover:bg-sidebar-accent group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
+                            className="flex h-full items-center gap-3 px-3 transition-colors hover:bg-sidebar-accent group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
                         >
                             <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md ring-1 ring-pink-300/40 dark:ring-pink-400/30">
                                 <Image
@@ -46,15 +45,16 @@ export function DashboardSidebar() {
                                     width={32}
                                     height={32}
                                     className="size-full object-cover"
+                                    unoptimized
                                 />
                             </div>
                             <div className="flex min-w-0 flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
-                <span className="truncate text-base font-semibold tracking-tight">
-                  {t('login.title')}
-                </span>
+                                <span className="truncate text-base font-semibold tracking-tight">
+                                  {t('login.title')}
+                                </span>
                                 <span className="truncate text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Version 1.0.0
-                </span>
+                                  Version 1.0.0
+                                </span>
                             </div>
                         </Link>
                     </SidebarMenuItem>
@@ -83,7 +83,7 @@ export function DashboardSidebar() {
                                             <SidebarMenuButton
                                                 isActive={isActive}
                                                 tooltip={t(item.labelKey)}
-                                                className="relative h-9 rounded-md transition-colors hover:bg-pink-50! data-active:bg-pink-100! data-active:font-semibold! data-active:text-pink-700! data-active:hover:bg-pink-200/80! dark:hover:bg-pink-500/10! dark:data-active:bg-pink-500/20! dark:data-active:text-pink-200! dark:data-active:hover:bg-pink-500/25!"
+                                                className="relative h-9 rounded-md transition-colors hover:bg-pink-50! data-active:bg-pink-100! data-active:font-semibold! data-active:text-pink-500! data-active:hover:bg-pink-200/80! dark:hover:bg-pink-500/10! dark:data-active:bg-pink-500/20! dark:data-active:text-pink-400! dark:data-active:hover:bg-pink-500/25!"
                                                 render={
                                                     <Link href={item.href}>
                                                         <Icon className="size-4.5 shrink-0" />
@@ -96,18 +96,15 @@ export function DashboardSidebar() {
                                 })}
                             </SidebarMenu>
                         </SidebarGroupContent>
-                        {idx < navGroups.length - 1 && (
-                            <SidebarSeparator className="mx-2 mt-2" />
-                        )}
                     </SidebarGroup>
                 ))}
             </SidebarContent>
 
-            <SidebarFooter className="border-t border-sidebar-border">
-                <div className="px-3 py-2 text-center text-[11px] text-muted-foreground group-data-[collapsible=icon]:hidden">
-                    v1.0 · © 2026
-                </div>
-            </SidebarFooter>
+            {/*<SidebarFooter className="border-t border-sidebar-border">*/}
+            {/*    <div className="px-3 py-2 text-center text-[11px] text-muted-foreground group-data-[collapsible=icon]:hidden">*/}
+            {/*        v1.0 · © 2026*/}
+            {/*    </div>*/}
+            {/*</SidebarFooter>*/}
 
             <SidebarRail />
         </Sidebar>

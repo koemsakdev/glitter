@@ -1,5 +1,6 @@
 import React from "react";
 import localFont from "next/font/local";
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import type { Metadata } from "next";
 import "./globals.css";
 import { cn } from "@/lib/utils";
@@ -36,16 +37,18 @@ export default function RootLayout({
           googleSans.variable
         )}
       >
-        <ThemeProvider>
-          <QueryProvider>
-            <AuthProvider>
-              <TooltipProvider>
-                {children}
-                <Toaster position="top-right" richColors />
-              </TooltipProvider>
-            </AuthProvider>
-          </QueryProvider>
-        </ThemeProvider>
+         <NuqsAdapter>
+          <ThemeProvider>
+            <QueryProvider>
+              <AuthProvider>
+                <TooltipProvider>
+                  {children}
+                  <Toaster position="top-right" richColors />
+                </TooltipProvider>
+              </AuthProvider>
+            </QueryProvider>
+          </ThemeProvider>
+         </NuqsAdapter>
       </body>
     </html>
   );

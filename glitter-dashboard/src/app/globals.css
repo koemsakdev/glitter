@@ -224,6 +224,14 @@
   .focus-ring {
     @apply outline-none ring-2 ring-blue-500 ring-offset-2;
   }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 /* Animation presets */

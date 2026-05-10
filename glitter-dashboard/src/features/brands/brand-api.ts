@@ -13,7 +13,11 @@ function toFormData(values: BrandFormValues): FormData {
     if (values.websiteUrl) fd.append('websiteUrl', values.websiteUrl);
     if (values.description) fd.append('description', values.description);
     fd.append('status', values.status);
-    if (values.logo) fd.append('logo', values.logo);
+    if (values.logo) {
+        fd.append('logo', values.logo);
+    } else if (values.clearLogo) {
+        fd.append('clearLogo', 'true');
+    }
     return fd;
 }
 
@@ -25,6 +29,8 @@ export const brandApi = {
                 limit: query.limit ?? 10,
                 ...(query.search ? { search: query.search } : {}),
                 ...(query.status ? { status: query.status } : {}),
+                ...(query.sortBy ? { sortBy: query.sortBy } : {}),
+                ...(query.sortOrder ? { sortOrder: query.sortOrder } : {}),
             },
         });
         return data;

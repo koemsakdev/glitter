@@ -1,8 +1,7 @@
-/**
- * Brand types — match the NestJS backend Brand entity.
- */
-
 export type BrandStatus = 'active' | 'inactive';
+
+export type BrandSortBy = 'createdAt' | 'updatedAt' | 'name';
+export type BrandSortOrder = 'ASC' | 'DESC';
 
 export interface Brand {
     id: string;
@@ -28,6 +27,8 @@ export interface BrandQuery {
     limit?: number;
     search?: string;
     status?: BrandStatus;
+    sortBy?: BrandSortBy;
+    sortOrder?: BrandSortOrder;
 }
 
 export interface BrandFormValues {
@@ -37,4 +38,5 @@ export interface BrandFormValues {
     description?: string;
     status: BrandStatus;
     logo?: File | null;
+    clearLogo?: boolean;
 }

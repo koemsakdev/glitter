@@ -13,7 +13,7 @@ import {
     DrawerDescription,
     DrawerTitle
 } from "@/components/ui/drawer";
-import { useRef } from "react";
+import React, { useRef } from "react";
 
 interface ResponsiveModalProps {
     children: React.ReactNode;

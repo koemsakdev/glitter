@@ -2,7 +2,6 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,9 +11,9 @@ import { CreateBrandDto } from './dto/create-brand.dto';
 import { UpdateBrandDto } from './dto/update-brand.dto';
 import { BrandEntity, type BrandStatus } from './entities/brand.entity';
 import {
-  BrandResponse,
-  BrandListResponse,
   BrandDetailResponse,
+  BrandListResponse,
+  BrandResponse,
 } from './types/brand-response.type';
 
 const BRAND_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'brands');
@@ -64,35 +63,58 @@ export class BrandsService {
   }
 
   async findAll(
-    page: number = 1,
-    limit: number = 10,
+    page: number,
+    limit: number,
+    search?: string,
+    status?: 'active' | 'inactive',
+    sortBy: 'createdAt' | 'updatedAt' | 'name' = 'createdAt',
+    sortOrder: 'ASC' | 'DESC' = 'DESC',
   ): Promise<BrandListResponse> {
-    if (page < 1 || limit < 1) {
-      throw new BadRequestException('Page and limit must be greater than 0');
+    const queryBuilder = this.brandRepository.createQueryBuilder('brand');
+
+    // Search across name and slug
+    if (search) {
+      queryBuilder.andWhere(
+        '(brand.name ILIKE :search OR brand.slug ILIKE :search)',
+        { search: `%${search}%` },
+      );
     }
 
-    const skip = (page - 1) * limit;
+    // Filter by status
+    if (status) {
+      queryBuilder.andWhere('brand.status = :status', { status });
+    }
 
-    const [brands, total] = await this.brandRepository.findAndCount({
-      skip,
-      take: limit,
-      order: {
-        name: 'ASC',
-        createdAt: 'DESC',
-      },
-    });
+    // Validate sortBy against allowed columns (prevents SQL injection)
+    const allowedSortFields: Array<'createdAt' | 'updatedAt' | 'name'> = [
+      'createdAt',
+      'updatedAt',
+      'name',
+    ];
+    const safeSortBy = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'createdAt';
+    const safeSortOrder = sortOrder === 'ASC' ? 'ASC' : 'DESC';
+
+    // Ordering
+    queryBuilder.orderBy(`brand.${safeSortBy}`, safeSortOrder);
+
+    // Pagination
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    const [brands, total] = await queryBuilder.getManyAndCount();
 
     const mappedData: BrandResponse[] = brands.map((brand: BrandEntity) =>
       this.toResponse(brand),
     );
 
-    const response: BrandListResponse = {
+    return {
       data: mappedData,
-      total: Number(total),
+      total,
       page,
       limit,
     };
-    return response;
   }
 
   async findOne(id: string): Promise<BrandDetailResponse> {
@@ -134,14 +156,12 @@ export class BrandsService {
     const mappedData: BrandResponse[] = brands.map((brand: BrandEntity) =>
       this.toResponse(brand),
     );
-
-    const response: BrandListResponse = {
+    return {
       data: mappedData,
       total: Number(total),
       page: 1,
       limit: Number(total),
     };
-    return response;
   }
 
   async update(
@@ -191,12 +211,15 @@ export class BrandsService {
 
     // Handle logo upload
     if (logoFile) {
-      // Delete old logo file if exists
       if (brand.logoUrl) {
         await this.deleteLogoFile(brand.logoUrl);
       }
-      // Set new logo URL from multer filename
       brand.logoUrl = `/upload/brands/${logoFile.filename}`;
+    } else if (dto.clearLogo === true) {
+      if (brand.logoUrl) {
+        await this.deleteLogoFile(brand.logoUrl);
+      }
+      brand.logoUrl = null;
     }
 
     const updated = await this.brandRepository.save(brand);
@@ -228,18 +251,15 @@ export class BrandsService {
   private async deleteLogoFile(logoUrl: string): Promise<void> {
     try {
       if (!logoUrl || !logoUrl.startsWith('/upload/brands/')) {
-        return; // Skip if path is invalid
+        return;
       }
 
-      // Extract filename from URL path
       const filename = logoUrl.replace('/upload/brands/', '');
       const filePath = path.join(BRAND_UPLOAD_DIR, filename);
 
-      // Check if file exists and delete
       try {
         await fs.unlink(filePath);
       } catch (error) {
-        // File doesn't exist, that's fine
         if (
           error instanceof Error &&
           'code' in error &&
@@ -251,12 +271,11 @@ export class BrandsService {
       }
     } catch (error) {
       console.error('Error deleting logo file:', error);
-      // Don't throw error on deletion failure, just log it
     }
   }
 
   private toResponse(entity: BrandEntity): BrandResponse {
-    const response: BrandResponse = {
+    return {
       id: entity.id,
       slug: entity.slug,
       name: entity.name,
@@ -267,6 +286,5 @@ export class BrandsService {
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
     };
-    return response;
   }
 }

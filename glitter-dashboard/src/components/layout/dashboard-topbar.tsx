@@ -1,39 +1,56 @@
 'use client';
 
 import { Bell } from 'lucide-react';
+import { AnimatedMenuIcon } from '@/components/animated-menu-icon';
 import { LanguageToggle } from '@/components/language-toggle';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { SidebarTrigger } from '@/components/ui/sidebar';
+import { useSidebar } from '@/components/ui/sidebar';
 import { UserMenu } from '@/components/layout/user-menu';
 
-/**
- * Top bar — sits inside SidebarInset, so it only spans the main content area
- * (NOT over the sidebar). Sticky at the top of the scrollable area.
- */
+function CustomSidebarTrigger() {
+    const { state, toggleSidebar, isMobile, openMobile } = useSidebar();
+
+    const isOpen = isMobile ? openMobile : state === 'expanded';
+
+    return (
+        <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="size-9 rounded-full text-muted-foreground transition-colors bg-pink-50 dark:bg-pink-500/10 hover:bg-pink-50 hover:text-pink-600 dark:hover:bg-pink-500/10 dark:hover:text-pink-300"
+            aria-label="Toggle sidebar"
+        >
+            <AnimatedMenuIcon isOpen={isOpen} />
+        </Button>
+    );
+}
+
 export function DashboardTopbar() {
     return (
-        <header className="sticky top-0 z-30 flex h-17 shrink-0 items-center gap-2 border-b bg-background px-4">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-5" />
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
+            <CustomSidebarTrigger />
 
             <div className="flex-1" />
 
-            <div className="flex items-center gap-1">
+            <div className="flex h-6 items-center gap-1">
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="relative h-9 w-9 rounded-full"
+                    className="relative size-9 rounded-full"
                     aria-label="Notifications"
                 >
-                    <Bell className="h-4 w-4" />
+                    <Bell className="size-4" />
                 </Button>
 
+                <Separator orientation="vertical" />
+
                 <ThemeToggle />
+                <Separator orientation="vertical" />
                 <LanguageToggle />
 
-                <Separator orientation="vertical" className="mx-1 h-6" />
+                <Separator orientation="vertical" />
 
                 <UserMenu />
             </div>

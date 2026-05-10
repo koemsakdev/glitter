@@ -41,7 +41,7 @@ const SUPER_ONLY: UserRole[] = ['super_admin'];
 
 export const navigation: NavGroup[] = [
     {
-        labelKey: null,
+        labelKey: 'nav.main',
         items: [
             {
                 href: '/dashboard',

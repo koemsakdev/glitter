@@ -163,14 +163,15 @@ export class BrandsController {
   }
 
   /**
-   * Get all brands with pagination
-   * GET /brands?page=1&limit=10
+   * Get all brands with pagination, search, status filter, and sorting
+   * GET /brands?page=1&limit=10&search=Gucci&status=active&sortBy=createdAt&sortOrder=DESC
    */
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get all brands',
-    description: 'Retrieves paginated list of all brands with logo URLs',
+    description:
+      'Retrieves paginated list of brands with optional search, status filter, and sorting',
   })
   @ApiQuery({
     name: 'page',
@@ -186,6 +187,31 @@ export class BrandsController {
     description: 'Items per page (default: 10)',
     example: 10,
   })
+  @ApiQuery({
+    name: 'search',
+    type: String,
+    required: false,
+    description: 'Search by name or slug',
+    example: 'gucci',
+  })
+  @ApiQuery({
+    name: 'status',
+    enum: ['active', 'inactive'],
+    required: false,
+    description: 'Filter by status',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    enum: ['createdAt', 'updatedAt', 'name'],
+    required: false,
+    description: 'Field to sort by (default: createdAt)',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    enum: ['ASC', 'DESC'],
+    required: false,
+    description: 'Sort order (default: DESC)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Brands retrieved successfully',
@@ -195,10 +221,21 @@ export class BrandsController {
   async findAll(
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
+    @Query('search') search?: string,
+    @Query('status') status?: 'active' | 'inactive',
+    @Query('sortBy') sortBy: 'createdAt' | 'updatedAt' | 'name' = 'createdAt',
+    @Query('sortOrder') sortOrder: 'ASC' | 'DESC' = 'DESC',
   ): Promise<BrandListResponse> {
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
-    return this.brandsService.findAll(pageNum, limitNum);
+    return this.brandsService.findAll(
+      pageNum,
+      limitNum,
+      search,
+      status,
+      sortBy,
+      sortOrder,
+    );
   }
 
   /**
@@ -326,6 +363,11 @@ export class BrandsController {
           type: 'string',
           format: 'binary',
           description: 'New brand logo image file (optional)',
+        },
+        clearLogo: {
+          type: 'string',
+          enum: ['true', 'false'],
+          description: 'Set to "true" to remove the existing logo',
         },
         status: {
           type: 'string',
