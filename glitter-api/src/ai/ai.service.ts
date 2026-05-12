@@ -7,7 +7,11 @@ import {
 } from '@nestjs/common';
 import type { AiBrandField } from './dto/generate-brand-info.dto';
 
-const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+const GEMINI_MODELS = [
+  'gemini-3.1-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-1.5-flash',
+];
 const GEMINI_BASE_URL =
   'https://generativelanguage.googleapis.com/v1beta/models';
 const MAX_RETRIES = 2;
