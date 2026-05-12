@@ -6,3 +6,9 @@ export function useGenerateBrandInfo() {
     mutationFn: aiApi.generateBrandInfo,
   });
 }
+
+export function useGenerateCategoryInfo() {
+  return useMutation({
+    mutationFn: aiApi.generateCategoryInfo,
+  });
+}

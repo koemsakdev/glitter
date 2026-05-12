@@ -1,8 +1,8 @@
 /**
  * Lightweight i18n system. Just a Zustand store + a translations dictionary.
  */
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import {create} from 'zustand';
+import {persist} from 'zustand/middleware';
 
 export type Language = 'en' | 'km';
 
@@ -125,6 +125,81 @@ const translations = {
         'brand.ai.nameRequired': 'Please enter a brand name first',
         'brand.ai.notFound': 'AI could not find information for this brand',
         'brand.ai.success': 'Generated successfully',
+
+        // Category list
+        'category.list.title': 'Categories',
+        'category.list.subtitle': 'Manage product categories',
+        'category.list.search': 'Search categories...',
+        'category.list.empty': 'No categories found',
+        'category.list.column.created': 'Created',
+
+        // Category fields
+        'category.field.icon': 'Icon',
+        'category.field.icon.replace': 'Replace icon',
+        'category.field.icon.remove': 'Remove icon',
+        'category.field.icon.help': 'PNG, JPEG, WebP, or SVG (max 2 MB)',
+        'category.field.name': 'Name',
+        'category.field.nameEn': 'Name (English)',
+        'category.field.nameKm': 'Name (Khmer)',
+        'category.field.slug': 'Slug',
+        'category.field.slug.help': 'URL-friendly identifier — lowercase letters, numbers, hyphens',
+        'category.field.descriptionEn': 'Description (English)',
+        'category.field.descriptionKm': 'Description (Khmer)',
+        'category.field.displayOrder': 'Display Order',
+        'category.field.displayOrder.help': 'Lower numbers appear first',
+        'category.field.type': 'Type',
+
+        // Category types
+        'category.type.all': 'All',
+        'category.type.main': 'Main',
+        'category.type.sub': 'Sub',
+        'category.type.featured': 'Featured',
+
+        // Category sort
+        'category.sort.label': 'Sort',
+        'category.sort.displayOrderAsc': 'Display order (ascending)',
+        'category.sort.displayOrderDesc': 'Display order (descending)',
+        'category.sort.newest': 'Newest first',
+        'category.sort.oldest': 'Oldest first',
+        'category.sort.nameEnAsc': 'Name EN (A → Z)',
+        'category.sort.nameEnDesc': 'Name EN (Z → A)',
+        'category.sort.nameKmAsc': 'Name KM (ក → អ)',
+        'category.sort.recentlyUpdated': 'Recently updated',
+
+        // Category actions
+        'category.action.create': 'Create Category',
+        'category.action.edit': 'Edit',
+        'category.action.delete': 'Delete',
+
+        // Create
+        'category.create.title': 'Create Category',
+        'category.create.submit': 'Create',
+        'category.create.success': 'Category created successfully',
+
+        // Edit
+        'category.edit.title': 'Edit Category',
+        'category.edit.submit': 'Save Changes',
+        'category.edit.success': 'Category updated successfully',
+
+        // Delete
+        'category.delete.title': 'Delete category?',
+        'category.delete.message': 'Are you sure you want to delete "{name}"? This action cannot be undone.',
+        'category.delete.confirm': 'Delete',
+        'category.delete.success': 'Category deleted successfully',
+
+        // Validation
+        'category.validation.nameEnRequired': 'English name is required',
+        'category.validation.nameKmRequired': 'Khmer name is required',
+        'category.validation.slugRequired': 'Slug is required',
+        'category.validation.slugFormat': 'Slug must contain only lowercase letters, numbers, and hyphens',
+
+        // AI
+        'category.ai.generateDescriptionEn': 'Generate English description with AI',
+        'category.ai.generateDescriptionKm': 'Generate Khmer description with AI',
+        'category.ai.nameRequired': 'Please enter the category name first',
+        'category.ai.notFound': 'AI could not generate a description',
+        'category.ai.success': 'Generated successfully',
+        'category.ai.busy': 'AI service is busy. Please try again in a moment.',
     },
     km: {
         // Login
@@ -244,6 +319,81 @@ const translations = {
         'brand.ai.nameRequired': 'សូមបញ្ចូលឈ្មោះម៉ាកជាមុនសិន',
         'brand.ai.notFound': 'AI មិនអាចរកព័ត៌មានសម្រាប់ម៉ាកនេះបានទេ',
         'brand.ai.success': 'បង្កើតបានជោគជ័យ',
+
+        // Category list
+        'category.list.title': 'ប្រភេទផលិតផល',
+        'category.list.subtitle': 'គ្រប់គ្រងប្រភេទផលិតផល',
+        'category.list.search': 'ស្វែងរកប្រភេទ...',
+        'category.list.empty': 'រកមិនឃើញប្រភេទទេ',
+        'category.list.column.created': 'បានបង្កើត',
+
+        // Category fields
+        'category.field.icon': 'រូបសញ្ញា',
+        'category.field.icon.replace': 'ប្តូររូបសញ្ញា',
+        'category.field.icon.remove': 'លុបរូបសញ្ញា',
+        'category.field.icon.help': 'PNG, JPEG, WebP, ឬ SVG (ធំបំផុត 2 MB)',
+        'category.field.name': 'ឈ្មោះ',
+        'category.field.nameEn': 'ឈ្មោះ (អង់គ្លេស)',
+        'category.field.nameKm': 'ឈ្មោះ (ខ្មែរ)',
+        'category.field.slug': 'Slug',
+        'category.field.slug.help': 'អត្តសញ្ញាណរ URL — អក្សរតូច លេខ និងសញ្ញាដាច់',
+        'category.field.descriptionEn': 'ការពិពណ៌នា (អង់គ្លេស)',
+        'category.field.descriptionKm': 'ការពិពណ៌នា (ខ្មែរ)',
+        'category.field.displayOrder': 'លំដាប់បង្ហាញ',
+        'category.field.displayOrder.help': 'លេខតូចជាងបង្ហាញមុន',
+        'category.field.type': 'ប្រភេទ',
+
+        // Category types
+        'category.type.all': 'ទាំងអស់',
+        'category.type.main': 'ចម្បង',
+        'category.type.sub': 'រង',
+        'category.type.featured': 'បានណែនាំ',
+
+        // Category sort
+        'category.sort.label': 'តម្រៀប',
+        'category.sort.displayOrderAsc': 'លំដាប់បង្ហាញ (តិច → ច្រើន)',
+        'category.sort.displayOrderDesc': 'លំដាប់បង្ហាញ (ច្រើន → តិច)',
+        'category.sort.newest': 'ថ្មីបំផុតមុន',
+        'category.sort.oldest': 'ចាស់បំផុតមុន',
+        'category.sort.nameEnAsc': 'ឈ្មោះអង់គ្លេស (A → Z)',
+        'category.sort.nameEnDesc': 'ឈ្មោះអង់គ្លេស (Z → A)',
+        'category.sort.nameKmAsc': 'ឈ្មោះខ្មែរ (ក → អ)',
+        'category.sort.recentlyUpdated': 'បានកែសម្រួលថ្មីៗ',
+
+        // Category actions
+        'category.action.create': 'បង្កើតប្រភេទ',
+        'category.action.edit': 'កែសម្រួល',
+        'category.action.delete': 'លុប',
+
+        // Create
+        'category.create.title': 'បង្កើតប្រភេទ',
+        'category.create.submit': 'បង្កើត',
+        'category.create.success': 'ប្រភេទត្រូវបានបង្កើតដោយជោគជ័យ',
+
+        // Edit
+        'category.edit.title': 'កែសម្រួលប្រភេទ',
+        'category.edit.submit': 'រក្សាទុក',
+        'category.edit.success': 'ប្រភេទត្រូវបានកែសម្រួលដោយជោគជ័យ',
+
+        // Delete
+        'category.delete.title': 'លុបប្រភេទមែនទេ?',
+        'category.delete.message': 'តើអ្នកប្រាកដជាចង់លុប "{name}" មែនទេ? សកម្មភាពនេះមិនអាចត្រឡប់វិញបានទេ។',
+        'category.delete.confirm': 'លុប',
+        'category.delete.success': 'ប្រភេទត្រូវបានលុបដោយជោគជ័យ',
+
+        // Validation
+        'category.validation.nameEnRequired': 'តម្រូវឱ្យបញ្ចូលឈ្មោះអង់គ្លេស',
+        'category.validation.nameKmRequired': 'តម្រូវឱ្យបញ្ចូលឈ្មោះខ្មែរ',
+        'category.validation.slugRequired': 'តម្រូវឱ្យបញ្ចូល Slug',
+        'category.validation.slugFormat': 'Slug ត្រូវមានតែអក្សរតូច លេខ និងសញ្ញាដាច់',
+
+        // AI
+        'category.ai.generateDescriptionEn': 'បង្កើតការពិពណ៌នាអង់គ្លេសដោយ AI',
+        'category.ai.generateDescriptionKm': 'បង្កើតការពិពណ៌នាខ្មែរដោយ AI',
+        'category.ai.nameRequired': 'សូមបញ្ចូលឈ្មោះប្រភេទជាមុនសិន',
+        'category.ai.notFound': 'AI មិនអាចបង្កើតការពិពណ៌នាបានទេ',
+        'category.ai.success': 'បង្កើតបានជោគជ័យ',
+        'category.ai.busy': 'សេវាកម្ម AI កំពុងរវល់។ សូមព្យាយាមម្តងទៀតក្នុងពេលឆាប់ៗ។',
     },
 } as const;
 
@@ -258,9 +408,9 @@ const useI18nStore = create<I18nState>()(
     persist(
         (set) => ({
             language: 'en',
-            setLanguage: (language) => set({ language }),
+            setLanguage: (language) => set({language}),
         }),
-        { name: 'glitter_language' },
+        {name: 'glitter_language'},
     ),
 );
 
@@ -272,5 +422,5 @@ export function useI18n() {
         return translations[language][key] ?? translations.en[key] ?? key;
     };
 
-    return { language, setLanguage, t };
+    return {language, setLanguage, t};
 }

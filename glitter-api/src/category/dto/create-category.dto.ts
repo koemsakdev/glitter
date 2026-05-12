@@ -1,95 +1,58 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsEnum,
   IsInt,
-  IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 import type { CategoryType } from '../entities/category.entity';
-import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateCategoryDto {
-  @ApiProperty({
-    description: 'URL-friendly slug for the category',
-    example: 'bags',
-    minLength: 2,
-    maxLength: 100,
-  })
+  @ApiProperty({ example: 'designer-bags' })
   @IsString()
-  @IsNotEmpty()
-  @MinLength(2)
+  @MinLength(1)
   @MaxLength(100)
-  declare slug: string;
+  slug: string;
 
-  @ApiProperty({
-    description: 'Category name in English',
-    example: 'Bags',
-    minLength: 2,
-    maxLength: 150,
-  })
+  @ApiProperty({ example: 'Designer Bags' })
   @IsString()
-  @IsNotEmpty()
-  @MinLength(2)
+  @MinLength(1)
   @MaxLength(150)
-  declare nameEn: string;
+  nameEn: string;
 
-  @ApiProperty({
-    description: 'Category name in Khmer',
-    example: 'កាបូប',
-    minLength: 2,
-    maxLength: 150,
-  })
+  @ApiProperty({ example: 'កាបូបលម្អប្រដាប់' })
   @IsString()
-  @IsNotEmpty()
-  @MinLength(2)
+  @MinLength(1)
   @MaxLength(150)
-  declare nameKm: string;
+  nameKm: string;
 
-  @ApiProperty({
-    description: 'Description in English (optional)',
-    example: 'Stylish bags and handbags from top brands',
-    required: false,
-    nullable: true,
-  })
-  @IsString()
+  @ApiProperty({ required: false })
   @IsOptional()
-  declare descriptionEn?: string | null;
-
-  @ApiProperty({
-    description: 'Description in Khmer (optional)',
-    example: 'កាបូបស្ទាប់ល្អ និងសម្លៀកបំពាក់ពីម៉ាកលំដាប់កំពូល',
-    required: false,
-    nullable: true,
-  })
   @IsString()
-  @IsOptional()
-  declare descriptionKm?: string | null;
+  descriptionEn?: string;
 
-  @ApiProperty({
-    description: 'Display order in category list',
-    example: 1,
-    minimum: 0,
-    required: false,
-    default: 0,
-  })
-  @Type(() => Number)
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  descriptionKm?: string;
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value as string, 10))
   @IsInt()
   @Min(0)
-  @IsOptional()
-  declare displayOrder?: number;
+  displayOrder?: number;
 
   @ApiProperty({
-    description: 'Category type/classification',
-    example: 'main',
-    enum: ['main', 'sub', 'featured'],
     required: false,
+    enum: ['main', 'sub', 'featured'],
     default: 'main',
   })
-  @IsEnum(['main', 'sub', 'featured'])
   @IsOptional()
-  declare categoryType?: CategoryType;
+  @IsEnum(['main', 'sub', 'featured'])
+  categoryType?: CategoryType;
 }

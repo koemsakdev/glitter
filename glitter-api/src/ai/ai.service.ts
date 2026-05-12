@@ -5,10 +5,13 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import type { AiBrandField } from './dto/generate-brand-info.dto';
+import type {
+  AiBrandField,
+  AiCategoryField,
+} from './dto/generate-brand-info.dto';
 
 const GEMINI_MODELS = [
-  'gemini-3.1-flash-lite',
+  'gemini-3.5-flash-lite',
   'gemini-2.5-flash',
   'gemini-1.5-flash',
 ];
@@ -30,6 +33,9 @@ interface GeminiResponse {
   };
 }
 
+type EntityKind = 'brand' | 'category';
+type AllFields = AiBrandField | AiCategoryField;
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
@@ -39,6 +45,26 @@ export class AiService {
     field: AiBrandField,
     language: 'en' | 'km' = 'en',
   ): Promise<string> {
+    return this.generate('brand', name, field, language);
+  }
+
+  async generateCategoryField(
+    name: string,
+    field: AiCategoryField,
+    language: 'en' | 'km' = 'en',
+  ): Promise<string> {
+    return this.generate('category', name, field, language);
+  }
+
+  /**
+   * Generic generator — used by both brand and category methods.
+   */
+  private async generate(
+    kind: EntityKind,
+    name: string,
+    field: AllFields,
+    language: 'en' | 'km',
+  ): Promise<string> {
     const apiKey = process.env.GOOGLE_API_KEY;
     if (!apiKey) {
       throw new InternalServerErrorException(
@@ -46,9 +72,8 @@ export class AiService {
       );
     }
 
-    const prompt = this.buildPrompt(name, field, language);
+    const prompt = this.buildPrompt(kind, name, field, language);
 
-    // Try each model in order, with retries for transient errors
     let lastError: Error | null = null;
     for (const model of GEMINI_MODELS) {
       try {
@@ -62,16 +87,12 @@ export class AiService {
       }
     }
 
-    // All models exhausted
     throw new ServiceUnavailableException(
       lastError?.message ??
         'AI service is currently unavailable. Please try again in a moment.',
     );
   }
 
-  /**
-   * Call Gemini with retry on transient errors (503, 429).
-   */
   private async callWithRetry(
     model: string,
     prompt: string,
@@ -84,13 +105,10 @@ export class AiService {
         await this.sleep(RETRY_DELAY_MS);
         this.logger.log(`Retry ${attempt}/${MAX_RETRIES} for model "${model}"`);
       }
-
       try {
         return await this.callGemini(model, prompt, apiKey);
       } catch (error) {
         lastError = error as Error;
-
-        // Don't retry on errors that won't be fixed by retrying
         const status = (error as { statusCode?: number }).statusCode;
         if (status && status !== 503 && status !== 429) {
           throw error;
@@ -104,9 +122,6 @@ export class AiService {
     );
   }
 
-  /**
-   * Single call to Gemini API. Throws an error tagged with statusCode on failure.
-   */
   private async callGemini(
     model: string,
     prompt: string,
@@ -127,9 +142,7 @@ export class AiService {
           generationConfig: {
             temperature: 0.2,
             maxOutputTokens: 1000,
-            thinkingConfig: {
-              thinkingBudget: 0,
-            },
+            thinkingConfig: { thinkingBudget: 0 },
           },
         }),
       });
@@ -164,35 +177,49 @@ export class AiService {
   }
 
   private buildPrompt(
+    kind: EntityKind,
     name: string,
-    field: AiBrandField,
+    field: AllFields,
     language: 'en' | 'km',
   ): string {
+    const langInstruction =
+      language === 'km'
+        ? 'Write the response in Khmer (ភាសាខ្មែរ).'
+        : 'Write the response in English.';
+
     if (field === 'websiteUrl') {
       return [
         `What is the official website URL for the brand "${name}"?`,
         'Return ONLY the URL itself, starting with https://, nothing else.',
         'No markdown, no quotes, no explanation, no trailing punctuation.',
-        `If you are not sure or no official website exists, respond with exactly: UNKNOWN`,
+        'If you are not sure or no official website exists, respond with exactly: UNKNOWN',
       ].join('\n');
     }
 
-    const langInstruction =
-      language === 'km'
-        ? 'Write the description in Khmer (ភាសាខ្មែរ).'
-        : 'Write the description in English.';
+    // description
+    if (kind === 'brand') {
+      return [
+        `Write a brief, factual description for the brand "${name}".`,
+        'Write exactly 2 complete sentences. Each sentence must end with a period.',
+        'Focus on what the brand sells, its country of origin, and founding year if known.',
+        'Avoid marketing fluff, superlatives, or promotional language.',
+        langInstruction,
+        'Return ONLY the description text, no markdown, no quotes, no labels.',
+      ].join('\n');
+    }
 
+    // kind === 'category'
     return [
-      `Write a brief, factual description for the brand "${name}".`,
+      `Write a brief description for an e-commerce product category called "${name}".`,
       'Write exactly 2 complete sentences. Each sentence must end with a period.',
-      'Focus on what the brand sells, its country of origin, and founding year if known.',
-      'Avoid marketing fluff, superlatives, or promotional language.',
+      'Describe what types of products this category contains and who might shop for them.',
+      'Keep the tone neutral and informative — avoid marketing fluff and superlatives.',
       langInstruction,
       'Return ONLY the description text, no markdown, no quotes, no labels.',
     ].join('\n');
   }
 
-  private sanitizeOutput(text: string, field: AiBrandField): string {
+  private sanitizeOutput(text: string, field: AllFields): string {
     let cleaned = text.trim();
 
     if (

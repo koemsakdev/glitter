@@ -1,95 +1,67 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
   IsString,
   MaxLength,
   Min,
-  MinLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 import type { CategoryType } from '../entities/category.entity';
-import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateCategoryDto {
-  @ApiProperty({
-    description: 'URL-friendly slug for the category',
-    example: 'bags',
-    minLength: 2,
-    maxLength: 100,
-    required: false,
-  })
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  @MinLength(2)
   @MaxLength(100)
-  @IsOptional()
-  declare slug?: string;
+  slug?: string;
 
-  @ApiProperty({
-    description: 'Category name in English',
-    example: 'Bags & Accessories',
-    minLength: 2,
-    maxLength: 150,
-    required: false,
-  })
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  @MinLength(2)
   @MaxLength(150)
-  @IsOptional()
-  declare nameEn?: string;
+  nameEn?: string;
 
-  @ApiProperty({
-    description: 'Category name in Khmer',
-    example: 'កាបូប និងឧបករណ៍',
-    minLength: 2,
-    maxLength: 150,
-    required: false,
-  })
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  @MinLength(2)
   @MaxLength(150)
-  @IsOptional()
-  declare nameKm?: string;
+  nameKm?: string;
 
-  @ApiProperty({
-    description: 'Description in English',
-    example: 'Stylish bags and handbags from top brands',
-    required: false,
-    nullable: true,
-  })
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  @IsOptional()
-  declare descriptionEn?: string | null;
+  descriptionEn?: string;
 
-  @ApiProperty({
-    description: 'Description in Khmer',
-    example: 'កាបូបស្ទាប់ល្អ និងសម្លៀកបំពាក់ពីម៉ាកលំដាប់កំពូល',
-    required: false,
-    nullable: true,
-  })
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  @IsOptional()
-  declare descriptionKm?: string | null;
+  descriptionKm?: string;
 
-  @ApiProperty({
-    description: 'Display order in category list',
-    example: 1,
-    minimum: 0,
-    required: false,
-  })
-  @Type(() => Number)
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value as string, 10))
   @IsInt()
   @Min(0)
-  @IsOptional()
-  declare displayOrder?: number;
+  displayOrder?: number;
 
-  @ApiProperty({
-    description: 'Category type/classification',
-    example: 'main',
-    enum: ['main', 'sub', 'featured'],
-    required: false,
-  })
-  @IsEnum(['main', 'sub', 'featured'])
+  @ApiProperty({ required: false, enum: ['main', 'sub', 'featured'] })
   @IsOptional()
-  declare categoryType?: CategoryType;
+  @IsEnum(['main', 'sub', 'featured'])
+  categoryType?: CategoryType;
+
+  /**
+   * When `true` and no new icon file is uploaded, the existing icon
+   * is removed from disk and `iconUrl` is set to null.
+   */
+  @ApiProperty({
+    required: false,
+    description: 'Set to true to remove the existing icon',
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
+  clearIcon?: boolean;
 }

@@ -2,22 +2,41 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import { Repository } from 'typeorm';
+import { CategoryEntity, type CategoryType } from './entities/category.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
-import { CategoryEntity, type CategoryType } from './entities/category.entity';
-import {
-  CategoryResponse,
-  CategoryListResponse,
-  CategoryDetailResponse,
-} from './types/category-response.type';
 
 const CATEGORY_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'categories');
+
+export interface CategoryResponse {
+  id: string;
+  slug: string;
+  nameEn: string;
+  nameKm: string;
+  descriptionEn: string | null;
+  descriptionKm: string | null;
+  iconUrl: string | null;
+  displayOrder: number;
+  categoryType: CategoryType;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CategoryListResponse {
+  data: CategoryResponse[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface CategoryDetailResponse {
+  data: CategoryResponse;
+}
 
 @Injectable()
 export class CategoriesService {
@@ -30,23 +49,16 @@ export class CategoriesService {
     dto: CreateCategoryDto,
     iconFile?: Express.Multer.File,
   ): Promise<CategoryDetailResponse> {
-    const existingSlug = await this.categoryRepository.findOne({
+    const existing = await this.categoryRepository.findOne({
       where: { slug: dto.slug },
     });
-
-    if (existingSlug !== null) {
+    if (existing !== null) {
       throw new ConflictException(
         `Category with slug "${dto.slug}" already exists`,
       );
     }
 
-    const categoryType: CategoryType = dto.categoryType ?? 'main';
-    const displayOrder: number = dto.displayOrder ?? 0;
-
-    let iconUrl: string | null = null;
-    if (iconFile) {
-      iconUrl = `/upload/categories/${iconFile.filename}`;
-    }
+    const iconUrl = iconFile ? `/upload/categories/${iconFile.filename}` : null;
 
     const entity = this.categoryRepository.create({
       slug: dto.slug,
@@ -55,108 +67,74 @@ export class CategoriesService {
       descriptionEn: dto.descriptionEn ?? null,
       descriptionKm: dto.descriptionKm ?? null,
       iconUrl,
-      displayOrder,
-      categoryType,
+      displayOrder: dto.displayOrder ?? 0,
+      categoryType: dto.categoryType ?? 'main',
     });
 
     const saved = await this.categoryRepository.save(entity);
-    const categoryData: CategoryResponse = this.toResponse(saved);
-    return {
-      data: categoryData,
-    };
+    return { data: this.toResponse(saved) };
   }
 
   async findAll(
-    page: number = 1,
-    limit: number = 10,
+    page: number,
+    limit: number,
+    search?: string,
+    categoryType?: CategoryType,
+    sortBy:
+      | 'createdAt'
+      | 'updatedAt'
+      | 'nameEn'
+      | 'nameKm'
+      | 'displayOrder' = 'displayOrder',
+    sortOrder: 'ASC' | 'DESC' = 'ASC',
   ): Promise<CategoryListResponse> {
-    if (page < 1 || limit < 1) {
-      throw new BadRequestException('Page and limit must be greater than 0');
+    const queryBuilder = this.categoryRepository.createQueryBuilder('category');
+
+    // Search across slug, nameEn, nameKm
+    if (search) {
+      queryBuilder.andWhere(
+        '(category.slug ILIKE :search OR category.nameEn ILIKE :search OR category.nameKm ILIKE :search)',
+        { search: `%${search}%` },
+      );
     }
 
+    // Filter by category type
+    if (categoryType) {
+      queryBuilder.andWhere('category.categoryType = :categoryType', {
+        categoryType,
+      });
+    }
+
+    // Whitelist sortBy to prevent SQL injection
+    const allowedSortFields: Array<
+      'createdAt' | 'updatedAt' | 'nameEn' | 'nameKm' | 'displayOrder'
+    > = ['createdAt', 'updatedAt', 'nameEn', 'nameKm', 'displayOrder'];
+    const safeSortBy = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'displayOrder';
+    const safeSortOrder = sortOrder === 'DESC' ? 'DESC' : 'ASC';
+
+    queryBuilder.orderBy(`category.${safeSortBy}`, safeSortOrder);
+
     const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
 
-    const [categories, total] = await this.categoryRepository.findAndCount({
-      skip,
-      take: limit,
-      order: {
-        displayOrder: 'ASC',
-        createdAt: 'DESC',
-      },
-    });
+    const [categories, total] = await queryBuilder.getManyAndCount();
 
-    const mappedData: CategoryResponse[] = categories.map(
-      (category: CategoryEntity) => this.toResponse(category),
-    );
-
-    const response: CategoryListResponse = {
-      data: mappedData,
-      total: Number(total),
+    return {
+      data: categories.map((c) => this.toResponse(c)),
+      total,
       page,
       limit,
     };
-    return response;
   }
 
   async findOne(id: string): Promise<CategoryDetailResponse> {
     const category = await this.categoryRepository.findOne({ where: { id } });
-
     if (category === null) {
       throw new NotFoundException(`Category with ID ${id} not found`);
     }
-
-    const categoryData: CategoryResponse = this.toResponse(category);
-    return {
-      data: categoryData,
-    };
-  }
-
-  async findBySlug(slug: string): Promise<CategoryDetailResponse> {
-    const category = await this.categoryRepository.findOne({
-      where: { slug },
-    });
-
-    if (category === null) {
-      throw new NotFoundException(`Category with slug "${slug}" not found`);
-    }
-
-    const categoryData: CategoryResponse = this.toResponse(category);
-    return {
-      data: categoryData,
-    };
-  }
-
-  async findByType(
-    categoryType: CategoryType,
-    page: number = 1,
-    limit: number = 10,
-  ): Promise<CategoryListResponse> {
-    if (page < 1 || limit < 1) {
-      throw new BadRequestException('Page and limit must be greater than 0');
-    }
-
-    const skip = (page - 1) * limit;
-
-    const [categories, total] = await this.categoryRepository.findAndCount({
-      where: { categoryType },
-      skip,
-      take: limit,
-      order: {
-        displayOrder: 'ASC',
-      },
-    });
-
-    const mappedData: CategoryResponse[] = categories.map(
-      (category: CategoryEntity) => this.toResponse(category),
-    );
-
-    const response: CategoryListResponse = {
-      data: mappedData,
-      total: Number(total),
-      page,
-      limit,
-    };
-    return response;
+    return { data: this.toResponse(category) };
   }
 
   async update(
@@ -165,22 +143,16 @@ export class CategoriesService {
     iconFile?: Express.Multer.File,
   ): Promise<CategoryDetailResponse> {
     const category = await this.categoryRepository.findOne({ where: { id } });
-
     if (category === null) {
       throw new NotFoundException(`Category with ID ${id} not found`);
     }
 
-    // Check if new slug is already in use
-    if (
-      dto.slug !== undefined &&
-      dto.slug !== null &&
-      dto.slug !== category.slug
-    ) {
-      const existingSlug = await this.categoryRepository.findOne({
+    // Slug uniqueness check
+    if (dto.slug !== undefined && dto.slug !== category.slug) {
+      const existing = await this.categoryRepository.findOne({
         where: { slug: dto.slug },
       });
-
-      if (existingSlug !== null) {
+      if (existing !== null) {
         throw new ConflictException(
           `Category with slug "${dto.slug}" already exists`,
         );
@@ -188,55 +160,48 @@ export class CategoriesService {
     }
 
     // Update only provided fields
-    if (dto.slug !== undefined && dto.slug !== null) {
-      category.slug = dto.slug;
-    }
-    if (dto.nameEn !== undefined && dto.nameEn !== null) {
-      category.nameEn = dto.nameEn;
-    }
-    if (dto.nameKm !== undefined && dto.nameKm !== null) {
-      category.nameKm = dto.nameKm;
-    }
+    if (dto.slug !== undefined) category.slug = dto.slug;
+    if (dto.nameEn !== undefined) category.nameEn = dto.nameEn;
+    if (dto.nameKm !== undefined) category.nameKm = dto.nameKm;
     if (dto.descriptionEn !== undefined) {
-      category.descriptionEn = dto.descriptionEn;
+      category.descriptionEn = dto.descriptionEn ?? null;
     }
     if (dto.descriptionKm !== undefined) {
-      category.descriptionKm = dto.descriptionKm;
+      category.descriptionKm = dto.descriptionKm ?? null;
     }
-
-    // Handle icon upload
-    if (iconFile) {
-      // Delete old icon file if exists
-      if (category.iconUrl) {
-        await this.deleteIconFile(category.iconUrl);
-      }
-      // Set new icon URL from multer filename
-      category.iconUrl = `/upload/categories/${iconFile.filename}`;
-    }
-
-    if (dto.displayOrder !== undefined && dto.displayOrder !== null) {
+    if (dto.displayOrder !== undefined) {
       category.displayOrder = dto.displayOrder;
     }
-    if (dto.categoryType !== undefined && dto.categoryType !== null) {
+    if (dto.categoryType !== undefined) {
       category.categoryType = dto.categoryType;
     }
 
-    const updated = await this.categoryRepository.save(category);
+    // Handle icon: 3 cases
+    // 1. New icon file uploaded → delete old, save new
+    // 2. clearIcon=true → delete existing, set null
+    // 3. Neither → leave unchanged
+    if (iconFile) {
+      if (category.iconUrl) {
+        await this.deleteIconFile(category.iconUrl);
+      }
+      category.iconUrl = `/upload/categories/${iconFile.filename}`;
+    } else if (dto.clearIcon === true) {
+      if (category.iconUrl) {
+        await this.deleteIconFile(category.iconUrl);
+      }
+      category.iconUrl = null;
+    }
 
-    const categoryData: CategoryResponse = this.toResponse(updated);
-    return {
-      data: categoryData,
-    };
+    const updated = await this.categoryRepository.save(category);
+    return { data: this.toResponse(updated) };
   }
 
   async delete(id: string): Promise<void> {
     const category = await this.categoryRepository.findOne({ where: { id } });
-
     if (category === null) {
       throw new NotFoundException(`Category with ID ${id} not found`);
     }
 
-    // Delete icon file if exists
     if (category.iconUrl) {
       await this.deleteIconFile(category.iconUrl);
     }
@@ -245,23 +210,18 @@ export class CategoriesService {
   }
 
   /**
-   * Helper method to delete icon file from disk
+   * Delete an icon file from disk.
    */
   private async deleteIconFile(iconUrl: string): Promise<void> {
     try {
       if (!iconUrl || !iconUrl.startsWith('/upload/categories/')) {
-        return; // Skip if path is invalid
+        return;
       }
-
-      // Extract filename from URL path
       const filename = iconUrl.replace('/upload/categories/', '');
       const filePath = path.join(CATEGORY_UPLOAD_DIR, filename);
-
-      // Check if file exists and delete
       try {
         await fs.unlink(filePath);
       } catch (error) {
-        // File doesn't exist, that's fine
         if (
           error instanceof Error &&
           'code' in error &&
@@ -273,33 +233,11 @@ export class CategoriesService {
       }
     } catch (error) {
       console.error('Error deleting icon file:', error);
-      // Don't throw error on deletion failure, just log it
     }
   }
 
-  async findMainCategories(): Promise<CategoryListResponse> {
-    const [categories, total] = await this.categoryRepository.findAndCount({
-      where: { categoryType: 'main' },
-      order: {
-        displayOrder: 'ASC',
-      },
-    });
-
-    const mappedData: CategoryResponse[] = categories.map(
-      (category: CategoryEntity) => this.toResponse(category),
-    );
-
-    const response: CategoryListResponse = {
-      data: mappedData,
-      total: Number(total),
-      page: 1,
-      limit: Number(total),
-    };
-    return response;
-  }
-
   private toResponse(entity: CategoryEntity): CategoryResponse {
-    const response: CategoryResponse = {
+    return {
       id: entity.id,
       slug: entity.slug,
       nameEn: entity.nameEn,
@@ -312,6 +250,5 @@ export class CategoriesService {
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
     };
-    return response;
   }
 }
