@@ -120,6 +120,11 @@ const translations = {
         'brand.sort.nameAsc': 'Name (A → Z)',
         'brand.sort.nameDesc': 'Name (Z → A)',
         'brand.sort.recentlyUpdated': 'Recently Updated',
+        'brand.ai.generateWebsite': 'Generate website with AI',
+        'brand.ai.generateDescription': 'Generate description with AI',
+        'brand.ai.nameRequired': 'Please enter a brand name first',
+        'brand.ai.notFound': 'AI could not find information for this brand',
+        'brand.ai.success': 'Generated successfully',
     },
     km: {
         // Login
@@ -234,6 +239,11 @@ const translations = {
         'brand.sort.nameAsc': 'ឈ្មោះ (A → Z)',
         'brand.sort.nameDesc': 'ឈ្មោះ (Z → A)',
         'brand.sort.recentlyUpdated': 'បានកែសម្រួលថ្មីៗ',
+        'brand.ai.generateWebsite': 'បង្កើតគេហទំព័រដោយប្រើ AI',
+        'brand.ai.generateDescription': 'បង្កើតការពិពណ៌នាដោយប្រើ AI',
+        'brand.ai.nameRequired': 'សូមបញ្ចូលឈ្មោះម៉ាកជាមុនសិន',
+        'brand.ai.notFound': 'AI មិនអាចរកព័ត៌មានសម្រាប់ម៉ាកនេះបានទេ',
+        'brand.ai.success': 'បង្កើតបានជោគជ័យ',
     },
 } as const;
 
