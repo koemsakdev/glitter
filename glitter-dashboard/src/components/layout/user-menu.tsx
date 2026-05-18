@@ -64,8 +64,8 @@ export function UserMenu() {
                         <div className="hidden flex-col items-start leading-tight sm:flex">
                             <span className="text-sm font-medium">{fullName}</span>
                             <span className="text-xs capitalize text-muted-foreground">
-                {role}
-              </span>
+                                {role}
+                            </span>
                         </div>
                         <ChevronDown className="size-4 text-muted-foreground" />
                     </Button>
@@ -75,18 +75,19 @@ export function UserMenu() {
                 <div className="flex flex-col gap-0.5 px-2 py-1.5">
                     <span className="text-sm font-medium">{fullName}</span>
                     <span className="truncate text-xs text-muted-foreground">
-            {user.email ?? '—'}
-          </span>
+                        {user.email ?? '—'}
+                    </span>
                 </div>
 
                 <DropdownMenuSeparator />
 
-                <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>
+                <DropdownMenuItem className="cursor-pointer" onClick={() => router.push('/dashboard/profile')}>
                     <UserIcon className="mr-2 size-4" />
                     <span>{t('user.profile')}</span>
                 </DropdownMenuItem>
 
                 <DropdownMenuItem
+                    className="cursor-pointer"
                     onClick={() => router.push('/dashboard/change-password')}
                 >
                     <Key className="mr-2 size-4" />
@@ -97,10 +98,10 @@ export function UserMenu() {
 
                 <DropdownMenuItem
                     onClick={handleLogout}
-                    className="text-destructive focus:text-destructive"
+                    className="text-destructive focus:text-destructive cursor-pointer"
                 >
-                    <LogOut className="mr-2 size-4" />
-                    <span>{t('user.logout')}</span>
+                    <LogOut className="mr-2 size-4 text-destructive" />
+                    <span className="text-destructive">{t('user.logout')}</span>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

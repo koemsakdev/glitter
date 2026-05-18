@@ -31,7 +31,7 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+glitter-api/.env
 
 # vercel
 .vercel
@@ -77,7 +77,7 @@ lerna-debug.log*
 !.vscode/extensions.json
 
 # dotenv environment variable files
-.env
+glitter-api/.env
 .env.development.local
 .env.test.local
 .env.production.local

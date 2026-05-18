@@ -1,6 +1,6 @@
 'use client';
 
-import { Globe } from 'lucide-react';
+import {Languages} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -28,10 +28,10 @@ export function LanguageToggle() {
                         className="relative h-9 w-9 rounded-full"
                         aria-label={t('language.toggle')}
                     >
-                        <Globe className="h-4 w-4" />
+                        <Languages className="h-4 w-4" />
                         <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-pink-400 px-1 text-[8px] font-bold leading-tight text-white dark:bg-pink-300 dark:text-pink-950">
-              {language === 'en' ? 'EN' : 'KH'}
-            </span>
+                          {language === 'en' ? 'EN' : 'KH'}
+                        </span>
                     </Button>
                 }
             />
@@ -45,8 +45,8 @@ export function LanguageToggle() {
                         {opt.label}
                         {language === opt.code && (
                             <span className="ml-auto text-pink-500 dark:text-pink-300">
-                ✓
-              </span>
+                                ✓
+                            </span>
                         )}
                     </DropdownMenuItem>
                 ))}

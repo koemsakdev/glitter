@@ -72,6 +72,11 @@ const translations = {
         'common.create': 'Create',
         'common.actions': 'Actions',
         'common.comingSoon': 'Coming soon',
+        'common.toast.success': 'Success',
+        'common.toast.error': 'Error',
+        'common.toast.warning': 'Warning',
+        'common.toast.info': 'Information',
+        'common.toast.loading': 'Loading...',
 
         // Brands
         'brand.list.title': 'Brands',
@@ -266,6 +271,11 @@ const translations = {
         'common.create': 'បង្កើត',
         'common.actions': 'សកម្មភាព',
         'common.comingSoon': 'នឹងមកដល់ឆាប់ៗ',
+        'common.toast.success': 'ជោគជ័យ',
+        'common.toast.error': 'មានបញ្ហា',
+        'common.toast.warning': 'ការព្រមាន',
+        'common.toast.info': 'ព័ត៌មាន',
+        'common.toast.loading': 'សូមរង់ចាំ...',
 
         // Brands
         'brand.list.title': 'ម៉ាក',

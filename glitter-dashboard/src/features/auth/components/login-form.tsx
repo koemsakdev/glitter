@@ -5,7 +5,6 @@ import {Eye, EyeOff, Loader2} from 'lucide-react';
 import {useRouter} from 'next/navigation';
 import {useState} from 'react';
 import {Controller, useForm} from 'react-hook-form';
-import {toast} from 'sonner';
 import {z} from 'zod';
 import {LanguageToggle} from '@/components/language-toggle';
 import {ThemeToggle} from '@/components/theme-toggle';
@@ -22,6 +21,7 @@ import {useLogin} from '@/features/auth/use-auth';
 import {getErrorMessage} from '@/lib/api-client';
 import {useI18n} from '@/lib/i18n';
 import Image from 'next/image';
+import { useToast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
     email: z.string().email('login.email.invalid'),
@@ -35,6 +35,7 @@ export function LoginForm() {
     const login = useLogin();
     const {t} = useI18n();
     const [showPassword, setShowPassword] = useState(false);
+    const { toast } = useToast();
 
     const form = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
@@ -46,14 +47,26 @@ export function LoginForm() {
             const result = await login.mutateAsync(values);
 
             if (result.user.role === 'customer') {
-                toast.error(t('login.staffOnly'));
+                toast({
+                    title: t('common.toast.success'),
+                    description: t('login.staffOnly'),
+                    variant: 'success',
+                });
                 return;
             }
 
-            toast.success(`${t('login.welcome')}, ${result.user.fullName}`);
+            toast({
+                title: t('common.toast.success'),
+                description: `${t('login.welcome')}, ${result.user.fullName}`,
+                variant: 'success',
+            });
             router.push('/dashboard');
         } catch (error) {
-            toast.error(getErrorMessage(error));
+            toast({
+                title: t('common.toast.error'),
+                description: getErrorMessage(error),
+                variant: 'destructive',
+            });
         }
     }
 

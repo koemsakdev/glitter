@@ -4,6 +4,7 @@ import { Building2, Package, Shapes, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useI18n } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/auth-store';
+import React from "react";
 
 interface StatCardProps {
   label: string;
@@ -38,7 +39,7 @@ export default function DashboardHomePage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            {t('dashboard.welcome')}, {user?.fullName} 👋
+            {t('dashboard.welcome')}, {user?.fullName}!
           </h1>
           <p className="mt-1 text-muted-foreground">{t('dashboard.overview')}</p>
         </div>
