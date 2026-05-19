@@ -1,12 +1,12 @@
 'use client';
 
-import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { useDeleteCategoryModal } from '@/features/categories/hooks/use-delete-category-modal';
 import { useDeleteCategory } from '@/features/categories/use-categories';
 import { getErrorMessage } from '@/lib/api-client';
 import { useI18n } from '@/lib/i18n';
 import type { Category } from '@/types/category';
+import {useToast} from "@/hooks/use-toast";
 
 interface DeleteCategoryDialogProps {
     category: Category | null;
@@ -14,12 +14,13 @@ interface DeleteCategoryDialogProps {
 }
 
 export function DeleteCategoryDialog({
-                                         category,
-                                         onClose,
-                                     }: DeleteCategoryDialogProps) {
+ category,
+ onClose,
+}: DeleteCategoryDialogProps) {
     const { t, language } = useI18n();
     const { isOpen, setIsOpen } = useDeleteCategoryModal();
     const deleteMutation = useDeleteCategory();
+    const {toast} = useToast();
 
     function handleOpenChange(open: boolean) {
         setIsOpen(open);
@@ -30,10 +31,18 @@ export function DeleteCategoryDialog({
         if (!category) return;
         try {
             await deleteMutation.mutateAsync(category.id);
-            toast.success(t('category.delete.success'));
+            toast({
+                title: t('common.toast.success'),
+                description: t('category.delete.success'),
+                variant: 'success',
+            })
             handleOpenChange(false);
         } catch (error) {
-            toast.error(getErrorMessage(error));
+            toast({
+                title: t('common.toast.error'),
+                description: getErrorMessage(error),
+                variant: 'destructive'
+            })
         }
     }
 

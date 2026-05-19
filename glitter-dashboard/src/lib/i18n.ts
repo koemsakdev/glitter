@@ -77,6 +77,10 @@ const translations = {
         'common.toast.warning': 'Warning',
         'common.toast.info': 'Information',
         'common.toast.loading': 'Loading...',
+        'common.toast.logout': 'Logging out...',
+        'common.toast.wait': 'Please wait a moment',
+        'common.toast.logout.success': 'Thank you for using Glitter Shop! See you next time.',
+        'common.toast.logout.fail': 'Failed to logout! Please try again.',
 
         // Brands
         'brand.list.title': 'Brands',
@@ -276,6 +280,10 @@ const translations = {
         'common.toast.warning': 'ការព្រមាន',
         'common.toast.info': 'ព័ត៌មាន',
         'common.toast.loading': 'សូមរង់ចាំ...',
+        'common.toast.logout': 'កំពុងចាកចេញ...',
+        'common.toast.wait': 'សូមរង់ចាំមួយភ្លែត',
+        'common.toast.logout.success': 'សូមអរគុណសម្រាប់ការប្រើប្រាស់ហ្គ្លីតធើ សប! ជួបគ្នាថ្ងៃក្រោយ។',
+        'common.toast.logout.fail': 'មិនអាចចាកចេញបាន! សូមព្យាយាមម្តងទៀត។',
 
         // Brands
         'brand.list.title': 'ម៉ាក',

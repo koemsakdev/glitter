@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Loader } from "lucide-react";
 
 type ToastVariant = "default" | "destructive" | "success" | "info" | "warning";
 
@@ -66,12 +66,28 @@ const showToast = ({
         }
     };
 
-    const loading = (title: string, description?: string) =>
-        toast.loading(title, {
-            description,
-            className: "rounded-[22px] p-5 shadow-lg min-w-[350px] bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-none",
-            icon: <Loader2 className="animate-spin w-6 h-6 text-blue-500 dark:text-blue-400" />,
-        });
+    const loading = (title: string, description?: string) => {
+        return toast.custom(
+            () => (
+                <div className="flex items-center gap-4 bg-[#EFF6FF] dark:bg-[#0F172A] p-5 rounded-[22px] shadow-lg min-w-[350px] border border-transparent dark:border-[#1E293B]">
+                    <div className="shrink-0 bg-white dark:bg-[#0A0F1A] rounded-full shadow-sm">
+                        <Loader className="w-8 h-8 text-blue-500 dark:text-blue-400 animate-spin" />
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                        <h3 className="text-[17px] font-semibold text-slate-900 dark:text-slate-100 leading-tight">
+                            {title}
+                        </h3>
+                        {description && (
+                            <p className="text-[15px] text-slate-600 dark:text-slate-400 font-medium">
+                                {description}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            ),
+            { duration: Infinity }
+        );
+    };
 
     const apiError = (err: any) => {
         const message = err?.response?.data?.message || err?.message || "Something went wrong";

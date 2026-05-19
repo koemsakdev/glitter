@@ -11,7 +11,6 @@ import {
 import Image from 'next/image';
 import React, { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,6 +38,7 @@ import { getErrorMessage } from '@/lib/api-client';
 import { getFileUrl } from '@/lib/file-url';
 import { useI18n } from '@/lib/i18n';
 import type { Category, CategoryFormValues } from '@/types/category';
+import {useToast} from "@/hooks/use-toast";
 
 const MAX_ICON_SIZE_MB = 2;
 const MAX_ICON_SIZE = MAX_ICON_SIZE_MB * 1024 * 1024;
@@ -77,12 +77,14 @@ interface CategoryFormProps {
 }
 
 export function CategoryForm({
-                                 category,
-                                 onSuccess,
-                                 onCancel,
-                             }: CategoryFormProps) {
+ category,
+ onSuccess,
+ onCancel,
+}: CategoryFormProps) {
     const { t } = useI18n();
     const isEditMode = Boolean(category);
+
+    const { toast } = useToast();
 
     const createMutation = useCreateCategory();
     const updateMutation = useUpdateCategory();
@@ -119,11 +121,19 @@ export function CategoryForm({
 
     function processFile(file: File) {
         if (file.size > MAX_ICON_SIZE) {
-            toast.error(`Icon must be less than ${MAX_ICON_SIZE_MB} MB`);
+            toast({
+                title: t('common.toast.error'),
+                description: `Icon must be less than ${MAX_ICON_SIZE_MB} MB`,
+                variant: 'destructive',
+            });
             return;
         }
         if (!file.type.startsWith('image/')) {
-            toast.error('Please select an image file');
+            toast({
+                title: t('common.toast.error'),
+                description: 'Please select an image file',
+                variant: 'destructive',
+            });
             return;
         }
         setIconFile(file);
@@ -184,7 +194,11 @@ export function CategoryForm({
                 : form.getValues('nameEn').trim();
 
         if (!name) {
-            toast.error(t('category.ai.nameRequired'));
+            toast({
+                title: t('common.toast.warning'),
+                description: t('category.ai.nameRequired'),
+                variant: 'warning',
+            })
             return;
         }
 
@@ -197,7 +211,11 @@ export function CategoryForm({
                 language,
             });
             if (!result.value) {
-                toast.error(t('category.ai.notFound'));
+                toast({
+                    title: t('common.toast.error'),
+                    description: t('category.ai.notFound'),
+                    variant: 'destructive',
+                })
                 return;
             }
             const fieldName = language === 'km' ? 'descriptionKm' : 'descriptionEn';
@@ -205,16 +223,28 @@ export function CategoryForm({
                 shouldValidate: true,
                 shouldDirty: true,
             });
-            toast.success(t('category.ai.success'));
+            toast({
+                title: t('common.toast.success'),
+                description: t('category.ai.success'),
+                variant: 'success',
+            })
         } catch (error) {
             const message = getErrorMessage(error);
             if (
                 message.toLowerCase().includes('unavailable') ||
                 message.toLowerCase().includes('high demand')
             ) {
-                toast.error(t('category.ai.busy'));
+                toast({
+                    title: t('common.toast.warning'),
+                    description: t('category.ai.busy'),
+                    variant: 'warning'
+                })
             } else {
-                toast.error(message);
+                toast({
+                    title: t('common.toast.error'),
+                    description: message,
+                    variant: 'destructive',
+                })
             }
         }
     }
@@ -235,14 +265,26 @@ export function CategoryForm({
         try {
             if (category) {
                 await updateMutation.mutateAsync({ id: category.id, values: payload });
-                toast.success(t('category.edit.success'));
+                toast({
+                    title: t('common.toast.success'),
+                    description: t('category.edit.success'),
+                    variant: 'success',
+                })
             } else {
                 await createMutation.mutateAsync(payload);
-                toast.success(t('category.create.success'));
+                toast({
+                    title: t('common.toast.success'),
+                    description: t('category.create.success'),
+                    variant: 'success',
+                })
             }
             onSuccess?.();
         } catch (error) {
-            toast.error(getErrorMessage(error));
+            toast({
+                title: t('common.toast.error'),
+                description: getErrorMessage(error),
+                variant: "destructive"
+            })
         }
     }
 

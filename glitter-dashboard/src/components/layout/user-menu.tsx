@@ -14,6 +14,7 @@ import {
 import { useLogout } from '@/features/auth/use-auth';
 import { useI18n } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/auth-store';
+import {useToast} from "@/hooks/use-toast";
 
 function getInitials(fullName: string | null | undefined): string {
     if (!fullName) return 'U';
@@ -32,6 +33,7 @@ export function UserMenu() {
     const router = useRouter();
     const user = useAuthStore((s) => s.user);
     const logout = useLogout();
+    const { toast, loading: showLoadingToast, dismiss } = useToast();
     const { t } = useI18n();
 
     if (!user) return null;
@@ -41,8 +43,25 @@ export function UserMenu() {
     const role = (user.role ?? 'user').replace('_', ' ');
 
     async function handleLogout() {
-        await logout.mutateAsync();
-        router.replace('/login');
+        const toastId = showLoadingToast(t('common.toast.logout'), t('common.toast.wait'));
+        try {
+            await logout.mutateAsync();
+            dismiss(toastId);
+            toast({
+                title: t('common.toast.success'),
+                description: t('common.toast.logout.success'),
+                variant: 'success',
+            })
+            router.replace('/login');
+        } catch (error) {
+            dismiss(toastId);
+            toast({
+                title: t('common.toast.error'),
+                description: t('common.toast.logout.fail'),
+                variant: 'destructive'
+            })
+            console.error('Error during logout:', error);
+        }
     }
 
     return (

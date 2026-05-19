@@ -1,3 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Moul&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Battambang:wght@100;300;400;700;900&family=Sora:wght@100..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=SN+Pro:ital,wght@0,200..900;1,200..900&display=swap');
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -119,7 +123,7 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring/50 font-sans;
   }
 
   body {
@@ -284,4 +288,14 @@
   ::view-transition-new(root) {
     animation: none !important;
   }
+}
+
+input[type="password"] {
+    font-family: 'Verdana', 'Arial', sans-serif !important;
+    letter-spacing: normal;
+}
+
+input[type="password"]::placeholder {
+    font-family: 'Sora', sans-serif;
+    letter-spacing: normal;
 }

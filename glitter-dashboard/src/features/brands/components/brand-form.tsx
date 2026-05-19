@@ -181,9 +181,9 @@ export function BrandForm({brand, onSuccess, onCancel}: BrandFormProps) {
         const name = form.getValues('name').trim();
         if (!name) {
             toast({
-                title: t('common.toast.error'),
+                title: t('common.toast.warning'),
                 description: t('brand.ai.nameRequired'),
-                variant: 'destructive'
+                variant: 'warning'
             });
             return;
         }
@@ -194,9 +194,9 @@ export function BrandForm({brand, onSuccess, onCancel}: BrandFormProps) {
             });
             if (!result.value) {
                 toast({
-                    title: t('common.toast.error'),
+                    title: t('common.toast.warning'),
                     description: t('brand.ai.notFound'),
-                    variant: 'destructive'
+                    variant: 'warning'
                 });
                 return;
             }
@@ -222,9 +222,9 @@ export function BrandForm({brand, onSuccess, onCancel}: BrandFormProps) {
         const name = form.getValues('name').trim();
         if (!name) {
             toast({
-                title: t('common.toast.error'),
+                title: t('common.toast.warning'),
                 description: t('brand.ai.nameRequired'),
-                variant: 'destructive'
+                variant: 'warning'
             });
             return;
         }
