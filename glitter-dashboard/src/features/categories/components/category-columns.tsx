@@ -141,9 +141,9 @@ export function getCategoryColumns({
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                     onClick={() => onDelete(category)}
-                                    className="text-destructive focus:text-destructive"
+                                    className="text-destructive focus:text-destructive cursor-pointer focus:bg-red-500/5! dark:focus:bg-red-700/5!"
                                 >
-                                    <Trash2 className="mr-2 size-4" />
+                                    <Trash2 className="mr-2 size-4 text-destructive" />
                                     {t('category.action.delete')}
                                 </DropdownMenuItem>
                             </DropdownMenuContent>

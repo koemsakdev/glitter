@@ -38,7 +38,7 @@ export function DashboardTopbar() {
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="relative size-9 rounded-full"
+                    className="relative h-9 w-9 rounded-full border border-neutral-200 dark:border-neutral-800"
                     aria-label="Notifications"
                 >
                     <Bell className="size-4" />

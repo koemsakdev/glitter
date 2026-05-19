@@ -100,13 +100,12 @@ export function UserMenu() {
 
                 <DropdownMenuSeparator />
 
-                <DropdownMenuItem className="cursor-pointer" onClick={() => router.push('/dashboard/profile')}>
+                <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>
                     <UserIcon className="mr-2 size-4" />
                     <span>{t('user.profile')}</span>
                 </DropdownMenuItem>
 
                 <DropdownMenuItem
-                    className="cursor-pointer"
                     onClick={() => router.push('/dashboard/change-password')}
                 >
                     <Key className="mr-2 size-4" />
@@ -117,7 +116,7 @@ export function UserMenu() {
 
                 <DropdownMenuItem
                     onClick={handleLogout}
-                    className="text-destructive focus:text-destructive cursor-pointer"
+                    className="text-destructive focus:text-destructive cursor-pointer focus:bg-red-500/5! dark:focus:bg-red-700/5!"
                 >
                     <LogOut className="mr-2 size-4 text-destructive" />
                     <span className="text-destructive">{t('user.logout')}</span>

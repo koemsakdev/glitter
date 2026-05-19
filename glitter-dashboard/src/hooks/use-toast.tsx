@@ -26,7 +26,7 @@ const showToast = ({
                 return toast.custom(() => (
                     <div className="flex items-center gap-4 bg-[#FFD5D5] dark:bg-[#2C1A1A] p-5 rounded-[22px] shadow-lg min-w-[350px] border border-transparent dark:border-[#522525] animate-in fade-in slide-in-from-top-4 duration-300">
                         <div className="shrink-0 bg-white dark:bg-[#1A0B0B] rounded-full shadow-sm">
-                            <XCircle className="w-12 h-12 text-[#E54D4D] fill-[#E54D4D] dark:fill-[#FF6262] dark:text-[#2C1A1A] stroke-[2px]" />
+                            <XCircle className="w-12 h-12 text-[#E54D4D] dark:text-[#2C1A1A] stroke-[2px]" />
                         </div>
 
                         <div className="flex flex-col gap-0.5">
@@ -44,9 +44,9 @@ const showToast = ({
 
             case "success":
                 return toast.custom(() => (
-                    <div className="flex items-center gap-4 bg-[#DCFCE7] dark:bg-[#132A1C] p-5 rounded-[22px] shadow-lg min-w-[350px] border border-transparent dark:border-[#1B3D27]">
+                    <div className="flex items-center gap-4 bg-[#DCFCE7]/25 dark:bg-[#132A1C]/25 p-5 rounded-[22px] shadow-lg min-w-87.5 border border-transparent dark:border-[#1B3D27] backdrop-blur-lg">
                         <div className="shrink-0 bg-white dark:bg-[#0A140E] rounded-full shadow-sm">
-                            <CheckCircle2 className="w-12 h-12 text-[#10B981] fill-[#10B981] dark:fill-[#34D399] dark:text-[#132A1C] stroke-[2px]" />
+                            <CheckCircle2 className="w-12 h-12 text-[#10B981] dark:text-[#132A1C] stroke-[2px]" />
                         </div>
                         <div className="flex flex-col gap-0.5">
                             <h3 className="text-[17px] font-semibold text-slate-900 dark:text-slate-100 leading-tight">

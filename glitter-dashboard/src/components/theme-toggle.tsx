@@ -61,7 +61,7 @@ export function ThemeToggle() {
             ref={buttonRef}
             variant="ghost"
             size="icon"
-            className="h-9 w-9 rounded-full"
+            className="h-9 w-9 rounded-full border border-neutral-200 dark:border-neutral-800"
             onClick={toggleTheme}
             aria-label="Toggle theme"
         >
