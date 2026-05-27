@@ -6,6 +6,10 @@ import type {
     BrandQuery,
 } from '@/types/brand';
 
+interface ApiEnvelope<T> {
+    data: T;
+}
+
 function toFormData(values: BrandFormValues): FormData {
     const fd = new FormData();
     fd.append('name', values.name);
@@ -37,8 +41,10 @@ export const brandApi = {
     },
 
     async getById(id: string): Promise<Brand> {
-        const { data } = await apiClient.get<Brand>(`/api/brands/${id}`);
-        return data;
+        const { data } = await apiClient.get<ApiEnvelope<Brand>>(
+            `/api/brands/${id}`,
+        );
+        return data.data;
     },
 
     async create(values: BrandFormValues): Promise<Brand> {

@@ -9,10 +9,9 @@ import {
     Palette,
     Settings,
     Shapes,
-    Sparkles,
     UserCog,
     Users,
-    type LucideIcon,
+    type LucideIcon, Hexagon,
 } from 'lucide-react';
 import type { TranslationKey } from '@/lib/i18n';
 import type { UserRole } from '@/types/api';
@@ -69,7 +68,7 @@ export const navigation: NavGroup[] = [
             {
                 href: '/dashboard/brands',
                 labelKey: 'nav.brands',
-                icon: Sparkles,
+                icon: Hexagon,
                 roles: MANAGER_PLUS,
             },
             {

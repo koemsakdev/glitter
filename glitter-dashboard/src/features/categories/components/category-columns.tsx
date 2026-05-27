@@ -3,7 +3,7 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import {
-    Edit,
+    Edit, Eye,
     ImageIcon,
     MoreHorizontal,
     Trash2,
@@ -21,6 +21,7 @@ import {
 import { getFileUrl } from '@/lib/file-url';
 import type { useI18n } from '@/lib/i18n';
 import type { Category, CategoryType } from '@/types/category';
+import Link from "next/link";
 
 interface CategoryColumnsContext {
     t: ReturnType<typeof useI18n>['t'];
@@ -133,7 +134,15 @@ export function getCategoryColumns({
                                     </Button>
                                 }
                             />
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="w-52">
+                                <DropdownMenuItem
+                                    render={
+                                        <Link href={`/dashboard/categories/${category.id}`}>
+                                            <Eye className="mr-2 size-4" />
+                                            {t('category.action.view')}
+                                        </Link>
+                                    }
+                                />
                                 <DropdownMenuItem onClick={() => onEdit(category)}>
                                     <Edit className="mr-2 size-4" />
                                     {t('category.action.edit')}

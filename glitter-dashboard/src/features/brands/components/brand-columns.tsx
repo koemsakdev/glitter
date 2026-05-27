@@ -3,7 +3,7 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import {
-    Edit,
+    Edit, Eye,
     ImageIcon, LinkIcon,
     MoreHorizontal,
     Trash2,
@@ -26,12 +26,14 @@ import Link from "next/link";
 
 interface BrandColumnsContext {
     t: ReturnType<typeof useI18n>['t'];
+    onDetail: (brand: Brand) => void;
     onEdit: (brand: Brand) => void;
     onDelete: (brand: Brand) => void;
 }
 
 export function getBrandColumns({
     t,
+    onDetail,
     onEdit,
     onDelete,
 }: BrandColumnsContext): ColumnDef<Brand>[] {
@@ -164,7 +166,15 @@ export function getBrandColumns({
                                     </Button>
                                 }
                             />
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="w-52">
+                                <DropdownMenuItem
+                                    render={
+                                        <Link href={`/dashboard/brands/${brand.id}`}>
+                                            <Eye className="mr-2 size-4" />
+                                            {t('brand.action.view')}
+                                        </Link>
+                                    }
+                                />
                                 <DropdownMenuItem onClick={() => onEdit(brand)}>
                                     <Edit className="mr-2 size-4" />
                                     {t('brand.action.edit')}
@@ -174,7 +184,7 @@ export function getBrandColumns({
                                     onClick={() => onDelete(brand)}
                                     className="text-destructive focus:text-destructive cursor-pointer focus:bg-red-500/5! dark:focus:bg-red-700/5!"
                                 >
-                                    <Trash2 className="mr-2 size-4 text-red-500 text-destructive" />
+                                    <Trash2 className="mr-2 size-4 text-destructive" />
                                     {t('brand.action.delete')}
                                 </DropdownMenuItem>
                             </DropdownMenuContent>

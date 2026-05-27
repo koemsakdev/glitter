@@ -32,11 +32,13 @@ import type {
     BrandSortBy,
     BrandSortOrder,
 } from '@/types/brand';
+import {useRouter} from "next/navigation";
 
 export default function BrandsPage() {
     const { t } = useI18n();
 
-    // Modal hooks (URL-driven open/close state)
+    const router = useRouter();
+
     const createModal = useCreateBrandModal();
     const modifyModal = useModifyBrandModal();
     const deleteModal = useDeleteBrandModal();
@@ -98,6 +100,9 @@ export default function BrandsPage() {
         () =>
             getBrandColumns({
                 t,
+                onDetail: (brand) => {
+                    router.push(`brands/${brand?.id}`);
+                },
                 onEdit: (brand) => {
                     setEditingBrand(brand);
                     modifyModal.open();
@@ -175,7 +180,7 @@ export default function BrandsPage() {
                             value={search}
                             onChange={handleSearchChange}
                             placeholder={t('brand.list.search')}
-                            className="w-full sm:w-[260px]"
+                            className="w-full sm:w-65"
                         />
                     </>
                 }
