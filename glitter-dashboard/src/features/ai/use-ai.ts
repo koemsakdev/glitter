@@ -12,3 +12,15 @@ export function useGenerateCategoryInfo() {
     mutationFn: aiApi.generateCategoryInfo,
   });
 }
+
+export function useGenerateProductInfo() {
+  return useMutation({
+    mutationFn: (params: {
+      name: string;
+      brandName?: string;
+      categoryName?: string;
+      field: 'description' | 'details';
+      language: 'en' | 'km';
+    }) => aiApi.generateProductInfo(params),
+  });
+}

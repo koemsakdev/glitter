@@ -262,7 +262,7 @@ export function getProductColumns({
                                     </Button>
                                 }
                             />
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="w-52">
                                 <DropdownMenuItem
                                     render={
                                         <Link href={`/dashboard/products/${product.id}`}>

@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
   ApiResponse,
   ApiTags,
@@ -19,6 +20,8 @@ import {
   GenerateBrandInfoDto,
   GenerateCategoryInfoDto,
 } from './dto/generate-brand-info.dto';
+
+import { GenerateProductInfoDto } from './dto/generate-product-info.dto';
 
 interface GenerateInfoResponse {
   data: {
@@ -71,5 +74,32 @@ export class AiController {
       dto.language ?? 'en',
     );
     return { data: { value, field: dto.field } };
+  }
+
+  @Post('product')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Generate product description or details using AI',
+    description:
+      'Generates a product description or details with optional brand/category context for relevance.',
+  })
+  @ApiBody({ type: GenerateProductInfoDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Generated text',
+    schema: { example: { value: 'A refined leather shoulder bag...' } },
+  })
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'super_admin', 'manager')
+  async generateProductInfo(
+    @Body() dto: GenerateProductInfoDto,
+  ): Promise<{ value: string }> {
+    const value = await this.aiService.generateProductField(
+      dto.name,
+      dto.field,
+      dto.language,
+      { brandName: dto.brandName, categoryName: dto.categoryName },
+    );
+    return { value };
   }
 }

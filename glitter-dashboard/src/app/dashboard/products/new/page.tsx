@@ -11,10 +11,10 @@ export default function NewProductPage() {
 
     return (
         <div className="space-y-6 pb-12">
-            {/* Back link */}
+            {/* Backlink */}
             <div className="flex items-center gap-2">
                 <Button
-                    variant="ghost"
+                    variant="secondary"
                     size="sm"
                     nativeButton={false}
                     className="text-muted-foreground hover:text-foreground"

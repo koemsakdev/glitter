@@ -160,3 +160,50 @@ export interface UpdateVariantPayload {
     quantityInStock?: number;
     priceOverride?: number | null;
 }
+
+// ============================================================================
+// DEFERRED EDITOR STATE (form-local, not sent until submit)
+// ============================================================================
+
+/** A single image item in the uploader — either already on the server or a new local file. */
+export type ImageItem =
+    | {
+    kind: 'existing';
+    id: string; // server image id
+    imageUrl: string;
+    isPrimary: boolean;
+}
+    | {
+    kind: 'new';
+    id: string; // local id like "new-{n}"
+    file: File;
+    previewUrl: string;
+    isPrimary: boolean;
+};
+
+/** The full local image editor state, committed on submit. */
+export interface ImageEditorState {
+    items: ImageItem[];
+    /** Server image ids the user removed (existing images to DELETE on save). */
+    deletedIds: string[];
+}
+
+/** A single variant row in the editor — existing (has server id) or new. */
+export interface VariantRow {
+    /** Server id for existing rows, or local "new-{n}" for pending. */
+    id: string;
+    isExisting: boolean;
+    variantSku: string;
+    size: string;
+    color: string;
+    colorHex: string;
+    quantityInStock: number;
+    priceOverride: number | null;
+}
+
+/** The full local variant editor state, committed on submit. */
+export interface VariantEditorState {
+    rows: VariantRow[];
+    /** Server variant ids the user removed (existing variants to DELETE on save). */
+    deletedIds: string[];
+}

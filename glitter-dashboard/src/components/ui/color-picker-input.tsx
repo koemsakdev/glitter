@@ -6,12 +6,10 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 interface ColorPickerInputProps {
-    /** Color name (e.g., "Black") */
     colorName: string;
-    /** Hex value (e.g., "#000000") */
     colorHex: string;
     onColorNameChange: (name: string) => void;
-    onColorHexChange: (hex: string) => void;
+    onColorPick: (hex: string, autoFillName: boolean) => void;
     placeholder?: string;
     disabled?: boolean;
     className?: string;
@@ -21,37 +19,24 @@ export function ColorPickerInput({
      colorName,
      colorHex,
      onColorNameChange,
-     onColorHexChange,
+     onColorPick,
      placeholder = 'Color name',
      disabled,
      className,
- }: ColorPickerInputProps) {
+}: ColorPickerInputProps) {
     const colorInputRef = React.useRef<HTMLInputElement>(null);
-
-    // Validate hex — fall back to a default if invalid
     const safeHex = /^#[0-9A-Fa-f]{6}$/.test(colorHex) ? colorHex : '#000000';
 
-    /**
-     * When the user picks a hex via the native color picker:
-     *  - Always update the hex
-     *  - Also fill the name with the hex if the name was empty OR previously auto-filled from a hex
-     *    This lets the user override with "Black" later, but starts with something useful
-     */
     function handleHexPick(newHex: string) {
         const upperHex = newHex.toUpperCase();
-        onColorHexChange(upperHex);
-
         const trimmed = colorName.trim();
-        // Auto-fill if empty OR if current name is itself a hex (means it was auto-filled before)
-        const isAutoFilled = /^#[0-9A-Fa-f]{6}$/.test(trimmed);
-        if (!trimmed || isAutoFilled) {
-            onColorNameChange(upperHex);
-        }
+        // Auto-fill name if empty or if it was previously a hex code
+        const shouldAutoFill = !trimmed || /^#[0-9A-Fa-f]{6}$/.test(trimmed);
+        onColorPick(upperHex, shouldAutoFill);
     }
 
     return (
         <div className={cn('flex items-center gap-2', className)}>
-            {/* Color swatch + hidden native color picker */}
             <button
                 type="button"
                 disabled={disabled}
@@ -62,7 +47,7 @@ export function ColorPickerInput({
             >
                 <Pipette
                     className={cn(
-                        'size-3.5 transition-opacity opacity-0 hover:opacity-100',
+                        'size-3.5 opacity-0 transition-opacity hover:opacity-100',
                         isLightColor(safeHex) ? 'text-zinc-700' : 'text-white',
                     )}
                 />
@@ -76,7 +61,6 @@ export function ColorPickerInput({
                 />
             </button>
 
-            {/* Color name input */}
             <Input
                 type="text"
                 value={colorName}
@@ -93,6 +77,5 @@ function isLightColor(hex: string): boolean {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
     const b = parseInt(hex.slice(5, 7), 16);
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    return luminance > 0.6;
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6;
 }

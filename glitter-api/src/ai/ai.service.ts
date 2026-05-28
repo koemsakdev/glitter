@@ -9,11 +9,12 @@ import type {
   AiBrandField,
   AiCategoryField,
 } from './dto/generate-brand-info.dto';
+import type { AiProductField } from './dto/generate-product-info.dto';
 
 const GEMINI_MODELS = [
-  'gemini-3.5-flash-lite',
+  'gemini-2.5-flash-lite',
   'gemini-2.5-flash',
-  'gemini-1.5-flash',
+  'gemini-2.0-flash',
 ];
 const GEMINI_BASE_URL =
   'https://generativelanguage.googleapis.com/v1beta/models';
@@ -33,8 +34,13 @@ interface GeminiResponse {
   };
 }
 
-type EntityKind = 'brand' | 'category';
-type AllFields = AiBrandField | AiCategoryField;
+type EntityKind = 'brand' | 'category' | 'product';
+type AllFields = AiBrandField | AiCategoryField | AiProductField;
+
+interface PromptContext {
+  brandName?: string;
+  categoryName?: string;
+}
 
 @Injectable()
 export class AiService {
@@ -56,14 +62,25 @@ export class AiService {
     return this.generate('category', name, field, language);
   }
 
+  async generateProductField(
+    name: string,
+    field: AiProductField,
+    language: 'en' | 'km' = 'en',
+    context?: PromptContext,
+  ): Promise<string> {
+    return this.generate('product', name, field, language, context);
+  }
+
   /**
-   * Generic generator — used by both brand and category methods.
+   * Generic generator — used by brand, category, and product methods.
+   * Tries each model in order with retries, falling through on transient failures.
    */
   private async generate(
     kind: EntityKind,
     name: string,
     field: AllFields,
     language: 'en' | 'km',
+    context?: PromptContext,
   ): Promise<string> {
     const apiKey = process.env.GOOGLE_API_KEY;
     if (!apiKey) {
@@ -72,7 +89,7 @@ export class AiService {
       );
     }
 
-    const prompt = this.buildPrompt(kind, name, field, language);
+    const prompt = this.buildPrompt(kind, name, field, language, context);
 
     let lastError: Error | null = null;
     for (const model of GEMINI_MODELS) {
@@ -181,12 +198,14 @@ export class AiService {
     name: string,
     field: AllFields,
     language: 'en' | 'km',
+    context?: PromptContext,
   ): string {
     const langInstruction =
       language === 'km'
         ? 'Write the response in Khmer (ភាសាខ្មែរ).'
         : 'Write the response in English.';
 
+    // ----- BRAND: website URL lookup -----
     if (field === 'websiteUrl') {
       return [
         `What is the official website URL for the brand "${name}"?`,
@@ -196,7 +215,41 @@ export class AiService {
       ].join('\n');
     }
 
-    // description
+    // ----- PRODUCT -----
+    if (kind === 'product') {
+      const contextParts: string[] = [];
+      if (context?.brandName) {
+        contextParts.push(`by the brand "${context.brandName}"`);
+      }
+      if (context?.categoryName) {
+        contextParts.push(`in the "${context.categoryName}" category`);
+      }
+      const contextPhrase =
+        contextParts.length > 0 ? ` ${contextParts.join(', ')}` : '';
+
+      if (field === 'details') {
+        return [
+          `Write detailed product information for "${name}"${contextPhrase}.`,
+          'Write 3 to 5 short factual sentences covering likely materials, construction, care, and notable features.',
+          'Each sentence must end with a period. Be specific and informative.',
+          'Avoid marketing fluff and superlatives. If exact specs are unknown, describe typical characteristics for this kind of product.',
+          langInstruction,
+          'Return ONLY the details text, no markdown, no quotes, no labels.',
+        ].join('\n');
+      }
+
+      // field === 'description'
+      return [
+        `Write a concise product description for "${name}"${contextPhrase}.`,
+        'Write exactly 2 to 3 complete sentences. Each sentence must end with a period.',
+        'Describe what the product is, its key appeal, and who it suits.',
+        'Keep it factual and appealing without exaggerated marketing claims or superlatives.',
+        langInstruction,
+        'Return ONLY the description text, no markdown, no quotes, no labels.',
+      ].join('\n');
+    }
+
+    // ----- BRAND: description -----
     if (kind === 'brand') {
       return [
         `Write a brief, factual description for the brand "${name}".`,
@@ -208,7 +261,7 @@ export class AiService {
       ].join('\n');
     }
 
-    // kind === 'category'
+    // ----- CATEGORY: description -----
     return [
       `Write a brief description for an e-commerce product category called "${name}".`,
       'Write exactly 2 complete sentences. Each sentence must end with a period.',

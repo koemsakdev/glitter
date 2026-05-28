@@ -45,4 +45,18 @@ export const aiApi = {
     );
     return data.data;
   },
+
+  async generateProductInfo(params: {
+    name: string;
+    brandName?: string;
+    categoryName?: string;
+    field: 'description' | 'details';
+    language: 'en' | 'km';
+  }): Promise<{ value: string }> {
+    const { data } = await apiClient.post<{ value: string }>(
+        '/api/ai/product',
+        params,
+    );
+    return data;
+  },
 };

@@ -444,6 +444,18 @@ const translations = {
         // Detail page
         'product.detail.variantsCount': '{count} variant(s)',
         'product.detail.noVariants': 'No variants configured',
+
+        'product.save.savingProduct': 'Saving product…',
+        'product.save.savingImages': 'Saving images…',
+        'product.save.savingVariants': 'Saving variants…',
+        'product.variant.sizeOrColorRequired': 'Each variant needs at least a size or a color',
+
+        'product.variant.duplicateSku': 'Duplicate SKU: {sku}',
+        'product.image.dropNow': 'Drop images here',
+        'product.image.dragHint': 'Drag and drop to add more',
+
+        'product.ai.generateDetailsEn': 'Generate English details with AI',
+        'product.ai.generateDetailsKm': 'Generate Khmer details with AI',
     },
     km: {
         // Login
@@ -883,6 +895,16 @@ const translations = {
         // Detail page
         'product.detail.variantsCount': 'វ៉ារ្យង់ {count}',
         'product.detail.noVariants': 'មិនទាន់មានវ៉ារ្យង់',
+        'product.save.savingProduct': 'កំពុងរក្សាទុកផលិតផល…',
+        'product.save.savingImages': 'កំពុងរក្សាទុករូបភាព…',
+        'product.save.savingVariants': 'កំពុងរក្សាទុកវ៉ារ្យង់…',
+        'product.variant.sizeOrColorRequired': 'វ៉ារ្យង់នីមួយៗត្រូវការទំហំ ឬពណ៌យ៉ាងតិចមួយ',
+        'product.variant.duplicateSku': 'SKU ស្ទួន៖ {sku}',
+        'product.image.dropNow': 'ទម្លាក់រូបភាពនៅទីនេះ',
+        'product.image.dragHint': 'អូស និងទម្លាក់ដើម្បីបន្ថែម',
+
+        'product.ai.generateDetailsEn': 'បង្កើតព័ត៌មានលម្អិតអង់គ្លេសដោយ AI',
+        'product.ai.generateDetailsKm': 'បង្កើតព័ត៌មានលម្អិតខ្មែរដោយ AI',
     },
 } as const;
 

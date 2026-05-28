@@ -29,7 +29,6 @@ export function useCreateProductVariant() {
             void queryClient.invalidateQueries({
                 queryKey: [...VARIANTS_KEY, payload.productId],
             });
-            void queryClient.invalidateQueries({ queryKey: ['products'] });
         },
     });
 }
@@ -43,7 +42,6 @@ export function useBulkCreateProductVariants() {
             void queryClient.invalidateQueries({
                 queryKey: [...VARIANTS_KEY, payload.productId],
             });
-            void queryClient.invalidateQueries({ queryKey: ['products'] });
         },
     });
 }
@@ -64,7 +62,6 @@ export function useUpdateProductVariant() {
             void queryClient.invalidateQueries({
                 queryKey: [...VARIANTS_KEY, productId],
             });
-            void queryClient.invalidateQueries({ queryKey: ['products'] });
         },
     });
 }
@@ -78,7 +75,6 @@ export function useDeleteProductVariant() {
             void queryClient.invalidateQueries({
                 queryKey: [...VARIANTS_KEY, productId],
             });
-            void queryClient.invalidateQueries({ queryKey: ['products'] });
         },
     });
 }
