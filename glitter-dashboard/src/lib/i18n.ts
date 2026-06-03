@@ -38,15 +38,13 @@ const translations = {
         'nav.products': 'Products',
         'nav.categories': 'Categories',
         'nav.brands': 'Brands',
-        'nav.productImages': 'Product Images',
-        'nav.productVariants': 'Variants',
-        'nav.productBadges': 'Badges',
         'nav.branches': 'Branches',
         'nav.inventory': 'Inventory',
         'nav.staff': 'Staff',
         'nav.users': 'Users',
         'nav.addresses': 'Addresses',
         'nav.appSettings': 'App Settings',
+        'nav.comingSoon': 'Soon',
 
         // Topbar / user menu
         'user.profile': 'Profile',
@@ -55,12 +53,63 @@ const translations = {
         'user.notifications': 'Notifications',
 
         // Dashboard home
-        'dashboard.welcome': 'Welcome back',
+        'dashboard.welcome': 'Welcome back, {name}',
         'dashboard.overview': 'Here is an overview of your shop',
         'dashboard.totalProducts': 'Total Products',
         'dashboard.totalUsers': 'Total Users',
         'dashboard.totalBranches': 'Total Branches',
         'dashboard.totalCategories': 'Categories',
+
+        'dashboard.subtitle': "Here's what's happening with Glitter Shop today.",
+        'dashboard.todayIs': 'Today is',
+
+        // Error
+        'dashboard.errorTitle': 'Could not load dashboard',
+        'dashboard.errorMessage': 'Something went wrong fetching dashboard data. Please try again.',
+
+        // Common
+        'dashboard.viewAll': 'View all',
+        'dashboard.inStock': 'in stock',
+        'dashboard.left': 'left',
+
+        // Stat cards
+        'dashboard.stats.products': 'Total Products',
+        'dashboard.stats.productsHint': '{active} active · {draft} drafts',
+        'dashboard.stats.brands': 'Brands',
+        'dashboard.stats.brandsHint': '{active} active',
+        'dashboard.stats.categories': 'Categories',
+        'dashboard.stats.stockUnits': 'Total Stock Units',
+        'dashboard.stats.stockHint': '{low} low · {out} out of stock',
+
+        // Recent products
+        'dashboard.recentProducts.title': 'Recent Products',
+        'dashboard.recentProducts.subtitle': 'Latest additions to your catalog',
+        'dashboard.recentProducts.empty': 'No products yet — create your first one',
+
+        // Low stock
+        'dashboard.lowStock.title': 'Low Stock Alerts',
+        'dashboard.lowStock.subtitle': 'Variants running low on inventory',
+        'dashboard.lowStock.outOfStock': '{count} out of stock',
+        'dashboard.lowStock.allGood': "All variants are well-stocked",
+
+        // Status chart
+        'dashboard.statusChart.title': 'Product Status',
+        'dashboard.statusChart.subtitle': 'Distribution by status',
+        'dashboard.statusChart.total': 'Total',
+        'dashboard.statusChart.empty': 'No products yet',
+
+        // Quick actions
+        'dashboard.quickActions.title': 'Quick Actions',
+        'dashboard.quickActions.subtitle': 'Jump straight into common tasks',
+        'dashboard.quickActions.newProduct': 'New Product',
+        'dashboard.quickActions.newBrand': 'New Brand',
+        'dashboard.quickActions.newCategory': 'New Category',
+
+        // Coming soon
+        'dashboard.comingSoon.orders': 'Recent Orders',
+        'dashboard.comingSoon.ordersDescription': 'Order tracking coming with the Orders feature',
+        'dashboard.comingSoon.revenue': 'Revenue Overview',
+        'dashboard.comingSoon.revenueDescription': 'Revenue charts coming with the Orders feature',
 
         // Common
         'common.loading': 'Loading...',
@@ -456,6 +505,50 @@ const translations = {
 
         'product.ai.generateDetailsEn': 'Generate English details with AI',
         'product.ai.generateDetailsKm': 'Generate Khmer details with AI',
+
+        // Top brands
+        'dashboard.topBrands.title': 'Top Brands',
+        'dashboard.topBrands.subtitle': 'Ranked by product count',
+        'dashboard.topBrands.empty': 'No brands yet',
+
+        // Top categories
+        'dashboard.topCategories.title': 'Top Categories',
+        'dashboard.topCategories.subtitle': 'Ranked by product count',
+        'dashboard.topCategories.empty': 'No categories yet',
+
+        // Inventory summary
+        'dashboard.inventory.title': 'Inventory Snapshot',
+        'dashboard.inventory.subtitle': 'Catalog value and averages',
+        'dashboard.inventory.totalValue': 'Total inventory value',
+        'dashboard.inventory.averagePrice': 'Average product price',
+        'dashboard.inventory.averageStock': 'Average stock per product',
+
+        // Recently updated
+        'dashboard.recentlyUpdated.title': 'Recently Updated',
+        'dashboard.recentlyUpdated.subtitle': 'Products edited in the last 7 days',
+        'dashboard.recentlyUpdated.empty': 'No recent edits',
+
+        'product.form.badges': 'Badges',
+        'product.badges.help': 'Tag this product with up to {max} badges',
+        'product.badges.selected': 'Selected',
+        'product.badges.available': 'Available',
+        'product.badges.allSelected': 'All badge types are selected',
+        'product.badges.maxReached': 'Max {max} badges per product',
+        'product.badges.removeTitle': 'Remove this badge',
+        'product.save.savingBadges': 'Saving badges…',
+
+        'product.detail.badgesCount': '{count} badges',
+        'product.detail.noBadges': 'No badges added yet',
+        'product.badges.col.badge': 'Badge',
+        'product.badges.col.type': 'Type',
+        'product.badges.col.status': 'Status',
+        'product.badges.col.added': 'Added',
+        'product.badges.active': 'Active',
+        'product.badges.inactive': 'Inactive',
+
+        'product.list.noMatch': 'No products match these filters',
+        'product.list.noMatchHelp': 'Try changing or clearing filters to see more results.',
+        'product.list.clearFilters': 'Clear filters',
     },
     km: {
         // Login
@@ -488,15 +581,13 @@ const translations = {
         'nav.products': 'ផលិតផល',
         'nav.categories': 'ប្រភេទ',
         'nav.brands': 'ម៉ាក',
-        'nav.productImages': 'រូបភាពផលិតផល',
-        'nav.productVariants': 'ប្រភេទផលិតផល',
-        'nav.productBadges': 'ស្លាកសញ្ញា',
         'nav.branches': 'សាខា',
         'nav.inventory': 'ស្តុក',
         'nav.staff': 'បុគ្គលិក',
         'nav.users': 'អ្នកប្រើប្រាស់',
         'nav.addresses': 'អាសយដ្ឋាន',
         'nav.appSettings': 'ការកំណត់កម្មវិធី',
+        'nav.comingSoon': 'ឆាប់ៗ',
 
         // Topbar / user menu
         'user.profile': 'ប្រវត្តិរូប',
@@ -505,12 +596,64 @@ const translations = {
         'user.notifications': 'ការជូនដំណឹង',
 
         // Dashboard home
-        'dashboard.welcome': 'សូមស្វាគមន៍',
         'dashboard.overview': 'ទិដ្ឋភាពទូទៅនៃហាងរបស់អ្នក',
         'dashboard.totalProducts': 'ផលិតផលសរុប',
         'dashboard.totalUsers': 'អ្នកប្រើប្រាស់សរុប',
         'dashboard.totalBranches': 'សាខាសរុប',
         'dashboard.totalCategories': 'ប្រភេទ',
+
+        // Welcome header
+        'dashboard.welcome': 'សូមស្វាគមន៍ {name}',
+        'dashboard.subtitle': 'នេះគឺជាសកម្មភាពនៅ Glitter Shop ថ្ងៃនេះ។',
+        'dashboard.todayIs': 'ថ្ងៃនេះគឺ',
+
+        // Error
+        'dashboard.errorTitle': 'មិនអាចផ្ទុកផ្ទាំងគ្រប់គ្រងបានទេ',
+        'dashboard.errorMessage': 'មានបញ្ហាក្នុងការទាញយកទិន្នន័យ។ សូមព្យាយាមម្តងទៀត។',
+
+        // Common
+        'dashboard.viewAll': 'មើលទាំងអស់',
+        'dashboard.inStock': 'ក្នុងស្តុក',
+        'dashboard.left': 'នៅសល់',
+
+        // Stat cards
+        'dashboard.stats.products': 'ផលិតផលសរុប',
+        'dashboard.stats.productsHint': 'សកម្ម {active} · ព្រាង {draft}',
+        'dashboard.stats.brands': 'ម៉ាក',
+        'dashboard.stats.brandsHint': 'សកម្ម {active}',
+        'dashboard.stats.categories': 'ប្រភេទ',
+        'dashboard.stats.stockUnits': 'ស្តុកសរុប',
+        'dashboard.stats.stockHint': 'តិច {low} · អស់ {out}',
+
+        // Recent products
+        'dashboard.recentProducts.title': 'ផលិតផលថ្មីៗ',
+        'dashboard.recentProducts.subtitle': 'ផលិតផលដែលបានបន្ថែមថ្មីៗ',
+        'dashboard.recentProducts.empty': 'មិនទាន់មានផលិតផលទេ — បង្កើតមួយដំបូងរបស់អ្នក',
+
+        // Low stock
+        'dashboard.lowStock.title': 'ការជូនដំណឹងស្តុកតិច',
+        'dashboard.lowStock.subtitle': 'វ៉ារ្យង់ដែលមានស្តុកតិច',
+        'dashboard.lowStock.outOfStock': 'អស់ស្តុក {count}',
+        'dashboard.lowStock.allGood': 'វ៉ារ្យង់ទាំងអស់មានស្តុកគ្រប់គ្រាន់',
+
+        // Status chart
+        'dashboard.statusChart.title': 'ស្ថានភាពផលិតផល',
+        'dashboard.statusChart.subtitle': 'ការបែងចែកតាមស្ថានភាព',
+        'dashboard.statusChart.total': 'សរុប',
+        'dashboard.statusChart.empty': 'មិនទាន់មានផលិតផលទេ',
+
+        // Quick actions
+        'dashboard.quickActions.title': 'សកម្មភាពរហ័ស',
+        'dashboard.quickActions.subtitle': 'ចូលដំណើរការទៅកិច្ចការទូទៅភ្លាមៗ',
+        'dashboard.quickActions.newProduct': 'ផលិតផលថ្មី',
+        'dashboard.quickActions.newBrand': 'ម៉ាកថ្មី',
+        'dashboard.quickActions.newCategory': 'ប្រភេទថ្មី',
+
+        // Coming soon
+        'dashboard.comingSoon.orders': 'ការបញ្ជាទិញថ្មីៗ',
+        'dashboard.comingSoon.ordersDescription': 'ការតាមដានការបញ្ជាទិញនឹងមកដល់ជាមួយមុខងារ Orders',
+        'dashboard.comingSoon.revenue': 'ទិដ្ឋភាពទូទៅនៃចំណូល',
+        'dashboard.comingSoon.revenueDescription': 'គំនូសតាងចំណូលនឹងមកដល់ជាមួយមុខងារ Orders',
 
         // Common
         'common.loading': 'កំពុងផ្ទុក...',
@@ -905,6 +1048,50 @@ const translations = {
 
         'product.ai.generateDetailsEn': 'បង្កើតព័ត៌មានលម្អិតអង់គ្លេសដោយ AI',
         'product.ai.generateDetailsKm': 'បង្កើតព័ត៌មានលម្អិតខ្មែរដោយ AI',
+
+        // Top brands
+        'dashboard.topBrands.title': 'ម៉ាកកំពូល',
+        'dashboard.topBrands.subtitle': 'តម្រៀបតាមចំនួនផលិតផល',
+        'dashboard.topBrands.empty': 'មិនទាន់មានម៉ាក',
+
+        // Top categories
+        'dashboard.topCategories.title': 'ប្រភេទកំពូល',
+        'dashboard.topCategories.subtitle': 'តម្រៀបតាមចំនួនផលិតផល',
+        'dashboard.topCategories.empty': 'មិនទាន់មានប្រភេទ',
+
+        // Inventory summary
+        'dashboard.inventory.title': 'ទិដ្ឋភាពស្តុក',
+        'dashboard.inventory.subtitle': 'តម្លៃកាតាឡុក និងមធ្យម',
+        'dashboard.inventory.totalValue': 'តម្លៃស្តុកសរុប',
+        'dashboard.inventory.averagePrice': 'តម្លៃផលិតផលជាមធ្យម',
+        'dashboard.inventory.averageStock': 'ស្តុកជាមធ្យមក្នុងផលិតផល',
+
+        // Recently updated
+        'dashboard.recentlyUpdated.title': 'បានកែសម្រួលថ្មីៗ',
+        'dashboard.recentlyUpdated.subtitle': 'ផលិតផលដែលបានកែសម្រួលក្នុង 7 ថ្ងៃចុងក្រោយ',
+        'dashboard.recentlyUpdated.empty': 'មិនមានការកែសម្រួលថ្មីៗ',
+
+        'product.form.badges': 'ស្លាក',
+        'product.badges.help': 'បន្ថែមស្លាករហូតដល់ {max} សម្រាប់ផលិតផលនេះ',
+        'product.badges.selected': 'បានជ្រើសរើស',
+        'product.badges.available': 'អាចជ្រើសរើស',
+        'product.badges.allSelected': 'បានជ្រើសរើសគ្រប់ប្រភេទស្លាក',
+        'product.badges.maxReached': 'អតិបរមា {max} ស្លាកក្នុងផលិតផល',
+        'product.badges.removeTitle': 'ដកស្លាកនេះ',
+        'product.save.savingBadges': 'កំពុងរក្សាទុកស្លាក…',
+
+        'product.detail.badgesCount': 'ស្លាក {count}',
+        'product.detail.noBadges': 'មិនទាន់មានស្លាក',
+        'product.badges.col.badge': 'ស្លាក',
+        'product.badges.col.type': 'ប្រភេទ',
+        'product.badges.col.status': 'ស្ថានភាព',
+        'product.badges.col.added': 'បានបន្ថែម',
+        'product.badges.active': 'សកម្ម',
+        'product.badges.inactive': 'អសកម្ម',
+
+        'product.list.noMatch': 'មិនមានផលិតផលត្រូវនឹងតម្រងទាំងនេះ',
+        'product.list.noMatchHelp': 'សូមផ្លាស់ប្តូរ ឬសម្អាតតម្រងដើម្បីមើលលទ្ធផលច្រើនទៀត។',
+        'product.list.clearFilters': 'សម្អាតតម្រង',
     },
 } as const;
 

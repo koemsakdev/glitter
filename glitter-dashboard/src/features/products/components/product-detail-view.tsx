@@ -38,6 +38,9 @@ import type {
 
 import { useProductVariants } from '@/features/product-variants/use-product-variants';
 import type { ProductVariant } from '@/types/product';
+import { useProductBadges } from '@/features/product-badges/use-product-badges';
+import { ProductBadgeDisplay } from './product-badge-display';
+import { resolveBadgeDisplay, type ProductBadge } from '@/types/product-badge';
 
 interface ProductDetailViewProps {
     id: string;
@@ -62,6 +65,7 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
     const { data: categories } = useCategoryOptions();
 
     const { data: variants = [] } = useProductVariants(id);
+    const { data: badges } = useProductBadges(id);
 
     const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
     const deleteModal = useDeleteProductModal();
@@ -144,9 +148,13 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                 <div className="flex flex-1 flex-col gap-3 sm:gap-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
-                            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                                {primaryName}
-                            </h1>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                                    {primaryName}
+                                </h1>
+                                {badges && <ProductBadgeDisplay badges={badges} />}
+                            </div>
+
                             <p className="mt-1 text-sm text-muted-foreground">
                                 {secondaryName}
                             </p>
@@ -155,8 +163,8 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                                 <ProductTypeBadge type={product.productType} />
                                 <span className="text-sm text-muted-foreground">·</span>
                                 <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-                  {product.sku}
-                </span>
+                                  {product.sku}
+                                </span>
                             </div>
                         </div>
 
@@ -184,13 +192,13 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
 
                     {/* Price row — prominent */}
                     <div className="flex items-baseline gap-3">
-            <span className="text-2xl font-bold text-pink-600 dark:text-pink-300">
-              {formatPrice(product.price)}
-            </span>
+                        <span className="text-2xl font-bold text-pink-600 dark:text-pink-300">
+                          {formatPrice(product.price)}
+                        </span>
                         {hasDiscount && (
                             <span className="text-base text-muted-foreground line-through">
-                {formatPrice(product.originalPrice)}
-              </span>
+                            {formatPrice(product.originalPrice)}
+                          </span>
                         )}
                     </div>
                 </div>
@@ -304,12 +312,29 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                         )}
                     </DetailSection>
 
-                    {/* Badges placeholder (Phase 1D) */}
-                    <ComingSoonSection
-                        icon={<BadgeCheck className="size-5" />}
+                    {/* Badges section */}
+                    <DetailSection
                         title={t('product.detail.badges')}
-                        comingSoonText={t('product.detail.badgesComingSoon')}
-                    />
+                        description={
+                            badges && badges.length > 0
+                                ? t('product.detail.badgesCount').replace(
+                                    '{count}',
+                                    String(badges.length),
+                                )
+                                : undefined
+                        }
+                    >
+                        {!badges || badges.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/20 py-8">
+                                <BadgeCheck className="size-7 text-muted-foreground/40" />
+                                <p className="text-sm italic text-muted-foreground">
+                                    {t('product.detail.noBadges')}
+                                </p>
+                            </div>
+                        ) : (
+                            <BadgesDetailList badges={badges} />
+                        )}
+                    </DetailSection>
                 </div>
 
                 {/* Sidebar (right, 1/3) */}
@@ -543,33 +568,6 @@ function VariantStockCell({ stock }: { stock: number }) {
 }
 
 /**
- * Placeholder card for upcoming features (Phase 1C/1D).
- */
-function ComingSoonSection({
-                               icon,
-                               title,
-                               comingSoonText,
-                           }: {
-    icon: React.ReactNode;
-    title: string;
-    comingSoonText: string;
-}) {
-    return (
-        <div className="rounded-lg border border-dashed bg-muted/20">
-            <div className="flex items-start justify-between gap-4 border-b border-dashed px-6 py-4">
-                <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">{icon}</span>
-                    <h2 className="text-base font-semibold">{title}</h2>
-                </div>
-            </div>
-            <div className="px-6 py-8 text-center">
-                <p className="text-sm italic text-muted-foreground">{comingSoonText}</p>
-            </div>
-        </div>
-    );
-}
-
-/**
  * Status badge — semantic colors.
  */
 function ProductStatusBadge({ status }: { status: ProductStatus }) {
@@ -645,5 +643,71 @@ function ProductTypeBadge({ type }: { type: ProductType }) {
         <Badge variant="outline" className={styles[type]}>
             {labels[type]}
         </Badge>
+    );
+}
+
+/**
+ * Detailed badges list — shows each badge with active state and any custom config.
+ */
+function BadgesDetailList({ badges }: { badges: ProductBadge[] }) {
+    const { t, language } = useI18n();
+
+    return (
+        <div className="overflow-x-auto rounded-lg border border-border/60">
+            <table className="w-full text-sm">
+                <thead className="border-b bg-muted/30">
+                <tr className="text-left">
+                    <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        {t('product.badges.col.badge')}
+                    </th>
+                    <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        {t('product.badges.col.type')}
+                    </th>
+                    <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        {t('product.badges.col.status')}
+                    </th>
+                    <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        {t('product.badges.col.added')}
+                    </th>
+                </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                {badges.map((badge) => {
+                    const { label, color } = resolveBadgeDisplay(badge, language);
+                    return (
+                        <tr key={badge.id} className="bg-card hover:bg-muted/20">
+                            <td className="px-3 py-2.5">
+                                <span
+                                    className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-white shadow-sm"
+                                    style={{ backgroundColor: color }}
+                                >
+                                    {label}
+                                </span>
+                            </td>
+                            <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">
+                                {badge.badgeType}
+                            </td>
+                            <td className="px-3 py-2.5">
+                                {badge.isActive ? (
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                        <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
+                                        {t('product.badges.active')}
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                        <span className="inline-block size-1.5 rounded-full bg-muted-foreground/40" />
+                                        {t('product.badges.inactive')}
+                                    </span>
+                                )}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                                {formatDate(badge.createdAt)}
+                            </td>
+                        </tr>
+                    );
+                })}
+                </tbody>
+            </table>
+        </div>
     );
 }

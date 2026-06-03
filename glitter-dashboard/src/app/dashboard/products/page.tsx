@@ -36,12 +36,9 @@ import type {
 
 export default function ProductsPage() {
     const { t, language } = useI18n();
-
     const deleteModal = useDeleteProductModal();
-
     const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
 
-    // Filters
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [search, setSearch] = useState('');
@@ -55,7 +52,6 @@ export default function ProductsPage() {
         DEFAULT_PRODUCT_SORT.sortOrder,
     );
 
-    // Data
     const { data, isLoading, isFetching } = useProducts({
         page,
         limit: pageSize,
@@ -70,7 +66,6 @@ export default function ProductsPage() {
     const products = data?.data ?? [];
     const total = data?.total ?? 0;
 
-    // Brand / category lookups for the table
     const { data: brands } = useBrandOptions();
     const { data: categories } = useCategoryOptions();
 
@@ -86,7 +81,6 @@ export default function ProductsPage() {
         return map;
     }, [categories]);
 
-    // Filter dropdown options
     const brandFilterOptions = useMemo(
         () => [
             { value: '', label: t('product.filter.allBrands') },
@@ -106,7 +100,6 @@ export default function ProductsPage() {
         [categories, language, t],
     );
 
-    // Filter / sort option translations
     const statusOptions: FilterTabOption<ProductStatusFilter>[] = useMemo(
         () =>
             PRODUCT_STATUS_OPTIONS.map((opt) => ({
@@ -129,7 +122,6 @@ export default function ProductsPage() {
 
     const currentSortValue = `${sortBy}-${sortOrder}`;
 
-    // Columns
     const columns = useMemo(
         () =>
             getProductColumns({
@@ -146,7 +138,6 @@ export default function ProductsPage() {
         [t, language, brandsById, categoriesById],
     );
 
-    // Handlers
     function handleStatusChange(value: ProductStatusFilter) {
         setStatusFilter(value);
         setPage(1);
@@ -162,6 +153,20 @@ export default function ProductsPage() {
     }
     function handlePageSizeChange(size: number) {
         setPageSize(size);
+        setPage(1);
+    }
+
+    const hasActiveFilters =
+        search !== '' ||
+        statusFilter !== 'all' ||
+        brandFilter !== '' ||
+        categoryFilter !== '';
+
+    function handleClearFilters() {
+        setSearch('');
+        setStatusFilter('all');
+        setBrandFilter('');
+        setCategoryFilter('');
         setPage(1);
     }
 
@@ -253,27 +258,42 @@ export default function ProductsPage() {
                 isLoading={isLoading}
                 isFetching={isFetching}
                 emptyState={
-                    <DataTableEmpty
-                        title={t('product.list.empty')}
-                        description={t('product.list.emptyHelp')}
-                        action={
-                            <Button
-                                size="sm"
-                                className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
-                                nativeButton={false}
-                                render={
-                                    <Link href="/dashboard/products/new">
-                                        <Plus className="mr-2 size-4" />
-                                        {t('product.action.create')}
-                                    </Link>
-                                }
-                            />
-                        }
-                    />
+                    hasActiveFilters ? (
+                        <DataTableEmpty
+                            title={t('product.list.noMatch')}
+                            description={t('product.list.noMatchHelp')}
+                            action={
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleClearFilters}
+                                >
+                                    {t('product.list.clearFilters')}
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <DataTableEmpty
+                            title={t('product.list.empty')}
+                            description={t('product.list.emptyHelp')}
+                            action={
+                                <Button
+                                    size="sm"
+                                    className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
+                                    nativeButton={false}
+                                    render={
+                                        <Link href="/dashboard/products/new">
+                                            <Plus className="mr-2 size-4" />
+                                            {t('product.action.create')}
+                                        </Link>
+                                    }
+                                />
+                            }
+                        />
+                    )
                 }
             />
 
-            {/* Pagination */}
             {!isLoading && (
                 <DataTablePagination
                     page={page}
@@ -285,7 +305,6 @@ export default function ProductsPage() {
                 />
             )}
 
-            {/* Delete dialog */}
             <DeleteProductDialog
                 product={deletingProduct}
                 onClose={() => setDeletingProduct(null)}

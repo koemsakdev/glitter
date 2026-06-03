@@ -1,6 +1,6 @@
 'use client';
 
-import type { ColumnDef } from '@tanstack/react-table';
+import type {ColumnDef} from '@tanstack/react-table';
 import {
     Edit,
     Eye,
@@ -10,8 +10,8 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -19,12 +19,12 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { getFileUrl } from '@/lib/file-url';
-import { formatPrice, formatStock } from '@/lib/formatters';
-import type { useI18n } from '@/lib/i18n';
-import type { Brand } from '@/types/brand';
-import type { Category } from '@/types/category';
-import type { Product, ProductStatus, ProductType } from '@/types/product';
+import {getFileUrl} from '@/lib/file-url';
+import {formatPrice, formatStock} from '@/lib/formatters';
+import type {useI18n} from '@/lib/i18n';
+import type {Brand} from '@/types/brand';
+import type {Category} from '@/types/category';
+import type {Product, ProductStatus, ProductType} from '@/types/product';
 
 type TFunction = ReturnType<typeof useI18n>['t'];
 
@@ -59,7 +59,14 @@ const STATUS_STYLES: Record<ProductStatus, { bg: string; dot: string }> = {
     },
 };
 
-const STATUS_LABELS: Record<ProductStatus, 'product.status.active' | 'product.status.draft' | 'product.status.outOfStock' | 'product.status.discontinued' | 'product.status.archived'> = {
+const STATUS_LABELS: Record<
+    ProductStatus,
+    | 'product.status.active'
+    | 'product.status.draft'
+    | 'product.status.outOfStock'
+    | 'product.status.discontinued'
+    | 'product.status.archived'
+> = {
     active: 'product.status.active',
     draft: 'product.status.draft',
     out_of_stock: 'product.status.outOfStock',
@@ -67,17 +74,35 @@ const STATUS_LABELS: Record<ProductStatus, 'product.status.active' | 'product.st
     archived: 'product.status.archived',
 };
 
-const TYPE_STYLES: Record<ProductType, string> = {
-    standard: 'border-border bg-muted/50 text-muted-foreground',
-    featured:
-        'border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-800 dark:bg-pink-500/10 dark:text-pink-300',
-    limited:
-        'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-500/10 dark:text-amber-300',
-    exclusive:
-        'border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-500/10 dark:text-purple-300',
+const TYPE_STYLES: Record<
+    ProductType,
+    { bg: string; dot: string }
+> = {
+    standard: {
+        bg: 'border-border bg-muted/50 text-muted-foreground',
+        dot: 'bg-muted-foreground/60',
+    },
+    featured: {
+        bg: 'border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-800 dark:bg-pink-500/10 dark:text-pink-300',
+        dot: 'bg-pink-500 dark:bg-pink-400',
+    },
+    limited: {
+        bg: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-500/10 dark:text-amber-300',
+        dot: 'bg-amber-500 dark:bg-amber-400',
+    },
+    exclusive: {
+        bg: 'border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-500/10 dark:text-purple-300',
+        dot: 'bg-purple-500 dark:bg-purple-400',
+    },
 };
 
-const TYPE_LABELS: Record<ProductType, 'product.type.standard' | 'product.type.featured' | 'product.type.limited' | 'product.type.exclusive'> = {
+const TYPE_LABELS: Record<
+    ProductType,
+    | 'product.type.standard'
+    | 'product.type.featured'
+    | 'product.type.limited'
+    | 'product.type.exclusive'
+> = {
     standard: 'product.type.standard',
     featured: 'product.type.featured',
     limited: 'product.type.limited',
@@ -85,18 +110,18 @@ const TYPE_LABELS: Record<ProductType, 'product.type.standard' | 'product.type.f
 };
 
 export function getProductColumns({
-  t,
-  language,
-  brandsById,
-  categoriesById,
-  onDelete,
-}: ProductColumnsContext): ColumnDef<Product>[] {
+                                      t,
+                                      language,
+                                      brandsById,
+                                      categoriesById,
+                                      onDelete,
+                                  }: ProductColumnsContext): ColumnDef<Product>[] {
     return [
         {
             id: 'image',
             header: () => t('product.field.image'),
             size: 80,
-            cell: ({ row }) => {
+            cell: ({row}) => {
                 const product = row.original;
                 const primaryImage =
                     product.images?.find((img) => img.imageType === 'primary') ??
@@ -105,7 +130,8 @@ export function getProductColumns({
                 const altName = language === 'km' ? product.nameKm : product.nameEn;
 
                 return (
-                    <div className="flex size-12 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-muted/40 ring-1 ring-pink-200/30 dark:ring-pink-400/15">
+                    <div
+                        className="flex size-12 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-muted/40 ring-1 ring-pink-200/30 dark:ring-pink-400/15">
                         {imageUrl ? (
                             <Image
                                 src={imageUrl}
@@ -116,7 +142,7 @@ export function getProductColumns({
                                 unoptimized
                             />
                         ) : (
-                            <ImageIcon className="size-5 text-muted-foreground/40" />
+                            <ImageIcon className="size-5 text-muted-foreground/40"/>
                         )}
                     </div>
                 );
@@ -125,21 +151,28 @@ export function getProductColumns({
         {
             id: 'name',
             header: () => t('product.field.name'),
-            cell: ({ row }) => {
+            cell: ({row}) => {
                 const product = row.original;
                 const primary = language === 'km' ? product.nameKm : product.nameEn;
                 const secondary = language === 'km' ? product.nameEn : product.nameKm;
+                // Hide the secondary line when it equals the primary (your test data case)
+                const showSecondary =
+                    secondary.trim() !== '' &&
+                    secondary.trim().toLowerCase() !== primary.trim().toLowerCase();
+
                 return (
                     <div className="flex min-w-0 flex-col">
                         <Link
                             href={`/dashboard/products/${product.id}`}
-                            className="truncate font-medium text-foreground hover:text-pink-600 dark:hover:text-pink-300"
+                            className="truncate font-medium text-foreground transition-colors hover:text-pink-600 dark:hover:text-pink-300"
                         >
                             {primary}
                         </Link>
-                        <span className="truncate text-xs text-muted-foreground">
-              {secondary}
-            </span>
+                        {showSecondary && (
+                            <span className="truncate text-xs text-muted-foreground">
+                {secondary}
+              </span>
+                        )}
                     </div>
                 );
             },
@@ -147,7 +180,7 @@ export function getProductColumns({
         {
             id: 'sku',
             header: () => t('product.field.sku'),
-            cell: ({ row }) => (
+            cell: ({row}) => (
                 <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
           {row.original.sku}
         </span>
@@ -156,7 +189,7 @@ export function getProductColumns({
         {
             id: 'brand',
             header: () => t('product.field.brand'),
-            cell: ({ row }) => {
+            cell: ({row}) => {
                 const brand = brandsById.get(row.original.brandId);
                 return brand ? (
                     <span className="text-sm">{brand.name}</span>
@@ -168,7 +201,7 @@ export function getProductColumns({
         {
             id: 'category',
             header: () => t('product.field.category'),
-            cell: ({ row }) => {
+            cell: ({row}) => {
                 const category = categoriesById.get(row.original.categoryId);
                 if (!category)
                     return <span className="text-sm text-muted-foreground">—</span>;
@@ -182,13 +215,13 @@ export function getProductColumns({
         {
             id: 'price',
             header: () => t('product.field.price'),
-            cell: ({ row }) => {
+            cell: ({row}) => {
                 const product = row.original;
                 const hasDiscount =
                     product.originalPrice !== null &&
                     product.originalPrice > product.price;
                 return (
-                    <div className="flex flex-col">
+                    <div className="flex items-baseline gap-1.5 whitespace-nowrap">
                         <span className="font-semibold">{formatPrice(product.price)}</span>
                         {hasDiscount && (
                             <span className="text-xs text-muted-foreground line-through">
@@ -202,21 +235,21 @@ export function getProductColumns({
         {
             id: 'stock',
             header: () => t('product.field.stock'),
-            cell: ({ row }) => {
+            cell: ({row}) => {
                 const stock = row.original.totalStock;
                 const className =
                     stock === 0
                         ? 'font-mono text-sm font-semibold text-destructive'
                         : stock < 10
                             ? 'font-mono text-sm font-semibold text-amber-600 dark:text-amber-400'
-                            : 'font-mono text-sm text-muted-foreground';
+                            : 'font-mono text-sm text-foreground';
                 return <span className={className}>{formatStock(stock)}</span>;
             },
         },
         {
             id: 'status',
             header: () => t('product.field.status'),
-            cell: ({ row }) => {
+            cell: ({row}) => {
                 const status = row.original.status;
                 const style = STATUS_STYLES[status];
                 return (
@@ -232,10 +265,14 @@ export function getProductColumns({
         {
             id: 'type',
             header: () => t('product.field.type'),
-            cell: ({ row }) => {
+            cell: ({row}) => {
                 const type = row.original.productType;
+                const style = TYPE_STYLES[type];
                 return (
-                    <Badge variant="outline" className={TYPE_STYLES[type]}>
+                    <Badge variant="outline" className={style.bg}>
+            <span
+                className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`}
+            />
                         {t(TYPE_LABELS[type])}
                     </Badge>
                 );
@@ -245,7 +282,7 @@ export function getProductColumns({
             id: 'actions',
             header: () => <span className="sr-only">{t('common.actions')}</span>,
             size: 60,
-            cell: ({ row }) => {
+            cell: ({row}) => {
                 const product = row.original;
                 return (
                     <div className="text-right">
@@ -255,9 +292,9 @@ export function getProductColumns({
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="size-8 opacity-60 transition-opacity group-hover:opacity-100"
+                                        className="size-8 opacity-60 transition-opacity hover:opacity-100"
                                     >
-                                        <MoreHorizontal className="size-4" />
+                                        <MoreHorizontal className="size-4"/>
                                         <span className="sr-only">{t('common.actions')}</span>
                                     </Button>
                                 }
@@ -266,7 +303,7 @@ export function getProductColumns({
                                 <DropdownMenuItem
                                     render={
                                         <Link href={`/dashboard/products/${product.id}`}>
-                                            <Eye className="mr-2 size-4" />
+                                            <Eye className="mr-2 size-4"/>
                                             {t('product.action.view')}
                                         </Link>
                                     }
@@ -274,17 +311,17 @@ export function getProductColumns({
                                 <DropdownMenuItem
                                     render={
                                         <Link href={`/dashboard/products/${product.id}/edit`}>
-                                            <Edit className="mr-2 size-4" />
+                                            <Edit className="mr-2 size-4"/>
                                             {t('product.action.edit')}
                                         </Link>
                                     }
                                 />
-                                <DropdownMenuSeparator />
+                                <DropdownMenuSeparator/>
                                 <DropdownMenuItem
                                     onClick={() => onDelete(product)}
                                     className="text-destructive focus:text-destructive"
                                 >
-                                    <Trash2 className="mr-2 size-4" />
+                                    <Trash2 className="mr-2 size-4"/>
                                     {t('product.action.delete')}
                                 </DropdownMenuItem>
                             </DropdownMenuContent>

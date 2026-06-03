@@ -1,85 +1,110 @@
 'use client';
 
-import { Building2, Package, Shapes, Users } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import {
+    FolderTree,
+    Package,
+    Tag,
+    TrendingUp,
+} from 'lucide-react';
+import { ErrorState } from '@/components/feedback/error-state';
+import { LoadingScreen } from '@/components/feedback/loading-screen';
+import { InventorySummaryCard } from '@/features/dashboard/components/inventory-summary-card';
+import { LowStockCard } from '@/features/dashboard/components/low-stock-card';
+import { ProductStatusChart } from '@/features/dashboard/components/product-status-chart';
+import { QuickActionsCard } from '@/features/dashboard/components/quick-actions-card';
+import { RecentProductsCard } from '@/features/dashboard/components/recent-products-card';
+import { RecentlyUpdatedCard } from '@/features/dashboard/components/recently-updated-card';
+import { StatCard } from '@/features/dashboard/components/stat-card';
+import { TopBrandsCard } from '@/features/dashboard/components/top-brands-card';
+import { TopCategoriesCard } from '@/features/dashboard/components/top-categories-card';
+import { WelcomeHeader } from '@/features/dashboard/components/welcome-header';
+import { useDashboardStats } from '@/features/dashboard/use-dashboard';
 import { useI18n } from '@/lib/i18n';
-import { useAuthStore } from '@/stores/auth-store';
-import React from "react";
-
-interface StatCardProps {
-  label: string;
-  value: string | number;
-  icon: React.ComponentType<{ className?: string }>;
-  accent: string;
-}
-
-function StatCard({ label, value, icon: Icon, accent }: StatCardProps) {
-  return (
-      <Card>
-        <CardContent className="flex items-center gap-4 p-6">
-          <div
-              className={`flex size-12 items-center justify-center rounded-lg ${accent}`}
-          >
-            <Icon className="size-6" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <p className="text-2xl font-bold">{value}</p>
-          </div>
-        </CardContent>
-      </Card>
-  );
-}
 
 export default function DashboardHomePage() {
-  const user = useAuthStore((s) => s.user);
-  const { t } = useI18n();
+    const { t } = useI18n();
+    const { data: stats, isLoading, isError, refetch } = useDashboardStats();
 
-  return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {t('dashboard.welcome')}, {user?.fullName}!
-          </h1>
-          <p className="mt-1 text-muted-foreground">{t('dashboard.overview')}</p>
+    if (isLoading) return <LoadingScreen variant="page" />;
+
+    if (isError || !stats) {
+        return (
+            <ErrorState
+                title={t('dashboard.errorTitle')}
+                message={t('dashboard.errorMessage')}
+                onRetry={() => void refetch()}
+            />
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            <WelcomeHeader />
+
+            {/* Top row — 4 stat cards */}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <StatCard
+                    title={t('dashboard.stats.products')}
+                    value={stats.products.total}
+                    icon={Package}
+                    accent="pink"
+                    hint={t('dashboard.stats.productsHint')
+                        .replace('{active}', String(stats.products.active))
+                        .replace('{draft}', String(stats.products.draft))}
+                />
+                <StatCard
+                    title={t('dashboard.stats.brands')}
+                    value={stats.brands.total}
+                    icon={Tag}
+                    accent="blue"
+                    hint={t('dashboard.stats.brandsHint').replace(
+                        '{active}',
+                        String(stats.brands.active),
+                    )}
+                />
+                <StatCard
+                    title={t('dashboard.stats.categories')}
+                    value={stats.categories.total}
+                    icon={FolderTree}
+                    accent="amber"
+                />
+                <StatCard
+                    title={t('dashboard.stats.stockUnits')}
+                    value={stats.variants.totalStockUnits}
+                    icon={TrendingUp}
+                    accent="emerald"
+                    hint={t('dashboard.stats.stockHint')
+                        .replace('{low}', String(stats.variants.lowStockCount))
+                        .replace('{out}', String(stats.variants.outOfStockCount))}
+                />
+            </div>
+
+            {/* Middle row 1 — recent products + status chart */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div className="lg:col-span-2">
+                    <RecentProductsCard products={stats.recentProducts} />
+                </div>
+                <div>
+                    <ProductStatusChart data={stats.products} />
+                </div>
+            </div>
+
+            {/* Middle row 2 — top brands + top categories + inventory summary */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <TopBrandsCard brands={stats.topBrands} />
+                <TopCategoriesCard categories={stats.topCategories} />
+                <InventorySummaryCard data={stats.inventory} />
+            </div>
+
+            {/* Bottom row — recently updated + low stock + quick actions */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <RecentlyUpdatedCard products={stats.recentlyUpdated} />
+                <LowStockCard
+                    variants={stats.lowStockVariants}
+                    outOfStockCount={stats.variants.outOfStockCount}
+                />
+                <QuickActionsCard />
+            </div>
         </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-              label={t('dashboard.totalProducts')}
-              value="—"
-              icon={Package}
-              accent="bg-pink-100 text-pink-600 dark:bg-pink-500/15 dark:text-pink-300"
-          />
-          <StatCard
-              label={t('dashboard.totalCategories')}
-              value="—"
-              icon={Shapes}
-              accent="bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300"
-          />
-          <StatCard
-              label={t('dashboard.totalUsers')}
-              value="—"
-              icon={Users}
-              accent="bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300"
-          />
-          <StatCard
-              label={t('dashboard.totalBranches')}
-              value="—"
-              icon={Building2}
-              accent="bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300"
-          />
-        </div>
-
-        <Card>
-          <CardContent className="p-6">
-            <h2 className="mb-2 text-lg font-semibold">Getting started</h2>
-            <p className="text-sm text-muted-foreground">
-              Use the sidebar to navigate. In the next chunk we&apos;ll wire up
-              real data from your APIs.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-  );
+    );
 }

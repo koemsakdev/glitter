@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import React from 'react';
+import React, {ReactNode, useEffect, useRef, useState} from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,12 @@ import { ProductFormPricing } from './product-form-pricing';
 import { ProductFormStatus } from './product-form-status';
 import { ProductImageUploader } from './product-image-uploader';
 import { ProductVariantsSection } from './product-variants-section';
+
+import { useProductBadges } from '@/features/product-badges/use-product-badges';
+import { productBadgeApi } from '@/features/product-badges/product-badge-api';
+import { ProductBadgesSection } from './product-badges-section';
+import type { BadgeEditorState, BadgeSlot } from '@/types/product';
+import { useQueryClient } from '@tanstack/react-query';
 
 const formSchema = z.object({
     categoryId: z.string().uuid('product.validation.categoryRequired'),
@@ -80,13 +86,15 @@ type SubmitStep =
     | 'idle'
     | 'savingProduct'
     | 'savingImages'
-    | 'savingVariants';
+    | 'savingVariants'
+    | 'savingBadges';
 
 export function ProductForm({ product, title, subtitle }: ProductFormProps) {
     const { t } = useI18n();
     const router = useRouter();
     const { toast } = useToast();
     const isEditMode = Boolean(product);
+    const queryClient = useQueryClient();
 
     const createMutation = useCreateProduct();
     const updateMutation = useUpdateProduct();
@@ -96,23 +104,31 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
     const { data: serverVariants } = useProductVariants(product?.id);
 
     // ---- Local editor state (committed only on submit) ----
-    const [imageState, setImageState] = React.useState<ImageEditorState>({
+    const [imageState, setImageState] = useState<ImageEditorState>({
         items: [],
         deletedIds: [],
     });
-    const [variantState, setVariantState] = React.useState<VariantEditorState>({
+    const [variantState, setVariantState] = useState<VariantEditorState>({
         rows: [],
         deletedIds: [],
     });
-    const [hasVariants, setHasVariants] = React.useState(false);
-    const [singleStock, setSingleStock] = React.useState(0);
 
-    // Track whether we've seeded local state from server (so edits aren't clobbered)
-    const seededImages = React.useRef(false);
-    const seededVariants = React.useRef(false);
+    const [badgeState, setBadgeState] = useState<BadgeEditorState>({
+        slots: [],
+        deletedIds: [],
+    });
+    const seededBadges = useRef(false);
+
+    const { data: serverBadges } = useProductBadges(product?.id);
+    const [hasVariants, setHasVariants] = useState(false);
+    const [singleStock, setSingleStock] = useState(0);
+
+    // Track whether we've seeded a local state from a server (so edits aren't clobbered)
+    const seededImages = useRef(false);
+    const seededVariants = useRef(false);
 
     // Seed image state once when server images arrive (edit mode)
-    React.useEffect(() => {
+    useEffect(() => {
         if (isEditMode && serverImages && !seededImages.current) {
             seededImages.current = true;
             const items: ImageItem[] = serverImages.map((img) => ({
@@ -126,11 +142,24 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [serverImages]);
 
+    useEffect(() => {
+        if (isEditMode && serverBadges && !seededBadges.current) {
+            seededBadges.current = true;
+            const slots: BadgeSlot[] = serverBadges.map((b) => ({
+                id: b.id,
+                isExisting: true,
+                badgeType: b.badgeType,
+            }));
+            setBadgeState({ slots, deletedIds: [] });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [serverBadges]);
+
     // Seed variant state once when server variants arrive (edit mode)
-    React.useEffect(() => {
+    useEffect(() => {
         if (isEditMode && serverVariants && !seededVariants.current) {
             seededVariants.current = true;
-            // Detect single-variant (only one variant with no size/color = auto-default)
+            // Detect a single-variant (only one variant with no size/color = auto-default)
             const isOnlyDefault =
                 serverVariants.length === 1 &&
                 !serverVariants[0].size &&
@@ -158,7 +187,7 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [serverVariants]);
 
-    const [step, setStep] = React.useState<SubmitStep>('idle');
+    const [step, setStep] = useState<SubmitStep>('idle');
     const isPending =
         createMutation.isPending || updateMutation.isPending || step !== 'idle';
 
@@ -254,6 +283,21 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
             if (serverId) {
                 await productImageApi.setPrimary(serverId);
             }
+        }
+    }
+
+    async function commitBadges(productId: string) {
+        // Delete removed badges
+        for (const id of badgeState.deletedIds) {
+            await productBadgeApi.delete(id);
+        }
+        // Create new badges
+        const newSlots = badgeState.slots.filter((s) => !s.isExisting);
+        for (const slot of newSlots) {
+            await productBadgeApi.create({
+                productId,
+                badgeType: slot.badgeType,
+            });
         }
     }
 
@@ -371,10 +415,25 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
             setStep('savingVariants');
             await commitVariants(saved.id);
 
-            // Cleanup object URLs
+            // STEP 4 — badges
+            const hasBadgeWork =
+                badgeState.deletedIds.length > 0 ||
+                badgeState.slots.some((s) => !s.isExisting);
+            if (hasBadgeWork) {
+                setStep('savingBadges');
+                await commitBadges(saved.id);
+            }
+
+            // Clean up object URLs
             imageState.items.forEach((i) => {
                 if (i.kind === 'new') URL.revokeObjectURL(i.previewUrl);
             });
+
+            // Invalidate everything related to this product so the detail page shows fresh data
+            await queryClient.invalidateQueries({ queryKey: ['products'] });
+            await queryClient.invalidateQueries({ queryKey: ['product-images', saved.id] });
+            await queryClient.invalidateQueries({ queryKey: ['product-variants', saved.id] });
+            await queryClient.invalidateQueries({ queryKey: ['product-badges', saved.id] });
 
             toast({
                 title: product
@@ -398,6 +457,7 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
         if (step === 'savingProduct') return t('product.save.savingProduct');
         if (step === 'savingImages') return t('product.save.savingImages');
         if (step === 'savingVariants') return t('product.save.savingVariants');
+        if (step === 'savingBadges') return t('product.save.savingBadges');
         return isEditMode ? t('product.edit.submit') : t('product.create.submit');
     }
 
@@ -497,6 +557,13 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                     >
                         <ProductFormOrganization control={form.control} />
                     </FormSection>
+
+                    <FormSection title={t('product.form.badges')}>
+                        <ProductBadgesSection
+                            state={badgeState}
+                            onChange={setBadgeState}
+                        />
+                    </FormSection>
                 </div>
             </div>
         </form>
@@ -510,7 +577,7 @@ function FormSection({
                      }: {
     title: string;
     description?: string;
-    children: React.ReactNode;
+    children: ReactNode;
 }) {
     return (
         <div className="rounded-lg border bg-card">

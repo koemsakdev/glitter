@@ -1,3 +1,5 @@
+import type { BadgeType } from './product-badge';
+
 export type ProductType = 'standard' | 'featured' | 'limited' | 'exclusive';
 
 export type ProductStatus =
@@ -205,5 +207,20 @@ export interface VariantRow {
 export interface VariantEditorState {
     rows: VariantRow[];
     /** Server variant ids the user removed (existing variants to DELETE on save). */
+    deletedIds: string[];
+}
+
+/** A single badge slot in the editor — existing (has server id) or pending new. */
+export interface BadgeSlot {
+    /** Server id for existing, "new-{type}" for pending. */
+    id: string;
+    isExisting: boolean;
+    badgeType: BadgeType;
+}
+
+/** Full local badge editor state, committed on submit. */
+export interface BadgeEditorState {
+    slots: BadgeSlot[];
+    /** Server badge ids the user removed. */
     deletedIds: string[];
 }

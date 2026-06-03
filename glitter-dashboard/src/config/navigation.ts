@@ -1,17 +1,15 @@
 import {
-    Award,
     Boxes,
     Building2,
-    Image as ImageIcon,
+    Hexagon,
     LayoutDashboard,
     MapPin,
     Package,
-    Palette,
     Settings,
     Shapes,
     UserCog,
     Users,
-    type LucideIcon, Hexagon,
+    type LucideIcon,
 } from 'lucide-react';
 import type { TranslationKey } from '@/lib/i18n';
 import type { UserRole } from '@/types/api';
@@ -21,19 +19,16 @@ export interface NavItem {
     labelKey: TranslationKey;
     icon: LucideIcon;
     roles: UserRole[];
+    /** Mark as "Coming soon" — renders disabled with a Soon pill. */
+    comingSoon?: boolean;
 }
 
 export interface NavGroup {
-    labelKey: TranslationKey | null; // null = no group label (e.g., dashboard home)
+    labelKey: TranslationKey | null;
     items: NavItem[];
 }
 
-const ALL_STAFF: UserRole[] = [
-    'cashier',
-    'manager',
-    'admin',
-    'super_admin',
-];
+const ALL_STAFF: UserRole[] = ['cashier', 'manager', 'admin', 'super_admin'];
 const MANAGER_PLUS: UserRole[] = ['manager', 'admin', 'super_admin'];
 const ADMIN_ONLY: UserRole[] = ['admin', 'super_admin'];
 const SUPER_ONLY: UserRole[] = ['super_admin'];
@@ -71,24 +66,8 @@ export const navigation: NavGroup[] = [
                 icon: Hexagon,
                 roles: MANAGER_PLUS,
             },
-            {
-                href: '/dashboard/product-images',
-                labelKey: 'nav.productImages',
-                icon: ImageIcon,
-                roles: MANAGER_PLUS,
-            },
-            {
-                href: '/dashboard/product-variants',
-                labelKey: 'nav.productVariants',
-                icon: Palette,
-                roles: MANAGER_PLUS,
-            },
-            {
-                href: '/dashboard/product-badges',
-                labelKey: 'nav.productBadges',
-                icon: Award,
-                roles: MANAGER_PLUS,
-            },
+            // Removed: product-images, product-variants, product-badges
+            // These are sub-features of Products, edited inline on the product page.
         ],
     },
     {
@@ -99,30 +78,35 @@ export const navigation: NavGroup[] = [
                 labelKey: 'nav.branches',
                 icon: Building2,
                 roles: ADMIN_ONLY,
+                comingSoon: true,
             },
             {
                 href: '/dashboard/inventory',
                 labelKey: 'nav.inventory',
                 icon: Boxes,
                 roles: ALL_STAFF,
+                comingSoon: true,
             },
             {
                 href: '/dashboard/staff',
                 labelKey: 'nav.staff',
                 icon: UserCog,
                 roles: MANAGER_PLUS,
+                comingSoon: true,
             },
             {
                 href: '/dashboard/users',
                 labelKey: 'nav.users',
                 icon: Users,
                 roles: ADMIN_ONLY,
+                comingSoon: true,
             },
             {
                 href: '/dashboard/addresses',
                 labelKey: 'nav.addresses',
                 icon: MapPin,
                 roles: ADMIN_ONLY,
+                comingSoon: true,
             },
         ],
     },
@@ -134,6 +118,7 @@ export const navigation: NavGroup[] = [
                 labelKey: 'nav.appSettings',
                 icon: Settings,
                 roles: SUPER_ONLY,
+                comingSoon: true,
             },
         ],
     },

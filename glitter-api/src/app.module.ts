@@ -43,7 +43,8 @@ import { ProductsModule } from './products/product.module';
 import { StaffModule } from './staff/staff.module';
 import { UsersModule } from './users/user.module';
 import { SeedModule } from './seed/seed.module';
-import { AiModule } from "./ai/ai.module";
+import { AiModule } from './ai/ai.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { AiModule } from "./ai/ai.module";
     AddressesModule,
     SeedModule,
     AiModule,
+    DashboardModule,
   ],
   providers: [
     {
