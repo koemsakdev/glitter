@@ -15,6 +15,7 @@ import {
   BrandListResponse,
   BrandResponse,
 } from './types/brand-response.type';
+import { ImageOptimizationService } from '../common/services/image-optimization.service';
 
 const BRAND_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'brands');
 
@@ -23,6 +24,7 @@ export class BrandsService {
   constructor(
     @InjectRepository(BrandEntity)
     private readonly brandRepository: Repository<BrandEntity>,
+    private readonly optimizer: ImageOptimizationService,
   ) {}
 
   async create(
@@ -43,7 +45,8 @@ export class BrandsService {
 
     let logoUrl: string | null = null;
     if (logoFile) {
-      logoUrl = `/upload/brands/${logoFile.filename}`;
+      const optimizedFilename = await this.optimizer.optimize(logoFile.path);
+      logoUrl = `/upload/brands/${optimizedFilename}`;
     }
 
     const entity = this.brandRepository.create({
@@ -211,8 +214,12 @@ export class BrandsService {
 
     // Handle logo upload
     if (logoFile) {
-      if (brand.logoUrl) {
-        await this.deleteLogoFile(brand.logoUrl);
+      if (logoFile) {
+        if (brand.logoUrl) {
+          await this.deleteLogoFile(brand.logoUrl);
+        }
+        const optimizedFilename = await this.optimizer.optimize(logoFile.path);
+        brand.logoUrl = `/upload/brands/${optimizedFilename}`;
       }
       brand.logoUrl = `/upload/brands/${logoFile.filename}`;
     } else if (dto.clearLogo === true) {

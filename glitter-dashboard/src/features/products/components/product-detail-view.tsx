@@ -41,6 +41,7 @@ import type { ProductVariant } from '@/types/product';
 import { useProductBadges } from '@/features/product-badges/use-product-badges';
 import { ProductBadgeDisplay } from './product-badge-display';
 import { resolveBadgeDisplay, type ProductBadge } from '@/types/product-badge';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 interface ProductDetailViewProps {
     id: string;
@@ -70,6 +71,8 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
     const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
     const deleteModal = useDeleteProductModal();
 
+    const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
     if (isLoading) {
         return <LoadingScreen variant="page" />;
     }
@@ -86,6 +89,10 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
 
     const primaryName = language === 'km' ? product.nameKm : product.nameEn;
     const secondaryName = language === 'km' ? product.nameEn : product.nameKm;
+    // Hide the secondary name when it matches the primary (your test data case)
+    const showSecondary =
+        secondaryName.trim() !== '' &&
+        secondaryName.trim().toLowerCase() !== primaryName.trim().toLowerCase();
 
     const brand = brands?.find((b) => b.id === product.brandId);
     const category = categories?.find((c) => c.id === product.categoryId);
@@ -95,7 +102,6 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
             : category.nameEn
         : '—';
 
-    // Primary image (or fallback to first)
     const primaryImage = images.find((img) => img.imageType === 'primary');
     const heroImage = primaryImage ?? images[0] ?? null;
     const heroImageUrl = heroImage ? getFileUrl(heroImage.imageUrl) : null;
@@ -126,28 +132,28 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                 />
             </div>
 
-            {/* Hero — large image left, title/badges/actions right */}
+            {/* Hero — larger image left, title/badges/actions right */}
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-                {/* Large image */}
-                <div className="flex size-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/60 bg-muted/40 ring-1 ring-pink-200/30 dark:ring-pink-400/15 sm:size-40">
+                {/* Bigger hero image */}
+                <div className="flex aspect-square w-full max-w-60 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/60 bg-muted/40 ring-1 ring-pink-200/30 dark:ring-pink-400/15 sm:w-56 md:w-64">
                     {heroImageUrl ? (
                         <Image
                             src={heroImageUrl}
                             alt={primaryName}
-                            width={160}
-                            height={160}
+                            width={256}
+                            height={256}
                             className="size-full object-cover"
                             unoptimized
                         />
                     ) : (
-                        <ImageIcon className="size-10 text-muted-foreground/40" />
+                        <ImageIcon className="size-12 text-muted-foreground/40" />
                     )}
                 </div>
 
                 {/* Title + badges + actions */}
                 <div className="flex flex-1 flex-col gap-3 sm:gap-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-3">
                                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
                                     {primaryName}
@@ -155,16 +161,18 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                                 {badges && <ProductBadgeDisplay badges={badges} />}
                             </div>
 
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                {secondaryName}
-                            </p>
+                            {showSecondary && (
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    {secondaryName}
+                                </p>
+                            )}
+
                             <div className="mt-3 flex flex-wrap items-center gap-2">
                                 <ProductStatusBadge status={product.status} />
                                 <ProductTypeBadge type={product.productType} />
-                                <span className="text-sm text-muted-foreground">·</span>
                                 <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-                                  {product.sku}
-                                </span>
+                  {product.sku}
+                </span>
                             </div>
                         </div>
 
@@ -192,13 +200,13 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
 
                     {/* Price row — prominent */}
                     <div className="flex items-baseline gap-3">
-                        <span className="text-2xl font-bold text-pink-600 dark:text-pink-300">
-                          {formatPrice(product.price)}
-                        </span>
+            <span className="text-3xl font-bold text-pink-600 dark:text-pink-300">
+              {formatPrice(product.price)}
+            </span>
                         {hasDiscount && (
                             <span className="text-base text-muted-foreground line-through">
-                            {formatPrice(product.originalPrice)}
-                          </span>
+                {formatPrice(product.originalPrice)}
+              </span>
                         )}
                     </div>
                 </div>
@@ -228,7 +236,11 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                                 </p>
                             </div>
                         ) : (
-                            <ImageGallery images={images} altName={primaryName} />
+                            <ImageGallery
+                                images={images}
+                                altName={primaryName}
+                                onImageClick={(index) => setLightboxIndex(index)}
+                            />
                         )}
                     </DetailSection>
 
@@ -312,7 +324,7 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                         )}
                     </DetailSection>
 
-                    {/* Badges section */}
+                    {/* Badges */}
                     <DetailSection
                         title={t('product.detail.badges')}
                         description={
@@ -338,10 +350,10 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                 </div>
 
                 {/* Sidebar (right, 1/3) */}
-                <div className="space-y-6">
+                <div className="space-y-4">
                     {/* Inventory */}
                     <DetailSection title={t('product.detail.inventory')}>
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                             <DetailField label={t('product.field.stock')}>
                                 {(() => {
                                     const stock = product.totalStock;
@@ -360,9 +372,7 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                                         );
                                     }
                                     return (
-                                        <span className="font-semibold">
-                      {formatStock(stock)}
-                    </span>
+                                        <span className="font-semibold">{formatStock(stock)}</span>
                                     );
                                 })()}
                             </DetailField>
@@ -374,7 +384,7 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
 
                     {/* Organization */}
                     <DetailSection title={t('product.detail.organization')}>
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                             <DetailField label={t('product.field.brand')}>
                                 {brand?.name ?? '—'}
                             </DetailField>
@@ -382,7 +392,7 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                                 {categoryName}
                             </DetailField>
                             <DetailField label={t('product.field.slug')}>
-                <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs">
+                <span className="inline-block whitespace-nowrap rounded-md bg-muted px-2 py-0.5 font-mono text-xs">
                   {product.slug}
                 </span>
                             </DetailField>
@@ -391,7 +401,7 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
 
                     {/* Ratings */}
                     <DetailSection title={t('product.detail.reviews')}>
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                             <DetailField label={t('product.field.rating')}>
                 <span className="font-semibold">
                   {product.averageRating.toFixed(1)}
@@ -406,7 +416,7 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
 
                     {/* Metadata */}
                     <DetailSection title={t('product.detail.metadata')}>
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                             <DetailField label={t('product.detail.created')}>
                                 {formatDate(product.createdAt)}
                             </DetailField>
@@ -418,6 +428,16 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                 </div>
             </div>
 
+            <ImageLightbox
+                images={images.map((img) => ({
+                    src: getFileUrl(img.imageUrl) ?? '',
+                    alt: img.imageAltTextEn ?? primaryName,
+                    isPrimary: img.imageType === 'primary',
+                }))}
+                initialIndex={lightboxIndex}
+                onClose={() => setLightboxIndex(null)}
+            />
+
             <DeleteProductDialog
                 product={deletingProduct}
                 redirectTo="/dashboard/products"
@@ -428,28 +448,33 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
 }
 
 /**
- * Image gallery — primary image gets a special border + star icon.
+ * Image gallery, with zoom on hovers.
  */
 function ImageGallery({
   images,
   altName,
+  onImageClick,
 }: {
     images: ProductImage[];
     altName: string;
+    onImageClick: (index: number) => void;
 }) {
     return (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {images.map((image) => {
+            {images.map((image, idx) => {
                 const url = getFileUrl(image.imageUrl) ?? '';
                 const isPrimary = image.imageType === 'primary';
                 return (
-                    <div
+                    <button
                         key={image.id}
-                        className={`group relative aspect-square overflow-hidden rounded-lg border-2 bg-muted/30 ${
+                        type="button"
+                        onClick={() => onImageClick(idx)}
+                        className={`group relative aspect-square overflow-hidden rounded-lg border-2 bg-muted/30 transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 ${
                             isPrimary
                                 ? 'border-pink-400 ring-2 ring-pink-200 dark:border-pink-500 dark:ring-pink-500/30'
                                 : 'border-border/60'
                         }`}
+                        aria-label={`View ${image.imageAltTextEn ?? altName} larger`}
                     >
                         <Image
                             src={url}
@@ -464,13 +489,18 @@ function ImageGallery({
                                 <span>Primary</span>
                             </div>
                         )}
-                    </div>
+                        {/* Subtle zoom hint on hover */}
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/30 group-hover:opacity-100">
+              <span className="rounded-full bg-white/90 px-2 py-1 text-xs font-medium text-zinc-800 shadow-md">
+                Click to view
+              </span>
+                        </div>
+                    </button>
                 );
             })}
         </div>
     );
 }
-
 /**
  * Variant table — shows all sizes, colors, SKUs, stock, and effective prices.
  */
@@ -521,7 +551,7 @@ function VariantTable({ variants }: { variants: ProductVariant[] }) {
                             )}
                         </td>
                         <td className="px-3 py-2.5">
-                <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
+                <span className="inline-block whitespace-nowrap rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
                   {v.variantSku}
                 </span>
                         </td>
@@ -562,9 +592,7 @@ function VariantStockCell({ stock }: { stock: number }) {
       </span>
         );
     }
-    return (
-        <span className="font-mono text-sm text-foreground">{stock}</span>
-    );
+    return <span className="font-mono text-sm text-foreground">{stock}</span>;
 }
 
 /**
@@ -617,19 +645,28 @@ function ProductStatusBadge({ status }: { status: ProductStatus }) {
 }
 
 /**
- * Type badge — outline style.
+ * Type badge — outline style with dot (matches a status pattern).
  */
 function ProductTypeBadge({ type }: { type: ProductType }) {
     const { t } = useI18n();
 
-    const styles: Record<ProductType, string> = {
-        standard: 'border-border bg-muted/50 text-muted-foreground',
-        featured:
-            'border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-800 dark:bg-pink-500/10 dark:text-pink-300',
-        limited:
-            'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-500/10 dark:text-amber-300',
-        exclusive:
-            'border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-500/10 dark:text-purple-300',
+    const styles: Record<ProductType, { bg: string; dot: string }> = {
+        standard: {
+            bg: 'border-border bg-muted/50 text-muted-foreground',
+            dot: 'bg-muted-foreground/60',
+        },
+        featured: {
+            bg: 'border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-800 dark:bg-pink-500/10 dark:text-pink-300',
+            dot: 'bg-pink-500 dark:bg-pink-400',
+        },
+        limited: {
+            bg: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-500/10 dark:text-amber-300',
+            dot: 'bg-amber-500 dark:bg-amber-400',
+        },
+        exclusive: {
+            bg: 'border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-500/10 dark:text-purple-300',
+            dot: 'bg-purple-500 dark:bg-purple-400',
+        },
     };
 
     const labels: Record<ProductType, string> = {
@@ -639,15 +676,20 @@ function ProductTypeBadge({ type }: { type: ProductType }) {
         exclusive: t('product.type.exclusive'),
     };
 
+    const style = styles[type];
+
     return (
-        <Badge variant="outline" className={styles[type]}>
+        <Badge variant="outline" className={style.bg}>
+      <span
+          className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`}
+      />
             {labels[type]}
         </Badge>
     );
 }
 
 /**
- * Detailed badges list — shows each badge with active state and any custom config.
+ * Detailed badges list — shows each badge with an active state and any custom config.
  */
 function BadgesDetailList({ badges }: { badges: ProductBadge[] }) {
     const { t, language } = useI18n();
@@ -677,12 +719,12 @@ function BadgesDetailList({ badges }: { badges: ProductBadge[] }) {
                     return (
                         <tr key={badge.id} className="bg-card hover:bg-muted/20">
                             <td className="px-3 py-2.5">
-                                <span
-                                    className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-white shadow-sm"
-                                    style={{ backgroundColor: color }}
-                                >
-                                    {label}
-                                </span>
+                  <span
+                      className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-white shadow-sm"
+                      style={{ backgroundColor: color }}
+                  >
+                    {label}
+                  </span>
                             </td>
                             <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">
                                 {badge.badgeType}
@@ -690,14 +732,14 @@ function BadgesDetailList({ badges }: { badges: ProductBadge[] }) {
                             <td className="px-3 py-2.5">
                                 {badge.isActive ? (
                                     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                                        <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
+                      <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
                                         {t('product.badges.active')}
-                                    </span>
+                    </span>
                                 ) : (
                                     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                                        <span className="inline-block size-1.5 rounded-full bg-muted-foreground/40" />
+                      <span className="inline-block size-1.5 rounded-full bg-muted-foreground/40" />
                                         {t('product.badges.inactive')}
-                                    </span>
+                    </span>
                                 )}
                             </td>
                             <td className="px-3 py-2.5 text-xs text-muted-foreground">

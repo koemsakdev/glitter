@@ -181,9 +181,10 @@ export function getProductColumns({
             id: 'sku',
             header: () => t('product.field.sku'),
             cell: ({row}) => (
-                <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-          {row.original.sku}
-        </span>
+                <span
+                    className="inline-block whitespace-nowrap rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
+                  {row.original.sku}
+                </span>
             ),
         },
         {

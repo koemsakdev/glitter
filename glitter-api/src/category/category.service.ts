@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import { CategoryEntity, type CategoryType } from './entities/category.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { ImageOptimizationService } from '../common/services/image-optimization.service';
 
 const CATEGORY_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'categories');
 
@@ -43,6 +44,7 @@ export class CategoriesService {
   constructor(
     @InjectRepository(CategoryEntity)
     private readonly categoryRepository: Repository<CategoryEntity>,
+    private readonly optimizer: ImageOptimizationService,
   ) {}
 
   async create(
@@ -58,7 +60,11 @@ export class CategoriesService {
       );
     }
 
-    const iconUrl = iconFile ? `/upload/categories/${iconFile.filename}` : null;
+    let iconUrl: string | null = null;
+    if (iconFile) {
+      const optimizedFilename = await this.optimizer.optimize(iconFile.path);
+      iconUrl = `/upload/categories/${optimizedFilename}`;
+    }
 
     const entity = this.categoryRepository.create({
       slug: dto.slug,
@@ -184,7 +190,8 @@ export class CategoriesService {
       if (category.iconUrl) {
         await this.deleteIconFile(category.iconUrl);
       }
-      category.iconUrl = `/upload/categories/${iconFile.filename}`;
+      const optimizedFilename = await this.optimizer.optimize(iconFile.path);
+      category.iconUrl = `/upload/categories/${optimizedFilename}`;
     } else if (dto.clearIcon === true) {
       if (category.iconUrl) {
         await this.deleteIconFile(category.iconUrl);

@@ -21,6 +21,7 @@ import {
   ProductImageListResponse,
   ProductImageResponse,
 } from './types/product-image-response.type';
+import { ImageOptimizationService } from '../common/services/image-optimization.service';
 
 const PRODUCT_IMAGE_UPLOAD_DIR = path.join(
   process.cwd(),
@@ -35,6 +36,7 @@ export class ProductImagesService {
     private readonly imageRepository: Repository<ProductImageEntity>,
     @InjectRepository(ProductEntity)
     private readonly productRepository: Repository<ProductEntity>,
+    private readonly optimizer: ImageOptimizationService,
   ) {}
 
   /**
@@ -48,12 +50,10 @@ export class ProductImagesService {
       throw new BadRequestException('Image file is required');
     }
 
-    // Validate product exists
     const product = await this.productRepository.findOne({
       where: { id: dto.productId },
     });
     if (product === null) {
-      // Clean up the uploaded file since we won't be using it
       await this.deleteFileByFilename(imageFile.filename);
       throw new BadRequestException(
         `Product with ID ${dto.productId} not found`,
@@ -62,14 +62,16 @@ export class ProductImagesService {
 
     const imageType: ImageType = dto.imageType ?? 'gallery';
 
-    // If this image is marked 'primary', demote any existing primary image to 'gallery'
     if (imageType === 'primary') {
       await this.demoteExistingPrimary(dto.productId);
     }
 
+    // Optimize: generates 3 variants, returns new filename
+    const optimizedFilename = await this.optimizer.optimize(imageFile.path);
+
     const entity = this.imageRepository.create({
       productId: dto.productId,
-      imageUrl: `/upload/products/${imageFile.filename}`,
+      imageUrl: `/upload/products/${optimizedFilename}`,
       imageAltTextEn: dto.imageAltTextEn ?? null,
       imageAltTextKm: dto.imageAltTextKm ?? null,
       imageType,
@@ -95,40 +97,41 @@ export class ProductImagesService {
       throw new BadRequestException('At least one image file is required');
     }
 
-    // Validate product exists
     const product = await this.productRepository.findOne({
       where: { id: productId },
     });
     if (product === null) {
-      // Clean up all uploaded files
       await Promise.all(
         imageFiles.map((file) => this.deleteFileByFilename(file.filename)),
       );
       throw new BadRequestException(`Product with ID ${productId} not found`);
     }
 
-    // If bulk upload includes primary type, demote existing first
     if (imageType === 'primary') {
       await this.demoteExistingPrimary(productId);
     }
 
-    // Get current max displayOrder for this product to append new images
     const lastImage = await this.imageRepository.findOne({
       where: { productId },
       order: { displayOrder: 'DESC' },
     });
     let nextOrder = lastImage ? lastImage.displayOrder + 1 : 0;
 
-    const entities = imageFiles.map((file) => {
-      const entity = this.imageRepository.create({
+    // Optimize all files in parallel — each one generates 3 variants
+    const optimizedFilenames = await Promise.all(
+      imageFiles.map((file) => this.optimizer.optimize(file.path)),
+    );
+
+    const entities = imageFiles.map((_file, idx) => {
+      const filename = optimizedFilenames[idx];
+      return this.imageRepository.create({
         productId,
-        imageUrl: `/upload/products/${file.filename}`,
+        imageUrl: `/upload/products/${filename}`,
         imageAltTextEn: null,
         imageAltTextKm: null,
         imageType,
         displayOrder: nextOrder++,
       });
-      return entity;
     });
 
     const saved = await this.imageRepository.save(entities);
@@ -140,9 +143,6 @@ export class ProductImagesService {
     };
   }
 
-  /**
-   * Find all images for a specific product (ordered by displayOrder)
-   */
   async findByProduct(productId: string): Promise<ProductImageListResponse> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
@@ -165,9 +165,6 @@ export class ProductImagesService {
     };
   }
 
-  /**
-   * Find primary image for a product
-   */
   async findPrimary(productId: string): Promise<ProductImageDetailResponse> {
     const image = await this.imageRepository.findOne({
       where: { productId, imageType: 'primary' },
@@ -204,19 +201,16 @@ export class ProductImagesService {
     const image = await this.imageRepository.findOne({ where: { id } });
 
     if (image === null) {
-      // Clean up uploaded file if any (since update failed)
       if (imageFile) {
         await this.deleteFileByFilename(imageFile.filename);
       }
       throw new NotFoundException(`Image with ID ${id} not found`);
     }
 
-    // If changing imageType to 'primary', demote existing primary
     if (dto.imageType === 'primary' && image.imageType !== 'primary') {
       await this.demoteExistingPrimary(image.productId);
     }
 
-    // Apply text field updates
     if (dto.imageAltTextEn !== undefined) {
       image.imageAltTextEn = dto.imageAltTextEn ?? null;
     }
@@ -230,12 +224,11 @@ export class ProductImagesService {
       image.displayOrder = dto.displayOrder;
     }
 
-    // Handle file replacement
+    // Handle file replacement — delete all old variants, optimize the new file
     if (imageFile) {
-      // Delete old file from disk
       await this.deleteImageFile(image.imageUrl);
-      // Set new URL
-      image.imageUrl = `/upload/products/${imageFile.filename}`;
+      const optimizedFilename = await this.optimizer.optimize(imageFile.path);
+      image.imageUrl = `/upload/products/${optimizedFilename}`;
     }
 
     const updated = await this.imageRepository.save(image);
@@ -245,9 +238,6 @@ export class ProductImagesService {
     };
   }
 
-  /**
-   * Reorder multiple images at once (drag-and-drop gallery management)
-   */
   async reorder(
     productId: string,
     dto: ReorderImagesDto,
@@ -270,12 +260,10 @@ export class ProductImagesService {
       );
     }
 
-    // Build a map for quick lookup
     const orderMap = new Map(
       dto.items.map((item) => [item.id, item.displayOrder]),
     );
 
-    // Apply new orders
     for (const image of images) {
       const newOrder = orderMap.get(image.id);
       if (newOrder !== undefined) {
@@ -285,7 +273,6 @@ export class ProductImagesService {
 
     await this.imageRepository.save(images);
 
-    // Return fresh list in new order
     return this.findByProduct(productId);
   }
 
@@ -296,15 +283,12 @@ export class ProductImagesService {
       throw new NotFoundException(`Image with ID ${id} not found`);
     }
 
-    // Delete file from disk
+    // Deletes original + medium + thumb variants
     await this.deleteImageFile(image.imageUrl);
 
     await this.imageRepository.remove(image);
   }
 
-  /**
-   * Delete all images for a product (used when deleting the product itself)
-   */
   async deleteByProduct(productId: string): Promise<void> {
     const images = await this.imageRepository.find({ where: { productId } });
 
@@ -312,7 +296,6 @@ export class ProductImagesService {
       return;
     }
 
-    // Delete all files from disk
     await Promise.all(
       images.map((image) => this.deleteImageFile(image.imageUrl)),
     );
@@ -320,10 +303,6 @@ export class ProductImagesService {
     await this.imageRepository.remove(images);
   }
 
-  /**
-   * Helper: demote any existing 'primary' image to 'gallery' for the product.
-   * Ensures only one primary image exists per product.
-   */
   private async demoteExistingPrimary(productId: string): Promise<void> {
     const existingPrimary = await this.imageRepository.findOne({
       where: { productId, imageType: 'primary' },
@@ -336,7 +315,7 @@ export class ProductImagesService {
   }
 
   /**
-   * Helper: delete image file from disk based on its URL path
+   * Delete an image's original file plus
    */
   private async deleteImageFile(imageUrl: string): Promise<void> {
     try {
@@ -351,7 +330,8 @@ export class ProductImagesService {
   }
 
   /**
-   * Helper: delete file by filename
+   * Delete a single file by filename (used for cleanup on upload errors,
+   * where the file hasn't been optimized yet — no variants to clean up).
    */
   private async deleteFileByFilename(filename: string): Promise<void> {
     try {
@@ -363,7 +343,7 @@ export class ProductImagesService {
         'code' in error &&
         error.code === 'ENOENT'
       ) {
-        return; // File already gone, that's fine
+        return;
       }
       console.error('Error deleting file:', error);
     }
