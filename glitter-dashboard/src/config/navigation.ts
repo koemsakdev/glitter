@@ -66,8 +66,6 @@ export const navigation: NavGroup[] = [
                 icon: Hexagon,
                 roles: MANAGER_PLUS,
             },
-            // Removed: product-images, product-variants, product-badges
-            // These are sub-features of Products, edited inline on the product page.
         ],
     },
     {
@@ -78,7 +76,7 @@ export const navigation: NavGroup[] = [
                 labelKey: 'nav.branches',
                 icon: Building2,
                 roles: ADMIN_ONLY,
-                comingSoon: true,
+                comingSoon: false,
             },
             {
                 href: '/dashboard/inventory',

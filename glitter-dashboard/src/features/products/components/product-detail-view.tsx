@@ -42,6 +42,7 @@ import { useProductBadges } from '@/features/product-badges/use-product-badges';
 import { ProductBadgeDisplay } from './product-badge-display';
 import { resolveBadgeDisplay, type ProductBadge } from '@/types/product-badge';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
+import { ProductAvailabilitySection } from '@/features/inventory-branch/components/product-availability-section';
 
 interface ProductDetailViewProps {
     id: string;
@@ -323,6 +324,9 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                             <VariantTable variants={variants} />
                         )}
                     </DetailSection>
+
+                    {/* NEW — Per-branch availability */}
+                    <ProductAvailabilitySection productId={product.id} />
 
                     {/* Badges */}
                     <DetailSection

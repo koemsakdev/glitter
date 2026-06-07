@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import {
   ConflictException,
   Injectable,
@@ -13,6 +12,7 @@ import { BranchEntity } from './entities/branch.entity';
 import {
   BranchResponse,
   BranchListResponse,
+  BranchDetailResponse,
 } from './types/branch-response.type';
 
 @Injectable()
@@ -22,7 +22,7 @@ export class BranchesService {
     private readonly branchRepository: Repository<BranchEntity>,
   ) {}
 
-  async create(dto: CreateBranchDto): Promise<BranchResponse> {
+  async create(dto: CreateBranchDto): Promise<BranchDetailResponse> {
     const existing = await this.branchRepository.findOne({
       where: { branchCode: dto.branchCode },
     });
@@ -55,7 +55,7 @@ export class BranchesService {
     });
 
     const saved = await this.branchRepository.save(entity);
-    return this.toResponse(saved);
+    return { data: this.toResponse(saved) };
   }
 
   async findAll(
@@ -84,17 +84,17 @@ export class BranchesService {
     };
   }
 
-  async findOne(id: string): Promise<BranchResponse> {
+  async findOne(id: string): Promise<BranchDetailResponse> {
     const branch = await this.branchRepository.findOne({ where: { id } });
 
     if (!branch) {
       throw new NotFoundException(`Branch with ID ${id} not found`);
     }
 
-    return this.toResponse(branch);
+    return { data: this.toResponse(branch) };
   }
 
-  async findByCode(branchCode: string): Promise<BranchResponse> {
+  async findByCode(branchCode: string): Promise<BranchDetailResponse> {
     const branch = await this.branchRepository.findOne({
       where: { branchCode },
     });
@@ -103,10 +103,13 @@ export class BranchesService {
       throw new NotFoundException(`Branch with code "${branchCode}" not found`);
     }
 
-    return this.toResponse(branch);
+    return { data: this.toResponse(branch) };
   }
 
-  async update(id: string, dto: UpdateBranchDto): Promise<BranchResponse> {
+  async update(
+    id: string,
+    dto: UpdateBranchDto,
+  ): Promise<BranchDetailResponse> {
     const branch = await this.branchRepository.findOne({ where: { id } });
 
     if (!branch) {
@@ -157,7 +160,7 @@ export class BranchesService {
 
     const updated = await this.branchRepository.save(branch);
 
-    return this.toResponse(updated);
+    return { data: this.toResponse(updated) };
   }
 
   async delete(id: string): Promise<void> {

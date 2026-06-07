@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { useI18n } from '@/lib/i18n';
 import { generateVariantSku } from '@/lib/sku-generator';
 import type { VariantEditorState, VariantRow } from '@/types/product';
+import { VariantStockButton } from '@/features/inventory-branch/components/variant-stock-button';
+import type { VariantStockEntry } from '@/features/inventory-branch/components/variant-stock-dialog';
 
 interface ProductVariantsSectionProps {
     productSku: string;
@@ -18,6 +20,9 @@ interface ProductVariantsSectionProps {
     onHasVariantsChange: (hasVariants: boolean) => void;
     singleStock: number;
     onSingleStockChange: (stock: number) => void;
+
+    pendingStockChanges: Map<string, VariantStockEntry[]>;
+    onStockChange: (variantId: string, entries: VariantStockEntry[]) => void;
 }
 
 export function ProductVariantsSection({
@@ -28,6 +33,8 @@ export function ProductVariantsSection({
    onHasVariantsChange,
    singleStock,
    onSingleStockChange,
+   pendingStockChanges,
+   onStockChange,
 }: ProductVariantsSectionProps) {
     const { t } = useI18n();
 
@@ -172,7 +179,7 @@ export function ProductVariantsSection({
                                 {t('product.variant.col.sku')}
                             </th>
                             <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                {t('product.variant.col.stock')}
+                                {t('product.variant.col.totalStock')}
                             </th>
                             <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                                 {t('product.variant.col.priceOverride')}
@@ -181,30 +188,36 @@ export function ProductVariantsSection({
                         </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                        {state.rows.length === 0 ? (
-                            <tr>
-                                <td
-                                    colSpan={6}
-                                    className="px-3 py-6 text-center text-sm text-muted-foreground"
-                                >
-                                    {t('product.variant.empty')}
-                                </td>
-                            </tr>
-                        ) : (
-                            state.rows.map((row) => (
-                                <VariantRowEditor
-                                    key={row.id}
-                                    row={row}
-                                    onFieldChange={(field, value) =>
-                                        handleFieldChange(row.id, field, value)
-                                    }
-                                    onColorPick={(hex, autoFill) =>
-                                        handleColorPick(row.id, hex, autoFill)
-                                    }
-                                    onRemove={() => handleRemove(row)}
-                                />
-                            ))
-                        )}
+                            {state.rows.length === 0 ? (
+                                <tr>
+                                    <td
+                                        colSpan={6}
+                                        className="px-3 py-6 text-center text-sm text-muted-foreground"
+                                    >
+                                        {t('product.variant.empty')}
+                                    </td>
+                                </tr>
+                            ) : (
+                                state.rows.map((row) => (
+                                    <VariantRowEditor
+                                        key={row.id}
+                                        row={row}
+                                        pendingStockEntries={
+                                            row.isExisting ? pendingStockChanges.get(row.id) ?? null : null
+                                        }
+                                        onFieldChange={(field, value) =>
+                                            handleFieldChange(row.id, field, value)
+                                        }
+                                        onColorPick={(hex, autoFill) =>
+                                            handleColorPick(row.id, hex, autoFill)
+                                        }
+                                        onPendingStockChange={(entries) =>
+                                            onStockChange(row.id, entries)
+                                        }
+                                        onRemove={() => void handleRemove(row)}
+                                    />
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -228,13 +241,17 @@ export function ProductVariantsSection({
 
 const VariantRowEditor = React.memo(function VariantRowEditor({
                                                                   row,
+                                                                  pendingStockEntries,
                                                                   onFieldChange,
                                                                   onColorPick,
+                                                                  onPendingStockChange,
                                                                   onRemove,
                                                               }: {
     row: VariantRow;
+    pendingStockEntries: VariantStockEntry[] | null;
     onFieldChange: (field: keyof VariantRow, value: string | number | null) => void;
     onColorPick: (hex: string, autoFillName: boolean) => void;
+    onPendingStockChange: (entries: VariantStockEntry[]) => void;
     onRemove: () => void;
 }) {
     return (
@@ -268,17 +285,25 @@ const VariantRowEditor = React.memo(function VariantRowEditor({
                 />
             </td>
             <td className="px-3 py-2">
-                <Input
-                    type="number"
-                    min={0}
-                    value={row.quantityInStock}
-                    onChange={(e) =>
-                        onFieldChange(
-                            'quantityInStock',
-                            e.target.value === '' ? 0 : Number(e.target.value),
-                        )
+                <VariantStockButton
+                    variantId={row.isExisting ? row.id : null}
+                    variantSku={row.variantSku}
+                    variantSize={row.size}
+                    variantColor={row.color}
+                    variantColorHex={row.colorHex}
+                    totalStock={row.quantityInStock}
+                    isSaved={row.isExisting}
+                    disabled={false}
+                    pendingEntries={pendingStockEntries}
+                    pendingTotal={
+                        pendingStockEntries
+                            ? pendingStockEntries.reduce(
+                                (sum, e) => sum + e.quantityAvailable,
+                                0,
+                            )
+                            : null
                     }
-                    className="h-9 w-20 rounded-md shadow-none focus-visible:outline-none focus-visible:ring-0 focus-visible:border-pink-500 dark:focus-visible:border-pink-800"
+                    onApply={onPendingStockChange}
                 />
             </td>
             <td className="px-3 py-2">

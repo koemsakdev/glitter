@@ -549,6 +549,174 @@ const translations = {
         'product.list.noMatch': 'No products match these filters',
         'product.list.noMatchHelp': 'Try changing or clearing filters to see more results.',
         'product.list.clearFilters': 'Clear filters',
+
+        // === Branch ===
+
+        // List page
+        'branch.list.title': 'Branches',
+        'branch.list.subtitle': 'Manage your store locations',
+        'branch.list.search': 'Search branches...',
+        'branch.list.empty': 'No branches yet',
+        'branch.list.emptyHelp': 'Add your first branch to get started.',
+        'branch.list.noMatch': 'No branches match your filters',
+        'branch.list.noMatchHelp': 'Try adjusting your search or status filter.',
+        'branch.list.clearFilters': 'Clear filters',
+        'branch.list.errorTitle': 'Could not load branches',
+        'branch.list.errorMessage': 'Something went wrong while loading branches.',
+
+        // Sort options
+        'branch.sort.newest': 'Newest first',
+        'branch.sort.oldest': 'Oldest first',
+        'branch.sort.nameAZ': 'Name (A → Z)',
+        'branch.sort.nameZA': 'Name (Z → A)',
+        'branch.sort.recentlyUpdated': 'Recently updated',
+
+        // Status
+        'branch.status.all': 'All',
+        'branch.status.active': 'Active',
+        'branch.status.inactive': 'Inactive',
+        'branch.status.closed': 'Closed',
+
+        // Fields
+        'branch.field.code': 'Branch code',
+        'branch.field.code.help': 'Short unique identifier (e.g., GS-PHN-TTP).',
+        'branch.field.name': 'Name',
+        'branch.field.nameEn': 'Name (English)',
+        'branch.field.nameKm': 'Name (Khmer)',
+        'branch.field.streetAddress': 'Street address',
+        'branch.field.city': 'City',
+        'branch.field.address': 'Address',
+        'branch.field.phone': 'Phone',
+        'branch.field.email': 'Email',
+        'branch.field.openingHours': 'Opening hours',
+        'branch.field.openingHours.help': 'Free-form text (e.g., "Mon-Sun: 9AM-8PM").',
+        'branch.field.latitude': 'Latitude',
+        'branch.field.longitude': 'Longitude',
+        'branch.field.status': 'Status',
+
+        // Form sections
+        'branch.form.basic': 'Basic information',
+        'branch.form.basicDescription': 'Branch code and bilingual name.',
+        'branch.form.contact': 'Contact',
+        'branch.form.contactDescription': 'Phone, email, and opening hours.',
+        'branch.form.address': 'Address',
+        'branch.form.addressDescription': 'Street address and city.',
+        'branch.form.location': 'Location on map',
+        'branch.form.locationDescription':
+            'Click on the map or drag the pin to set the branch location.',
+        'branch.form.status': 'Status',
+
+        // Actions
+        'branch.action.create': 'Create branch',
+        'branch.action.view': 'View',
+        'branch.action.edit': 'Edit',
+        'branch.action.delete': 'Delete',
+
+        // Create page
+        'branch.create.title': 'Create branch',
+        'branch.create.subtitle': 'Add a new physical store location.',
+        'branch.create.submit': 'Create branch',
+        'branch.create.success': 'Branch created successfully.',
+
+        // Edit page
+        'branch.edit.title': 'Edit branch',
+        'branch.edit.submit': 'Save changes',
+        'branch.edit.success': 'Branch updated successfully.',
+
+        // Detail page
+        'branch.detail.location': 'Location',
+        'branch.detail.address': 'Address',
+        'branch.detail.contact': 'Contact information',
+        'branch.detail.openingHours': 'Opening hours',
+        'branch.detail.metadata': 'Metadata',
+        'branch.detail.created': 'Created',
+        'branch.detail.updated': 'Last updated',
+        'branch.detail.backToList': 'Back to branches',
+        'branch.detail.errorTitle': 'Could not load branch',
+        'branch.detail.errorMessage': 'Something went wrong while loading this branch.',
+
+        // Delete
+        'branch.delete.title': 'Delete branch?',
+        'branch.delete.message':
+            'Are you sure you want to delete "{name}"? This will also remove all inventory records at this branch. This cannot be undone.',
+        'branch.delete.confirm': 'Delete branch',
+        'branch.delete.success': 'Branch deleted.',
+
+        // Validation messages
+        'branch.validation.codeRequired': 'Branch code is required (min 2 chars).',
+        'branch.validation.codeTooLong': 'Branch code must be 20 characters or less.',
+        'branch.validation.nameEnRequired':
+            'English name is required (min 3 chars).',
+        'branch.validation.nameKmRequired': 'Khmer name is required (min 3 chars).',
+        'branch.validation.nameTooLong': 'Name must be 100 characters or less.',
+        'branch.validation.addressRequired': 'Street address is required.',
+        'branch.validation.addressTooLong':
+            'Address must be 255 characters or less.',
+        'branch.validation.cityRequired': 'City is required.',
+        'branch.validation.cityTooLong': 'City must be 100 characters or less.',
+        'branch.validation.phoneRequired': 'Phone number is required.',
+        'branch.validation.phoneTooLong': 'Phone must be 20 characters or less.',
+        'branch.validation.emailInvalid': 'Please enter a valid email address.',
+        'branch.validation.latRange': 'Latitude must be between -90 and 90.',
+        'branch.validation.lngRange': 'Longitude must be between -180 and 180.',
+        'branch.sort.label': 'Sort by',
+
+        // Product availability section
+        'product.availability.title': 'Available at branches',
+        'product.availability.subtitle': 'Per-branch stock breakdown',
+        'product.availability.summary': '{count} units available across {branches} branches',
+        'product.availability.empty': 'Not stocked at any branch yet',
+        'product.availability.emptyHelp':
+            'Add inventory at a branch from the branch page or variant editor.',
+        'product.availability.errorMessage': 'Could not load availability.',
+        'product.availability.unitsAvailable': 'units available',
+        'product.availability.reserved': 'Reserved',
+        'product.availability.damaged': 'Damaged',
+
+        // Branch inventory section
+        'branch.inventory.listTitle': 'Inventory at this branch',
+        'branch.inventory.listSubtitle': 'All products stocked at this location',
+        'branch.inventory.empty': 'No inventory yet',
+        'branch.inventory.emptyHelp':
+            'No products are stocked at this branch. Add inventory from a product variant.',
+        'branch.inventory.search': 'Search by product name or SKU...',
+        'branch.inventory.noMatch': 'No products match your search.',
+        'branch.inventory.variantCount': 'variants',
+        'branch.inventory.stats.variants': 'Variants in stock',
+        'branch.inventory.stats.available': 'Units available',
+        'branch.inventory.stats.reserved': 'Units reserved',
+        'branch.inventory.stats.damaged': 'Units damaged',
+        'branch.inventory.col.available': 'Available',
+        'branch.inventory.col.reserved': 'Reserved',
+        'branch.inventory.col.damaged': 'Damaged',
+
+        // Variant column renamed
+        'product.variant.col.totalStock': 'Total stock',
+
+        // Stock button (in variant row)
+        'variant.stock.button.manage': 'Manage stock per branch',
+        'variant.stock.button.saveFirst': 'Save the variant first to manage stock',
+
+        // Stock dialog
+        'variant.stock.dialog.title': 'Stock per branch',
+        'variant.stock.dialog.noVariantInfo': 'Variant',
+        'variant.stock.dialog.noBranches':
+            'No active branches found. Create a branch first.',
+        'variant.stock.dialog.col.branch': 'Branch',
+        'variant.stock.dialog.col.available': 'Available',
+        'variant.stock.dialog.col.reserved': 'Reserved',
+        'variant.stock.dialog.col.damaged': 'Damaged',
+        'variant.stock.dialog.totalAvailable': 'Total available across branches',
+        'variant.stock.dialog.hint':
+            'Available units are sellable. Reserved units are held for pending orders. Damaged units cannot be sold.',
+        'variant.stock.dialog.save': 'Save stock',
+        'variant.stock.dialog.saveSuccess': 'Stock saved successfully.',
+
+        'variant.stock.dialog.apply': 'Apply',
+        'variant.stock.dialog.deferredHint':
+            'Changes apply only after you save the product form. Click Cancel to discard.',
+        'variant.stock.button.pending': 'You have unsaved stock changes',
+        'product.save.savingStock': 'Saving stock changes…',
     },
     km: {
         // Login
@@ -1092,6 +1260,156 @@ const translations = {
         'product.list.noMatch': 'មិនមានផលិតផលត្រូវនឹងតម្រងទាំងនេះ',
         'product.list.noMatchHelp': 'សូមផ្លាស់ប្តូរ ឬសម្អាតតម្រងដើម្បីមើលលទ្ធផលច្រើនទៀត។',
         'product.list.clearFilters': 'សម្អាតតម្រង',
+
+        // === Branch (Khmer) ===
+
+        'branch.list.title': 'សាខា',
+        'branch.list.subtitle': 'គ្រប់គ្រងទីតាំងហាងរបស់អ្នក',
+        'branch.list.search': 'ស្វែងរកសាខា...',
+        'branch.list.empty': 'មិនមានសាខានៅឡើយ',
+        'branch.list.emptyHelp': 'បន្ថែមសាខាដំបូងរបស់អ្នកដើម្បីចាប់ផ្ដើម។',
+        'branch.list.noMatch': 'មិនមានសាខាដែលត្រូវនឹងតម្រងរបស់អ្នកទេ',
+        'branch.list.noMatchHelp': 'សាកល្បងកែតម្រូវការស្វែងរក ឬតម្រងស្ថានភាព។',
+        'branch.list.clearFilters': 'លុបតម្រងចេញ',
+        'branch.list.errorTitle': 'មិនអាចផ្ទុកសាខាបានទេ',
+        'branch.list.errorMessage': 'មានបញ្ហាក្នុងពេលផ្ទុកសាខា។',
+
+        'branch.sort.newest': 'ថ្មីបំផុតមុនគេ',
+        'branch.sort.oldest': 'ចាស់បំផុតមុនគេ',
+        'branch.sort.nameAZ': 'ឈ្មោះ (ក → អ)',
+        'branch.sort.nameZA': 'ឈ្មោះ (អ → ក)',
+        'branch.sort.recentlyUpdated': 'បានកែប្រែថ្មីៗ',
+
+        'branch.status.all': 'ទាំងអស់',
+        'branch.status.active': 'សកម្ម',
+        'branch.status.inactive': 'អសកម្ម',
+        'branch.status.closed': 'បានបិទ',
+
+        'branch.field.code': 'លេខកូដសាខា',
+        'branch.field.code.help': 'អត្តសញ្ញាណកម្មខ្លី (ឧ. GS-PHN-TTP)។',
+        'branch.field.name': 'ឈ្មោះ',
+        'branch.field.nameEn': 'ឈ្មោះ (អង់គ្លេស)',
+        'branch.field.nameKm': 'ឈ្មោះ (ខ្មែរ)',
+        'branch.field.streetAddress': 'អាសយដ្ឋានផ្លូវ',
+        'branch.field.city': 'ទីក្រុង',
+        'branch.field.address': 'អាសយដ្ឋាន',
+        'branch.field.phone': 'ទូរស័ព្ទ',
+        'branch.field.email': 'អ៊ីមែល',
+        'branch.field.openingHours': 'ម៉ោងបើក',
+        'branch.field.openingHours.help': 'អត្ថបទសេរី (ឧ. "ច័ន្ទ-អាទិត្យ: 9AM-8PM")។',
+        'branch.field.latitude': 'រយៈទទឹង',
+        'branch.field.longitude': 'រយៈបណ្ដោយ',
+        'branch.field.status': 'ស្ថានភាព',
+
+        'branch.form.basic': 'ព័ត៌មានមូលដ្ឋាន',
+        'branch.form.basicDescription': 'លេខកូដសាខា និងឈ្មោះពីរភាសា។',
+        'branch.form.contact': 'ទំនាក់ទំនង',
+        'branch.form.contactDescription': 'ទូរស័ព្ទ អ៊ីមែល និងម៉ោងបើក។',
+        'branch.form.address': 'អាសយដ្ឋាន',
+        'branch.form.addressDescription': 'អាសយដ្ឋានផ្លូវ និងទីក្រុង។',
+        'branch.form.location': 'ទីតាំងលើផែនទី',
+        'branch.form.locationDescription':
+            'ចុចលើផែនទី ឬអូសម្ជុលដើម្បីកំណត់ទីតាំងសាខា។',
+        'branch.form.status': 'ស្ថានភាព',
+
+        'branch.action.create': 'បង្កើតសាខា',
+        'branch.action.view': 'មើល',
+        'branch.action.edit': 'កែ',
+        'branch.action.delete': 'លុប',
+
+        'branch.create.title': 'បង្កើតសាខា',
+        'branch.create.subtitle': 'បន្ថែមទីតាំងហាងថ្មី។',
+        'branch.create.submit': 'បង្កើតសាខា',
+        'branch.create.success': 'បង្កើតសាខាជោគជ័យ។',
+
+        'branch.edit.title': 'កែសាខា',
+        'branch.edit.submit': 'រក្សាទុកការផ្លាស់ប្ដូរ',
+        'branch.edit.success': 'កែសាខាជោគជ័យ។',
+
+        'branch.detail.location': 'ទីតាំង',
+        'branch.detail.address': 'អាសយដ្ឋាន',
+        'branch.detail.contact': 'ព័ត៌មានទំនាក់ទំនង',
+        'branch.detail.openingHours': 'ម៉ោងបើក',
+        'branch.detail.metadata': 'ទិន្នន័យបន្ថែម',
+        'branch.detail.created': 'បានបង្កើត',
+        'branch.detail.updated': 'បានកែប្រែចុងក្រោយ',
+        'branch.detail.backToList': 'ត្រឡប់ទៅសាខា',
+        'branch.detail.errorTitle': 'មិនអាចផ្ទុកសាខាបានទេ',
+        'branch.detail.errorMessage': 'មានបញ្ហាក្នុងពេលផ្ទុកសាខានេះ។',
+
+        'branch.delete.title': 'លុបសាខា?',
+        'branch.delete.message':
+            'តើអ្នកប្រាកដថាចង់លុប "{name}" មែនទេ? វានឹងលុបកំណត់ត្រាស្តុកនៅសាខានេះផងដែរ។ មិនអាចត្រឡប់វិញបានទេ។',
+        'branch.delete.confirm': 'លុបសាខា',
+        'branch.delete.success': 'លុបសាខាហើយ។',
+
+        'branch.validation.codeRequired': 'លេខកូដសាខាត្រូវការ (យ៉ាងតិច 2 តួ)។',
+        'branch.validation.codeTooLong': 'លេខកូដសាខាត្រូវតែតិចជាង 20 តួ។',
+        'branch.validation.nameEnRequired': 'ឈ្មោះអង់គ្លេសត្រូវការ (យ៉ាងតិច 3 តួ)។',
+        'branch.validation.nameKmRequired': 'ឈ្មោះខ្មែរត្រូវការ (យ៉ាងតិច 3 តួ)។',
+        'branch.validation.nameTooLong': 'ឈ្មោះត្រូវតែតិចជាង 100 តួ។',
+        'branch.validation.addressRequired': 'អាសយដ្ឋានផ្លូវត្រូវការ។',
+        'branch.validation.addressTooLong': 'អាសយដ្ឋានត្រូវតែតិចជាង 255 តួ។',
+        'branch.validation.cityRequired': 'ទីក្រុងត្រូវការ។',
+        'branch.validation.cityTooLong': 'ទីក្រុងត្រូវតែតិចជាង 100 តួ។',
+        'branch.validation.phoneRequired': 'លេខទូរស័ព្ទត្រូវការ។',
+        'branch.validation.phoneTooLong': 'ទូរស័ព្ទត្រូវតែតិចជាង 20 តួ។',
+        'branch.validation.emailInvalid': 'សូមបញ្ចូលអ៊ីមែលត្រឹមត្រូវ។',
+        'branch.validation.latRange': 'រយៈទទឹងត្រូវនៅចន្លោះ -90 និង 90។',
+        'branch.validation.lngRange': 'រយៈបណ្ដោយត្រូវនៅចន្លោះ -180 និង 180។',
+        'branch.sort.label': 'តម្រៀបតាម',
+
+        'product.availability.title': 'មានស្តុកនៅសាខា',
+        'product.availability.subtitle': 'ស្តុកតាមសាខានីមួយៗ',
+        'product.availability.summary': '{count} ឯកតាមាននៅសាខា {branches}',
+        'product.availability.empty': 'មិនទាន់មានស្តុកនៅសាខាណាមួយទេ',
+        'product.availability.emptyHelp':
+            'បន្ថែមស្តុកនៅសាខាពីទំព័រសាខា ឬកម្មវិធីកែលម្អបំរែបំរួល។',
+        'product.availability.errorMessage': 'មិនអាចផ្ទុកស្ថានភាពស្តុកបាន។',
+        'product.availability.unitsAvailable': 'ឯកតា',
+        'product.availability.reserved': 'បានកក់',
+        'product.availability.damaged': 'ខូចខាត',
+
+        'branch.inventory.listTitle': 'ស្តុកនៅសាខានេះ',
+        'branch.inventory.listSubtitle': 'ផលិតផលទាំងអស់ដែលមាននៅទីតាំងនេះ',
+        'branch.inventory.empty': 'មិនទាន់មានស្តុក',
+        'branch.inventory.emptyHelp':
+            'មិនមានផលិតផលណាមួយស្តុកនៅសាខានេះទេ។ បន្ថែមស្តុកពីបំរែបំរួលផលិតផល។',
+        'branch.inventory.search': 'ស្វែងរកតាមឈ្មោះផលិតផល ឬ SKU...',
+        'branch.inventory.noMatch': 'មិនមានផលិតផលត្រូវនឹងការស្វែងរករបស់អ្នកទេ។',
+        'branch.inventory.variantCount': 'បំរែបំរួល',
+        'branch.inventory.stats.variants': 'បំរែបំរួលក្នុងស្តុក',
+        'branch.inventory.stats.available': 'ឯកតាមាន',
+        'branch.inventory.stats.reserved': 'ឯកតាបានកក់',
+        'branch.inventory.stats.damaged': 'ឯកតាខូចខាត',
+        'branch.inventory.col.available': 'មាន',
+        'branch.inventory.col.reserved': 'បានកក់',
+        'branch.inventory.col.damaged': 'ខូចខាត',
+
+        'product.variant.col.totalStock': 'ស្តុកសរុប',
+
+        'variant.stock.button.manage': 'គ្រប់គ្រងស្តុកតាមសាខា',
+        'variant.stock.button.saveFirst': 'រក្សាទុកបំរែបំរួលជាមុនសិន ដើម្បីគ្រប់គ្រងស្តុក',
+
+        'variant.stock.dialog.title': 'ស្តុកតាមសាខា',
+        'variant.stock.dialog.noVariantInfo': 'បំរែបំរួល',
+        'variant.stock.dialog.noBranches':
+            'រកមិនឃើញសាខាសកម្ម។ បង្កើតសាខាជាមុនសិន។',
+        'variant.stock.dialog.col.branch': 'សាខា',
+        'variant.stock.dialog.col.available': 'មាន',
+        'variant.stock.dialog.col.reserved': 'បានកក់',
+        'variant.stock.dialog.col.damaged': 'ខូចខាត',
+        'variant.stock.dialog.totalAvailable': 'សរុបមាននៅគ្រប់សាខា',
+        'variant.stock.dialog.hint':
+            'ឯកតាមានគឺអាចលក់បាន។ ឯកតាបានកក់គឺត្រូវរក្សាសម្រាប់ការបញ្ជាទិញ។ ឯកតាខូចខាតមិនអាចលក់បានទេ។',
+        'variant.stock.dialog.save': 'រក្សាទុកស្តុក',
+        'variant.stock.dialog.saveSuccess': 'រក្សាទុកស្តុកជោគជ័យ។',
+
+        'variant.stock.dialog.apply': 'អនុវត្ត',
+        'variant.stock.dialog.deferredHint':
+            'ការផ្លាស់ប្ដូរនឹងអនុវត្តតែបន្ទាប់ពីអ្នករក្សាទុកទម្រង់ផលិតផល។ ចុចបោះបង់ដើម្បីលុបចេញ។',
+        'variant.stock.button.pending': 'អ្នកមានការផ្លាស់ប្ដូរស្តុកដែលមិនទាន់រក្សាទុក',
+        'product.save.savingStock': 'កំពុងរក្សាទុកការផ្លាស់ប្ដូរស្តុក…',
     },
 } as const;
 

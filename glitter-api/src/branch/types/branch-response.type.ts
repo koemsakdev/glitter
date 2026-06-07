@@ -23,3 +23,7 @@ export interface BranchListResponse {
   page: number;
   limit: number;
 }
+
+export interface BranchDetailResponse {
+  data: BranchResponse;
+}

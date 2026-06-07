@@ -14,6 +14,7 @@ import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
 import { BranchesService } from './branch.service';
 import {
+  BranchDetailResponse,
   BranchListResponse,
   BranchResponse,
 } from './types/branch-response.type';
@@ -36,7 +37,7 @@ export class BranchesController {
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() dto: CreateBranchDto): Promise<BranchResponse> {
+  async create(@Body() dto: CreateBranchDto): Promise<BranchDetailResponse> {
     return this.branchesService.create(dto);
   }
 
@@ -74,7 +75,7 @@ export class BranchesController {
    */
   @Get(':id')
   @HttpCode(HttpStatus.OK)
-  async findOne(@Param('id') id: string): Promise<BranchResponse> {
+  async findOne(@Param('id') id: string): Promise<BranchDetailResponse> {
     return this.branchesService.findOne(id);
   }
 
@@ -85,7 +86,7 @@ export class BranchesController {
    */
   @Get('code/:code')
   @HttpCode(HttpStatus.OK)
-  async findByCode(@Param('code') code: string): Promise<BranchResponse> {
+  async findByCode(@Param('code') code: string): Promise<BranchDetailResponse> {
     return this.branchesService.findByCode(code);
   }
 
@@ -100,7 +101,7 @@ export class BranchesController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateBranchDto,
-  ): Promise<BranchResponse> {
+  ): Promise<BranchDetailResponse> {
     return this.branchesService.update(id, dto);
   }
 

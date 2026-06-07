@@ -39,6 +39,12 @@ import { ProductBadgesSection } from './product-badges-section';
 import type { BadgeEditorState, BadgeSlot } from '@/types/product';
 import { useQueryClient } from '@tanstack/react-query';
 
+import type { VariantStockEntry } from '@/features/inventory-branch/components/variant-stock-dialog';
+import {
+    useCreateInventoryBranch,
+    useUpdateInventoryBranch,
+} from '@/features/inventory-branch/use-inventory-branch';
+
 const formSchema = z.object({
     categoryId: z.string().uuid('product.validation.categoryRequired'),
     brandId: z.string().uuid('product.validation.brandRequired'),
@@ -87,7 +93,8 @@ type SubmitStep =
     | 'savingProduct'
     | 'savingImages'
     | 'savingVariants'
-    | 'savingBadges';
+    | 'savingBadges'
+    | 'savingStock';
 
 export function ProductForm({ product, title, subtitle }: ProductFormProps) {
     const { t } = useI18n();
@@ -98,6 +105,8 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
 
     const createMutation = useCreateProduct();
     const updateMutation = useUpdateProduct();
+    const createInventoryMutation = useCreateInventoryBranch();
+    const updateInventoryMutation = useUpdateInventoryBranch();
 
     // Load existing images/variants in edit mode
     const { data: serverImages } = useProductImages(product?.id);
@@ -126,6 +135,8 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
     // Track whether we've seeded a local state from a server (so edits aren't clobbered)
     const seededImages = useRef(false);
     const seededVariants = useRef(false);
+
+    const [pendingStockChanges, setPendingStockChanges] = React.useState<Map<string, VariantStockEntry[]>>(new Map());
 
     // Seed image state once when server images arrive (edit mode)
     useEffect(() => {
@@ -364,6 +375,41 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
         }
     }
 
+    /** Commit stock change for a given product id. */
+    async function commitStockChanges() {
+        for (const [variantId, entries] of pendingStockChanges.entries()) {
+            for (const entry of entries) {
+                if (entry.inventoryId === null) {
+                    // New row — only create if there's any quantity
+                    if (
+                        entry.quantityAvailable === 0 &&
+                        entry.quantityReserved === 0 &&
+                        entry.quantityDamaged === 0
+                    ) {
+                        continue;
+                    }
+                    await createInventoryMutation.mutateAsync({
+                        productVariantId: variantId,
+                        branchId: entry.branchId,
+                        quantityAvailable: entry.quantityAvailable,
+                        quantityReserved: entry.quantityReserved,
+                        quantityDamaged: entry.quantityDamaged,
+                    });
+                } else {
+                    // Update the existing row
+                    await updateInventoryMutation.mutateAsync({
+                        id: entry.inventoryId,
+                        payload: {
+                            quantityAvailable: entry.quantityAvailable,
+                            quantityReserved: entry.quantityReserved,
+                            quantityDamaged: entry.quantityDamaged,
+                        },
+                    });
+                }
+            }
+        }
+    }
+
     async function onSubmit(values: FormValues) {
         // Local validation first
         const variantError = validateVariants();
@@ -424,6 +470,12 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                 await commitBadges(saved.id);
             }
 
+            // STEP 5 — pending stock changes
+            if (pendingStockChanges.size > 0) {
+                setStep('savingStock');
+                await commitStockChanges();
+            }
+
             // Clean up object URLs
             imageState.items.forEach((i) => {
                 if (i.kind === 'new') URL.revokeObjectURL(i.previewUrl);
@@ -458,7 +510,19 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
         if (step === 'savingImages') return t('product.save.savingImages');
         if (step === 'savingVariants') return t('product.save.savingVariants');
         if (step === 'savingBadges') return t('product.save.savingBadges');
+        if (step === 'savingStock') return t('product.save.savingStock');
         return isEditMode ? t('product.edit.submit') : t('product.create.submit');
+    }
+
+    function handlePendingStockChange(
+        variantId: string,
+        entries: VariantStockEntry[],
+    ) {
+        setPendingStockChanges((prev) => {
+            const next = new Map(prev);
+            next.set(variantId, entries);
+            return next;
+        });
     }
 
     return (
@@ -531,6 +595,8 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                             onHasVariantsChange={setHasVariants}
                             singleStock={singleStock}
                             onSingleStockChange={setSingleStock}
+                            pendingStockChanges={pendingStockChanges}
+                            onStockChange={handlePendingStockChange}
                         />
                     </FormSection>
                 </div>
