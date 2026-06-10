@@ -52,6 +52,7 @@ export interface Product {
     createdAt: string;
     updatedAt: string;
     images?: ProductImage[];
+    branchStock?: number | null;
 }
 
 export interface ProductListResponse {
@@ -73,6 +74,7 @@ export interface ProductQuery {
     maxPrice?: number;
     sortBy?: ProductSortBy;
     sortOrder?: ProductSortOrder;
+    branchId?: string;
 }
 
 /**

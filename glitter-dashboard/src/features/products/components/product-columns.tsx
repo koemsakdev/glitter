@@ -20,7 +20,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {getFileUrl} from '@/lib/file-url';
-import {formatPrice, formatStock} from '@/lib/formatters';
+import {formatPrice} from '@/lib/formatters';
 import type {useI18n} from '@/lib/i18n';
 import type {Brand} from '@/types/brand';
 import type {Category} from '@/types/category';
@@ -33,6 +33,7 @@ interface ProductColumnsContext {
     language: 'en' | 'km';
     brandsById: Map<string, Brand>;
     categoriesById: Map<string, Category>;
+    hasBranchFilter?: boolean;
     onDelete: (product: Product) => void;
 }
 
@@ -114,6 +115,7 @@ export function getProductColumns({
                                       language,
                                       brandsById,
                                       categoriesById,
+                                      hasBranchFilter,
                                       onDelete,
                                   }: ProductColumnsContext): ColumnDef<Product>[] {
     return [
@@ -236,16 +238,31 @@ export function getProductColumns({
         {
             id: 'stock',
             header: () => t('product.field.stock'),
-            cell: ({row}) => {
-                const stock = row.original.totalStock;
-                const className =
-                    stock === 0
-                        ? 'font-mono text-sm font-semibold text-destructive'
-                        : stock < 10
-                            ? 'font-mono text-sm font-semibold text-amber-600 dark:text-amber-400'
-                            : 'font-mono text-sm text-foreground';
-                return <span className={className}>{formatStock(stock)}</span>;
+            cell: ({ row }) => {
+                const product = row.original;
+                // When filtering by branch, show stock at that branch; otherwise show total
+                const displayStock = hasBranchFilter
+                    ? (product.branchStock ?? 0)
+                    : product.totalStock;
+
+                const isOutOfStock = displayStock === 0;
+                const isLowStock = displayStock > 0 && displayStock < 10;
+
+                return (
+                    <span
+                        className={`font-mono text-sm ${
+                            isOutOfStock
+                                ? 'text-destructive'
+                                : isLowStock
+                                    ? 'text-amber-600 dark:text-amber-400'
+                                    : 'text-foreground'
+                        }`}
+                    >
+                      {displayStock}
+                    </span>
+                );
             },
+            size: 100,
         },
         {
             id: 'status',

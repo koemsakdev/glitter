@@ -55,6 +55,13 @@ export class ProductQueryDto {
   brandId?: string;
 
   @ApiPropertyOptional({
+    description: 'Filter to products with inventory at this branch UUID',
+  })
+  @IsOptional()
+  @IsUUID()
+  branchId?: string;
+
+  @ApiPropertyOptional({
     description: 'Filter by status',
     enum: ['draft', 'active', 'out_of_stock', 'discontinued', 'archived'],
   })

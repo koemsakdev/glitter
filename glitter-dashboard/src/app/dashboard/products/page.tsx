@@ -2,7 +2,7 @@
 
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     DataTable,
     DataTableEmpty,
@@ -33,6 +33,7 @@ import type {
     ProductSortBy,
     ProductSortOrder,
 } from '@/types/product';
+import { useSelectedBranchId } from '@/stores/use-branch-context';
 
 export default function ProductsPage() {
     const { t, language } = useI18n();
@@ -45,12 +46,18 @@ export default function ProductsPage() {
     const [statusFilter, setStatusFilter] = useState<ProductStatusFilter>('all');
     const [brandFilter, setBrandFilter] = useState<string>('');
     const [categoryFilter, setCategoryFilter] = useState<string>('');
+    const selectedBranchId = useSelectedBranchId();
     const [sortBy, setSortBy] = useState<ProductSortBy>(
         DEFAULT_PRODUCT_SORT.sortBy,
     );
     const [sortOrder, setSortOrder] = useState<ProductSortOrder>(
         DEFAULT_PRODUCT_SORT.sortOrder,
     );
+
+    React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setPage(1);
+    }, [selectedBranchId]);
 
     const { data, isLoading, isFetching } = useProducts({
         page,
@@ -61,6 +68,7 @@ export default function ProductsPage() {
         categoryId: categoryFilter || undefined,
         sortBy,
         sortOrder,
+        branchId: selectedBranchId ?? undefined,
     });
 
     const products = data?.data ?? [];
@@ -129,13 +137,14 @@ export default function ProductsPage() {
                 language,
                 brandsById,
                 categoriesById,
+                hasBranchFilter: Boolean(selectedBranchId),  // ← NEW
                 onDelete: (product) => {
                     setDeletingProduct(product);
                     deleteModal.open();
                 },
             }),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [t, language, brandsById, categoriesById],
+        [t, language, brandsById, categoriesById, selectedBranchId],
     );
 
     function handleStatusChange(value: ProductStatusFilter) {
@@ -159,13 +168,11 @@ export default function ProductsPage() {
     const hasActiveFilters =
         search !== '' ||
         statusFilter !== 'all' ||
-        brandFilter !== '' ||
         categoryFilter !== '';
 
     function handleClearFilters() {
         setSearch('');
         setStatusFilter('all');
-        setBrandFilter('');
         setCategoryFilter('');
         setPage(1);
     }
@@ -249,6 +256,7 @@ export default function ProductsPage() {
                         emptyMessage={t('product.filter.categoryEmpty')}
                     />
                 </div>
+
             </div>
 
             {/* Table */}

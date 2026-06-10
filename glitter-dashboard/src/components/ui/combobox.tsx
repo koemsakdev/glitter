@@ -51,7 +51,7 @@ export function Combobox({
     const selected = options.find((opt) => opt.value === value);
 
     /**
-     * Preserve scroll position when popover opens/closes.
+     * Preserve the scroll position when the popover opens/closes.
      * Base UI's Popover sometimes scrolls the trigger into view,
      * which is jarring when the trigger is already visible.
      */
@@ -61,7 +61,7 @@ export function Combobox({
 
         setOpen(nextOpen);
 
-        // Restore scroll on next 2 frames to outwait any browser auto-scroll
+        // Restore scroll on the next 2 frames to outwait any browser auto-scroll
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 if (window.scrollY !== scrollY) {

@@ -58,6 +58,7 @@ export interface ProductResponse {
   };
   images?: ProductImageSummary[];
   variants?: ProductVariantSummary[];
+  branchStock?: number | null;
 }
 
 export interface ProductListResponse {

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useSidebar } from '@/components/ui/sidebar';
 import { UserMenu } from '@/components/layout/user-menu';
+import {BranchSwitcher} from "@/components/layout/branch-switcher";
 
 function CustomSidebarTrigger() {
     const { state, toggleSidebar, isMobile, openMobile } = useSidebar();
@@ -35,6 +36,8 @@ export function DashboardTopbar() {
             <div className="flex-1" />
 
             <div className="flex h-6 items-center gap-1">
+                <BranchSwitcher />
+                <Separator orientation="vertical" />
                 <Button
                     variant="ghost"
                     size="icon"

@@ -112,7 +112,7 @@ export class ProductsService {
       status,
       hasBox: dto.hasBox ?? false,
       hasSingleVariant: true,
-      totalStock: 0, // always 0 on create — derived from variants from here on
+      totalStock: 0, // always 0 on creation — derived from variants from here on
       averageRating: 0,
       reviewCount: 0,
     });
@@ -167,7 +167,17 @@ export class ProductsService {
     }
 
     if (query.brandId) {
-      qb.andWhere('product.brandId = :brandId', { brandId: query.brandId });
+      // qb.andWhere('product.brandId = :brandId', { brandId: query.brandId });
+      qb.andWhere(
+        `EXISTS (
+                  SELECT 1
+                  FROM inventory_branch ib
+                  INNER JOIN product_variants pv ON pv.id = ib.product_variant_id
+                  WHERE pv.product_id = product.id
+                    AND ib.branch_id = :branchId
+                )`,
+        { branchId: query.branchId },
+      );
     }
 
     if (query.status) {
@@ -210,10 +220,38 @@ export class ProductsService {
 
     const [products, total] = await qb.getManyAndCount();
 
+    let branchStockByProduct: Map<string, number> | null = null;
+
+    if (query.branchId && products.length > 0) {
+      const productIds = products.map((p) => p.id);
+      const stockRows = await this.variantRepository
+        .createQueryBuilder('variant')
+        .innerJoin(
+          'inventory_branch',
+          'ib',
+          'ib.product_variant_id = variant.id AND ib.branch_id = :branchId',
+          { branchId: query.branchId },
+        )
+        .select('variant.productId', 'productId')
+        .addSelect('COALESCE(SUM(ib.quantity_available), 0)', 'stock')
+        .where('variant.productId IN (:...productIds)', { productIds })
+        .groupBy('variant.productId')
+        .getRawMany<{ productId: string; stock: string }>();
+
+      branchStockByProduct = new Map();
+      stockRows.forEach((row) => {
+        branchStockByProduct!.set(row.productId, Number(row.stock));
+      });
+    }
+
     return {
-      data: products.map((product: ProductEntity) =>
-        this.toResponseWithRelations(product),
-      ),
+      data: products.map((product: ProductEntity) => {
+        const response = this.toResponseWithRelations(product);
+        if (branchStockByProduct) {
+          response.branchStock = branchStockByProduct.get(product.id) ?? 0;
+        }
+        return response;
+      }),
       total: Number(total),
       page,
       limit,
