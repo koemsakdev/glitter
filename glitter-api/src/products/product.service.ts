@@ -167,15 +167,18 @@ export class ProductsService {
     }
 
     if (query.brandId) {
-      // qb.andWhere('product.brandId = :brandId', { brandId: query.brandId });
+      qb.andWhere('product.brandId = :brandId', { brandId: query.brandId });
+    }
+
+    if (query.branchId) {
       qb.andWhere(
         `EXISTS (
-                  SELECT 1
-                  FROM inventory_branch ib
-                  INNER JOIN product_variants pv ON pv.id = ib.product_variant_id
-                  WHERE pv.product_id = product.id
-                    AND ib.branch_id = :branchId
-                )`,
+          SELECT 1
+          FROM inventory_branch ib
+          INNER JOIN product_variants pv ON pv.id = ib.product_variant_id
+          WHERE pv.product_id = product.id
+            AND ib.branch_id = :branchId
+        )`,
         { branchId: query.branchId },
       );
     }

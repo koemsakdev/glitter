@@ -1,7 +1,7 @@
 'use client';
 
 import {zodResolver} from '@hookform/resolvers/zod';
-import {Loader2} from 'lucide-react';
+import {ExternalLink, Loader2} from 'lucide-react';
 import dynamic from 'next/dynamic';
 import {useRouter} from 'next/navigation';
 import {Controller, useForm} from 'react-hook-form';
@@ -23,8 +23,16 @@ import {
     useUpdateBranch,
 } from '@/features/branches/use-branches';
 import {getErrorMessage} from '@/lib/api-client';
-import {useI18n} from '@/lib/i18n';
+import {useI18n, type TranslationKey} from '@/lib/i18n';
+import {googleMapsViewUrl} from '@/lib/map-links';
+import {SavingOverlay} from '@/components/feedback/saving-overlay';
 import type {Branch, BranchFormValues, BranchStatus} from '@/types/branch';
+
+const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {
+    active: 'branch.status.active',
+    inactive: 'branch.status.inactive',
+    closed: 'branch.status.closed',
+};
 
 // Map widget is client-only (Leaflet doesn't SSR)
 const MapPicker = dynamic(
@@ -174,6 +182,7 @@ export function BranchForm({branch, title, subtitle}: BranchFormProps) {
 
     return (
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <SavingOverlay open={isPending} />
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                     <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
@@ -474,7 +483,29 @@ export function BranchForm({branch, title, subtitle}: BranchFormProps) {
                                 longitude={longitude}
                                 onChange={handleMapChange}
                                 height={360}
+                                searchPlaceholder={t('branch.form.searchPlace')}
+                                searchNoResultsText={t(
+                                    'branch.form.searchNoResults',
+                                )}
                             />
+
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs text-muted-foreground">
+                                    {t('branch.form.locationDescription')}
+                                </p>
+                                {Number.isFinite(latitude) &&
+                                    Number.isFinite(longitude) && (
+                                        <a
+                                            href={googleMapsViewUrl(latitude, longitude)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-pink-600 hover:underline dark:text-pink-300"
+                                        >
+                                            <ExternalLink className="size-3.5" />
+                                            {t('branch.detail.openInMaps')}
+                                        </a>
+                                    )}
+                            </div>
 
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <Controller
@@ -569,7 +600,13 @@ export function BranchForm({branch, title, subtitle}: BranchFormProps) {
                                         onValueChange={(v) => v && field.onChange(v)}
                                     >
                                         <SelectTrigger id="branch-status" className={inputClass}>
-                                            <SelectValue/>
+                                            <SelectValue>
+                                                {(value: string) =>
+                                                    STATUS_LABEL_KEYS[value]
+                                                        ? t(STATUS_LABEL_KEYS[value])
+                                                        : value
+                                                }
+                                            </SelectValue>
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="active">{t('branch.status.active')}</SelectItem>

@@ -4,9 +4,9 @@
  * Wrap any page with <ProtectedRoute> to require login before seeing it.
  * If the user isn't logged in (or is a customer), they get redirected to /login.
  */
-import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
+import { BrandedLoader } from '@/components/feedback/branded-loader';
 import { useAuthStore } from '@/stores/auth-store';
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -30,7 +30,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   if (!isHydrated) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BrandedLoader size="md" />
       </div>
     );
   }

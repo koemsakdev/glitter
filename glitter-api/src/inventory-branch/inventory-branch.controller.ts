@@ -30,6 +30,7 @@ import {
   ProductAvailabilityResponseDto,
 } from './dto/inventory-branch-response.dto';
 import {
+  BranchInventoryGroupedResponse,
   BranchInventorySummaryResponse,
   InventoryBranchDetailResponse,
   InventoryBranchListResponse,
@@ -122,18 +123,28 @@ export class InventoryBranchController {
   @Get('branch/:branchId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Get all inventory at a branch',
+    summary: 'Get inventory at a branch, grouped by product (paginated)',
     description:
-      'Returns every variant stocked at this branch, ordered by product name.',
+      'Returns one page of products stocked at this branch, each with its variant rows and primary image. Supports search over product name/SKU and variant SKU.',
   })
   @UseGuards(RolesGuard)
   @Roles('admin', 'super_admin', 'manager', 'cashier')
   @ApiParam({ name: 'branchId', type: String })
-  @ApiResponse({ status: 200, type: InventoryBranchListResponseDto })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
   async findByBranch(
     @Param('branchId') branchId: string,
-  ): Promise<InventoryBranchListResponse> {
-    return this.service.findByBranch(branchId);
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ): Promise<BranchInventoryGroupedResponse> {
+    return this.service.findByBranch(
+      branchId,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 10,
+      search,
+    );
   }
 
   /**

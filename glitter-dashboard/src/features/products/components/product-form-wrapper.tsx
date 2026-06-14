@@ -1,8 +1,5 @@
 'use client';
 
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/feedback/error-state';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { ProductForm } from '@/features/products/components/product-form';
@@ -35,22 +32,6 @@ export function ProductFormWrapper({ id }: ProductFormWrapperProps) {
 
     return (
         <div className="space-y-6 pb-12">
-            {/* Backlink */}
-            <div className="flex items-center gap-2">
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    nativeButton={false}
-                    className="text-muted-foreground hover:text-foreground"
-                    render={
-                        <Link href={`/dashboard/products/${id}`}>
-                            <ArrowLeft className="mr-1 size-4" />
-                            {t('product.detail.backToDetail')}
-                        </Link>
-                    }
-                />
-            </div>
-
             {/* Form (includes its own title + action buttons) */}
             <ProductForm
                 product={product}

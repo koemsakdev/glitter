@@ -269,6 +269,49 @@
   }
 }
 
+/* Branded (Glitter) loader animations */
+@keyframes glitter-bob {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-5px) scale(1.05); }
+}
+
+@keyframes glitter-shimmer {
+  0% { transform: translateX(-160%) skewX(-12deg); }
+  55%, 100% { transform: translateX(180%) skewX(-12deg); }
+}
+
+@keyframes glitter-twinkle {
+  0%, 100% { transform: scale(0.2) rotate(0deg); opacity: 0; }
+  50% { transform: scale(1) rotate(90deg); opacity: 1; }
+}
+
+@keyframes glitter-glow {
+  0%, 100% { opacity: 0.35; transform: scale(0.9); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+@keyframes glitter-flip {
+  0%, 100% { transform: rotateY(-24deg); }
+  50% { transform: rotateY(24deg); }
+}
+
+@keyframes glitter-orbit-rev {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes glitter-float {
+  0% { transform: translateY(8px) scale(0); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateY(-22px) scale(1); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glitter-loader * {
+    animation: none !important;
+  }
+}
+
 /* View Transitions — Theme switch animation */
 ::view-transition-old(root),
 ::view-transition-new(root) {

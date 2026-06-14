@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { ProductVariantEntity } from '../product-variants/entities/product-variant.entity';
 import { BranchEntity } from '../branch/entities/branch.entity';
 import { ProductEntity } from '../products/entities/product.entity';
@@ -16,6 +16,8 @@ import { TransferStockDto } from './dto/transfer-stock.dto';
 import { InventoryBranchEntity } from './entities/inventory-branch.entity';
 import {
   BranchAvailability,
+  BranchInventoryGroupedResponse,
+  BranchInventoryProductGroup,
   BranchInventorySummaryResponse,
   InventoryBranchDetailResponse,
   InventoryBranchListResponse,
@@ -137,9 +139,21 @@ export class InventoryBranchService {
   }
 
   /**
-   * Get all stock at a specific branch (across all variants/products)
+   * Get stock at a branch, grouped by product and paginated.
+   * Pagination is by PRODUCT (a product's variants are never split across pages),
+   * with optional search over product name/SKU and variant SKU. The primary image
+   * of each product is included so the client doesn't need a second request.
    */
-  async findByBranch(branchId: string): Promise<InventoryBranchListResponse> {
+  async findByBranch(
+    branchId: string,
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+  ): Promise<BranchInventoryGroupedResponse> {
+    if (page < 1 || limit < 1) {
+      throw new BadRequestException('Page and limit must be greater than 0');
+    }
+
     const branch = await this.branchRepository.findOne({
       where: { id: branchId },
     });
@@ -147,23 +161,119 @@ export class InventoryBranchService {
       throw new NotFoundException(`Branch with ID ${branchId} not found`);
     }
 
+    const skip = (page - 1) * limit;
+    const term = search?.trim();
+
+    // Base query: inventory at this branch, joined to variant + product.
+    const applySearch = (qb: ReturnType<typeof this.buildBranchBaseQuery>) => {
+      if (term) {
+        qb.andWhere(
+          '(product.nameEn ILIKE :s OR product.nameKm ILIKE :s OR product.sku ILIKE :s OR variant.variantSku ILIKE :s)',
+          { s: `%${term}%` },
+        );
+      }
+      return qb;
+    };
+
+    // Count distinct products (for pagination total).
+    const countRow = await applySearch(this.buildBranchBaseQuery(branchId))
+      .select('COUNT(DISTINCT product.id)', 'count')
+      .getRawOne<{ count: string }>();
+    const total = Number(countRow?.count ?? 0);
+
+    // The page of product IDs, ordered by product name.
+    const idRows = await applySearch(this.buildBranchBaseQuery(branchId))
+      .select('product.id', 'productId')
+      .addSelect('product.nameEn', 'nameEn')
+      .groupBy('product.id')
+      .addGroupBy('product.nameEn')
+      .orderBy('product.nameEn', 'ASC')
+      .offset(skip)
+      .limit(limit)
+      .getRawMany<{ productId: string; nameEn: string }>();
+
+    const productIds = idRows.map((r) => r.productId);
+    if (productIds.length === 0) {
+      return { data: [], total, page, limit };
+    }
+
+    // Load every inventory row (with variant + product) for the page's products.
     const records = await this.inventoryRepository
       .createQueryBuilder('inv')
       .leftJoinAndSelect('inv.productVariant', 'variant')
       .leftJoinAndSelect('variant.product', 'product')
-      .leftJoinAndSelect('inv.branch', 'branch')
       .where('inv.branchId = :branchId', { branchId })
-      .orderBy('product.nameEn', 'ASC')
-      .addOrderBy('variant.size', 'ASC')
+      .andWhere('product.id IN (:...productIds)', { productIds })
+      .orderBy('variant.size', 'ASC')
       .addOrderBy('variant.color', 'ASC')
       .getMany();
 
-    return {
-      data: records.map((r: InventoryBranchEntity) => this.toResponse(r)),
-      total: records.length,
-      page: 1,
-      limit: records.length,
-    };
+    // Resolve each product's primary image in one query.
+    const products = await this.productRepository.find({
+      where: { id: In(productIds) },
+      relations: ['images'],
+    });
+    const imageByProduct = new Map<string, string | null>();
+    for (const p of products) {
+      const primary =
+        p.images?.find((img) => img.imageType === 'primary') ?? p.images?.[0];
+      imageByProduct.set(p.id, primary?.imageUrl ?? null);
+    }
+
+    // Group rows by product, preserving the page's name order.
+    const groups = new Map<string, BranchInventoryProductGroup>();
+    for (const r of records) {
+      const product = r.productVariant?.product;
+      const variant = r.productVariant;
+      if (!product || !variant) continue;
+
+      let group = groups.get(product.id);
+      if (!group) {
+        group = {
+          productId: product.id,
+          sku: product.sku,
+          nameEn: product.nameEn,
+          nameKm: product.nameKm,
+          slug: product.slug,
+          primaryImageUrl: imageByProduct.get(product.id) ?? null,
+          totalAvailable: 0,
+          totalReserved: 0,
+          totalDamaged: 0,
+          variants: [],
+        };
+        groups.set(product.id, group);
+      }
+
+      group.variants.push({
+        inventoryId: r.id,
+        variantId: variant.id,
+        variantSku: variant.variantSku,
+        size: variant.size ?? null,
+        color: variant.color ?? null,
+        colorHex: variant.colorHex ?? null,
+        quantityAvailable: r.quantityAvailable,
+        quantityReserved: r.quantityReserved,
+        quantityDamaged: r.quantityDamaged,
+      });
+      group.totalAvailable += r.quantityAvailable;
+      group.totalReserved += r.quantityReserved;
+      group.totalDamaged += r.quantityDamaged;
+    }
+
+    const data = productIds
+      .map((id) => groups.get(id))
+      .filter((g): g is BranchInventoryProductGroup => g !== undefined);
+
+    return { data, total, page, limit };
+  }
+
+  /** Shared base query: inventory at a branch joined to its variant + product. */
+  private buildBranchBaseQuery(branchId: string) {
+    return this.inventoryRepository
+      .createQueryBuilder('inv')
+      .innerJoin('inv.productVariant', 'variant')
+      .innerJoin('variant.product', 'product')
+      .where('inv.branchId = :branchId', { branchId });
   }
 
   /**

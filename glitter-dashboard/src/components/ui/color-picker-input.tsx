@@ -64,7 +64,14 @@ export function ColorPickerInput({
             <Input
                 type="text"
                 value={colorName}
-                onChange={(e) => onColorNameChange(e.target.value)}
+                onChange={(e) => {
+                    const v = e.target.value;
+                    if (/^#[0-9A-Fa-f]{6}$/.test(v)) {
+                        onColorPick(v.toUpperCase(), true);
+                    } else {
+                        onColorNameChange(v);
+                    }
+                }}
                 placeholder={placeholder}
                 disabled={disabled}
                 className="h-9 flex-1 rounded-md shadow-none focus-visible:outline-none focus-visible:ring-0 focus-visible:border-pink-500 dark:focus-visible:border-pink-800"

@@ -31,7 +31,7 @@ export const productApi = {
                         : {}),
                     ...(query.sortBy ? { sortBy: query.sortBy } : {}),
                     ...(query.sortOrder ? { sortOrder: query.sortOrder } : {}),
-                    ...(query.brandId ? { brandId: query.brandId } : {})
+                    ...(query.branchId ? { branchId: query.branchId } : {})
                 },
             },
         );

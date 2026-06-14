@@ -113,8 +113,10 @@ const translations = {
 
         // Common
         'common.loading': 'Loading...',
+        'common.saving': 'Saving…',
         'common.search': 'Search...',
         'common.cancel': 'Cancel',
+        'common.back': 'Back',
         'common.save': 'Save',
         'common.delete': 'Delete',
         'common.edit': 'Edit',
@@ -295,6 +297,8 @@ const translations = {
         'product.field.slug.help': 'URL-friendly identifier — lowercase letters, numbers, hyphens',
         'product.field.sku': 'SKU',
         'product.field.sku.help': 'Stock Keeping Unit — must be unique',
+        'product.field.sku.autoHelp':
+            'Generated automatically from brand, category and product name.',
         'product.field.descriptionEn': 'Description (English)',
         'product.field.descriptionEn.help': 'Brief summary shown on product card',
         'product.field.descriptionKm': 'Description (Khmer)',
@@ -480,6 +484,7 @@ const translations = {
         'product.variant.duplicateCombo': 'A variant with this size and color already exists',
 
         // Table columns
+        'product.variant.col.variant': 'Variant',
         'product.variant.col.size': 'Size',
         'product.variant.col.color': 'Color',
         'product.variant.col.sku': 'SKU',
@@ -539,6 +544,7 @@ const translations = {
 
         'product.detail.badgesCount': '{count} badges',
         'product.detail.noBadges': 'No badges added yet',
+        'product.detail.noReviews': 'No reviews yet',
         'product.badges.col.badge': 'Badge',
         'product.badges.col.type': 'Type',
         'product.badges.col.status': 'Status',
@@ -603,7 +609,10 @@ const translations = {
         'branch.form.addressDescription': 'Street address and city.',
         'branch.form.location': 'Location on map',
         'branch.form.locationDescription':
-            'Click on the map or drag the pin to set the branch location.',
+            'Search, click the map, or drag the pin to set the branch location.',
+        'branch.form.searchPlace': 'Search for a place or address',
+        'branch.form.searchNoResults':
+            'No places found. Try a street, market, or area name.',
         'branch.form.status': 'Status',
 
         // Actions
@@ -626,7 +635,10 @@ const translations = {
         // Detail page
         'branch.detail.location': 'Location',
         'branch.detail.address': 'Address',
+        'branch.detail.openInMaps': 'Open in Google Maps',
+        'branch.detail.getDirections': 'Get directions',
         'branch.detail.contact': 'Contact information',
+        'branch.detail.information': 'Branch information',
         'branch.detail.openingHours': 'Opening hours',
         'branch.detail.metadata': 'Metadata',
         'branch.detail.created': 'Created',
@@ -670,8 +682,14 @@ const translations = {
             'Add inventory at a branch from the branch page or variant editor.',
         'product.availability.errorMessage': 'Could not load availability.',
         'product.availability.unitsAvailable': 'units available',
+        'product.availability.available': 'Available',
         'product.availability.reserved': 'Reserved',
         'product.availability.damaged': 'Damaged',
+        'product.availability.noStockAtBranch': 'Not stocked at this branch yet.',
+        'product.availability.variantsHere': '{count} variant(s) here',
+        'product.scope.allBranches': 'All branches',
+        'product.scope.showingBranch': 'Showing {branch}',
+        'product.scope.atBranch': 'at {branch}',
 
         // Branch inventory section
         'branch.inventory.listTitle': 'Inventory at this branch',
@@ -707,6 +725,8 @@ const translations = {
         'variant.stock.dialog.col.reserved': 'Reserved',
         'variant.stock.dialog.col.damaged': 'Damaged',
         'variant.stock.dialog.totalAvailable': 'Total available across branches',
+        'variant.stock.dialog.perBranchHint':
+            'Stock is tracked separately for each branch. Set how many units of this variant are kept at each location.',
         'variant.stock.dialog.hint':
             'Available units are sellable. Reserved units are held for pending orders. Damaged units cannot be sold.',
         'variant.stock.dialog.save': 'Save stock',
@@ -840,8 +860,10 @@ const translations = {
 
         // Common
         'common.loading': 'កំពុងផ្ទុក...',
+        'common.saving': 'កំពុងរក្សាទុក…',
         'common.search': 'ស្វែងរក...',
         'common.cancel': 'បោះបង់',
+        'common.back': 'ត្រឡប់ក្រោយ',
         'common.save': 'រក្សាទុក',
         'common.delete': 'លុប',
         'common.edit': 'កែប្រែ',
@@ -1023,6 +1045,8 @@ const translations = {
         'product.field.slug.help': 'អត្តសញ្ញាណរ URL — អក្សរតូច លេខ និងសញ្ញាដាច់',
         'product.field.sku': 'SKU',
         'product.field.sku.help': 'លេខកូដស្តុក — ត្រូវតែមានតែមួយ',
+        'product.field.sku.autoHelp':
+            'បង្កើតដោយស្វ័យប្រវត្តិពីម៉ាក ប្រភេទ និងឈ្មោះផលិតផល។',
         'product.field.descriptionEn': 'ការពិពណ៌នា (អង់គ្លេស)',
         'product.field.descriptionEn.help': 'សេចក្តីសង្ខេបខ្លីៗបង្ហាញនៅលើកាតផលិតផល',
         'product.field.descriptionKm': 'ការពិពណ៌នា (ខ្មែរ)',
@@ -1208,6 +1232,7 @@ const translations = {
         'product.variant.duplicateCombo': 'វ៉ារ្យង់ដែលមានទំហំ និងពណ៌នេះមានស្រាប់',
 
         // Table columns
+        'product.variant.col.variant': 'វ៉ារ្យង់',
         'product.variant.col.size': 'ទំហំ',
         'product.variant.col.color': 'ពណ៌',
         'product.variant.col.sku': 'SKU',
@@ -1265,6 +1290,7 @@ const translations = {
 
         'product.detail.badgesCount': 'ស្លាក {count}',
         'product.detail.noBadges': 'មិនទាន់មានស្លាក',
+        'product.detail.noReviews': 'មិនទាន់មានការវាយតម្លៃ',
         'product.badges.col.badge': 'ស្លាក',
         'product.badges.col.type': 'ប្រភេទ',
         'product.badges.col.status': 'ស្ថានភាព',
@@ -1324,7 +1350,10 @@ const translations = {
         'branch.form.addressDescription': 'អាសយដ្ឋានផ្លូវ និងទីក្រុង។',
         'branch.form.location': 'ទីតាំងលើផែនទី',
         'branch.form.locationDescription':
-            'ចុចលើផែនទី ឬអូសម្ជុលដើម្បីកំណត់ទីតាំងសាខា។',
+            'ស្វែងរក ចុចលើផែនទី ឬអូសម្ជុលដើម្បីកំណត់ទីតាំងសាខា។',
+        'branch.form.searchPlace': 'ស្វែងរកទីកន្លែង ឬអាសយដ្ឋាន',
+        'branch.form.searchNoResults':
+            'រកមិនឃើញទីកន្លែងទេ។ សាកល្បងឈ្មោះផ្លូវ ផ្សារ ឬតំបន់។',
         'branch.form.status': 'ស្ថានភាព',
 
         'branch.action.create': 'បង្កើតសាខា',
@@ -1343,7 +1372,10 @@ const translations = {
 
         'branch.detail.location': 'ទីតាំង',
         'branch.detail.address': 'អាសយដ្ឋាន',
+        'branch.detail.openInMaps': 'បើកក្នុង Google Maps',
+        'branch.detail.getDirections': 'ទទួលទិសដៅ',
         'branch.detail.contact': 'ព័ត៌មានទំនាក់ទំនង',
+        'branch.detail.information': 'ព័ត៌មានសាខា',
         'branch.detail.openingHours': 'ម៉ោងបើក',
         'branch.detail.metadata': 'ទិន្នន័យបន្ថែម',
         'branch.detail.created': 'បានបង្កើត',
@@ -1382,8 +1414,14 @@ const translations = {
             'បន្ថែមស្តុកនៅសាខាពីទំព័រសាខា ឬកម្មវិធីកែលម្អបំរែបំរួល។',
         'product.availability.errorMessage': 'មិនអាចផ្ទុកស្ថានភាពស្តុកបាន។',
         'product.availability.unitsAvailable': 'ឯកតា',
+        'product.availability.available': 'មាន',
         'product.availability.reserved': 'បានកក់',
         'product.availability.damaged': 'ខូចខាត',
+        'product.availability.noStockAtBranch': 'មិនទាន់មានស្តុកនៅសាខានេះទេ។',
+        'product.availability.variantsHere': 'វ៉ារ្យង់ {count} នៅទីនេះ',
+        'product.scope.allBranches': 'គ្រប់សាខា',
+        'product.scope.showingBranch': 'កំពុងបង្ហាញ {branch}',
+        'product.scope.atBranch': 'នៅ {branch}',
 
         'branch.inventory.listTitle': 'ស្តុកនៅសាខានេះ',
         'branch.inventory.listSubtitle': 'ផលិតផលទាំងអស់ដែលមាននៅទីតាំងនេះ',
@@ -1415,6 +1453,8 @@ const translations = {
         'variant.stock.dialog.col.reserved': 'បានកក់',
         'variant.stock.dialog.col.damaged': 'ខូចខាត',
         'variant.stock.dialog.totalAvailable': 'សរុបមាននៅគ្រប់សាខា',
+        'variant.stock.dialog.perBranchHint':
+            'ស្តុកត្រូវបានតាមដានដាច់ដោយឡែកសម្រាប់សាខានីមួយៗ។ កំណត់ចំនួនឯកតានៃបំរែបំរួលនេះដែលរក្សាទុកនៅសាខានីមួយៗ។',
         'variant.stock.dialog.hint':
             'ឯកតាមានគឺអាចលក់បាន។ ឯកតាបានកក់គឺត្រូវរក្សាសម្រាប់ការបញ្ជាទិញ។ ឯកតាខូចខាតមិនអាចលក់បានទេ។',
         'variant.stock.dialog.save': 'រក្សាទុកស្តុក',

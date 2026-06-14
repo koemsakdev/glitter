@@ -36,6 +36,7 @@ import { ProductVariantsSection } from './product-variants-section';
 import { useProductBadges } from '@/features/product-badges/use-product-badges';
 import { productBadgeApi } from '@/features/product-badges/product-badge-api';
 import { ProductBadgesSection } from './product-badges-section';
+import { SavingOverlay } from '@/components/feedback/saving-overlay';
 import type { BadgeEditorState, BadgeSlot } from '@/types/product';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -312,8 +313,8 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
         }
     }
 
-    /** Commit variant changes for a given product id. */
-    async function commitVariants(productId: string) {
+    /** Commit variant changes for a given product id. Returns a map of local temp IDs → real server IDs for new variants. */
+    async function commitVariants(productId: string): Promise<Map<string, string>> {
         if (!hasVariants) {
             // Single-variant mode: ensure the default variant's stock matches singleStock.
             // The product was created/exists with an auto-default variant.
@@ -325,7 +326,7 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                     quantityInStock: singleStock,
                 });
             }
-            return;
+            return new Map();
         }
 
         // Multi-variant mode:
@@ -358,26 +359,40 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
             }
         }
 
-        // 3. Create new rows (bulk)
+        // 3. Create new rows (bulk) and build local-id → real-id mapping
         const newRows = variantState.rows.filter((r) => !r.isExisting);
+        const localToRealId = new Map<string, string>();
         if (newRows.length > 0) {
-            await productVariantApi.createBulk({
+            const createdVariants = await productVariantApi.createBulk({
                 productId,
-                variants: newRows.map((r) => ({
-                    variantSku: r.variantSku,
-                    size: r.size || undefined,
-                    color: r.color || undefined,
-                    colorHex: r.colorHex || undefined,
-                    quantityInStock: r.quantityInStock,
-                    priceOverride: r.priceOverride ?? undefined,
-                })),
+                variants: newRows.map((r) => {
+                    const pending = pendingStockChanges.get(r.id);
+                    const stockFromPending = pending
+                        ? pending.reduce((sum, e) => sum + e.quantityAvailable, 0)
+                        : null;
+                    return {
+                        variantSku: r.variantSku,
+                        size: r.size || undefined,
+                        color: r.color || undefined,
+                        colorHex: r.colorHex || undefined,
+                        quantityInStock: stockFromPending !== null ? stockFromPending : r.quantityInStock,
+                        priceOverride: r.priceOverride ?? undefined,
+                    };
+                }),
+            });
+            newRows.forEach((row, i) => {
+                if (createdVariants[i]) localToRealId.set(row.id, createdVariants[i].id);
             });
         }
+        return localToRealId;
     }
 
-    /** Commit stock change for a given product id. */
-    async function commitStockChanges() {
+    /** Commit pending stock changes. localToRealId maps temp new-* IDs to real backend UUIDs. */
+    async function commitStockChanges(localToRealId: Map<string, string> = new Map()) {
         for (const [variantId, entries] of pendingStockChanges.entries()) {
+            const isLocalId = variantId.startsWith('new-');
+            if (isLocalId && !localToRealId.has(variantId)) continue;
+            const realVariantId = localToRealId.get(variantId) ?? variantId;
             for (const entry of entries) {
                 if (entry.inventoryId === null) {
                     // New row — only create if there's any quantity
@@ -389,7 +404,7 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                         continue;
                     }
                     await createInventoryMutation.mutateAsync({
-                        productVariantId: variantId,
+                        productVariantId: realVariantId,
                         branchId: entry.branchId,
                         quantityAvailable: entry.quantityAvailable,
                         quantityReserved: entry.quantityReserved,
@@ -459,7 +474,7 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
 
             // STEP 3 — variants
             setStep('savingVariants');
-            await commitVariants(saved.id);
+            const localToRealId = await commitVariants(saved.id);
 
             // STEP 4 — badges
             const hasBadgeWork =
@@ -473,7 +488,7 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
             // STEP 5 — pending stock changes
             if (pendingStockChanges.size > 0) {
                 setStep('savingStock');
-                await commitStockChanges();
+                await commitStockChanges(localToRealId);
             }
 
             // Clean up object URLs
@@ -527,6 +542,7 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
 
     return (
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <SavingOverlay open={isPending} label={getSubmitLabel()} />
             {/* Header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
@@ -621,7 +637,11 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                         title={t('product.form.organization')}
                         description={t('product.form.organizationDescription')}
                     >
-                        <ProductFormOrganization control={form.control} />
+                        <ProductFormOrganization
+                            control={form.control}
+                            setValue={form.setValue}
+                            isEditMode={isEditMode}
+                        />
                     </FormSection>
 
                     <FormSection title={t('product.form.badges')}>

@@ -1,10 +1,12 @@
 import {
+    keepPreviousData,
     useMutation,
     useQuery,
     useQueryClient,
 } from '@tanstack/react-query';
 import { inventoryBranchApi } from './inventory-branch-api';
 import type {
+    BranchInventoryParams,
     CreateInventoryBranchPayload,
     InventoryListParams,
     ReserveStockPayload,
@@ -32,12 +34,17 @@ export function useProductAvailability(productId: string | undefined) {
     });
 }
 
-/** All inventory at a branch — used on branch detail page */
-export function useBranchInventory(branchId: string | undefined) {
+/** Inventory at a branch, grouped by product and paginated — used on branch detail page */
+export function useBranchInventory(
+    branchId: string | undefined,
+    params?: BranchInventoryParams,
+) {
     return useQuery({
-        queryKey: [...INVENTORY_KEY, 'by-branch', branchId],
-        queryFn: () => inventoryBranchApi.getByBranch(branchId!),
+        queryKey: [...INVENTORY_KEY, 'by-branch', branchId, params],
+        queryFn: () => inventoryBranchApi.getByBranch(branchId!, params),
         enabled: Boolean(branchId),
+        // Keep showing the current page while the next one loads (smooth paging)
+        placeholderData: keepPreviousData,
     });
 }
 

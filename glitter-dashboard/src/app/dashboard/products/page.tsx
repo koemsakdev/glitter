@@ -168,11 +168,13 @@ export default function ProductsPage() {
     const hasActiveFilters =
         search !== '' ||
         statusFilter !== 'all' ||
+        brandFilter !== '' ||
         categoryFilter !== '';
 
     function handleClearFilters() {
         setSearch('');
         setStatusFilter('all');
+        setBrandFilter('');
         setCategoryFilter('');
         setPage(1);
     }

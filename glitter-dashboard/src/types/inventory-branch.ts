@@ -112,3 +112,43 @@ export interface InventoryListParams {
     branchId?: string;
     productVariantId?: string;
 }
+
+// --- Branch inventory grouped by product (paginated) ---
+
+export interface BranchInventoryVariantRow {
+    inventoryId: string;
+    variantId: string;
+    variantSku: string;
+    size: string | null;
+    color: string | null;
+    colorHex: string | null;
+    quantityAvailable: number;
+    quantityReserved: number;
+    quantityDamaged: number;
+}
+
+export interface BranchInventoryProductGroup {
+    productId: string;
+    sku: string;
+    nameEn: string;
+    nameKm: string;
+    slug: string;
+    primaryImageUrl: string | null;
+    totalAvailable: number;
+    totalReserved: number;
+    totalDamaged: number;
+    variants: BranchInventoryVariantRow[];
+}
+
+export interface BranchInventoryGroupedResponse {
+    data: BranchInventoryProductGroup[];
+    total: number;
+    page: number;
+    limit: number;
+}
+
+export interface BranchInventoryParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+}

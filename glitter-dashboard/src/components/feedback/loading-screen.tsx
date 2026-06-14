@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
+import { BrandedLoader } from '@/components/feedback/branded-loader';
 
 interface LoadingScreenProps {
     variant?: 'page' | 'block' | 'inline';
@@ -14,16 +15,14 @@ export function LoadingScreen({
                                   className = '',
                               }: LoadingScreenProps) {
     if (variant === 'page') {
+        // Fill the available content area (viewport minus topbar + padding) rather
+        // than a full 100vh, so the loader stays centered without adding a scrollbar
+        // when rendered inside the dashboard content area.
         return (
             <div
-                className={`flex min-h-screen items-center justify-center ${className}`}
+                className={`flex min-h-[calc(100vh-8rem)] items-center justify-center ${className}`}
             >
-                <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="size-8 animate-spin text-pink-500 dark:text-pink-300" />
-                    {message && (
-                        <p className="text-sm text-muted-foreground">{message}</p>
-                    )}
-                </div>
+                <BrandedLoader size="md" label={message} />
             </div>
         );
     }
@@ -41,10 +40,9 @@ export function LoadingScreen({
 
     return (
         <div
-            className={`flex flex-col items-center justify-center gap-3 py-12 ${className}`}
+            className={`flex flex-col items-center justify-center py-12 ${className}`}
         >
-            <Loader2 className="size-7 animate-spin text-pink-500 dark:text-pink-300" />
-            {message && <p className="text-sm text-muted-foreground">{message}</p>}
+            <BrandedLoader size="sm" label={message} />
         </div>
     );
 }

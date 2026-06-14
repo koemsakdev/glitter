@@ -10,11 +10,19 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, type TranslationKey } from '@/lib/i18n';
 import type { ProductFormValues } from '@/types/product';
 
 const inputClass =
     'h-11 shadow-none focus:shadow-none focus-visible:shadow-none focus:outline-0 focus-visible:outline-none focus:ring-0 focus-visible:ring-0 rounded-lg focus-visible:border-pink-500 dark:focus-visible:border-pink-800';
+
+const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {
+    draft: 'product.status.draft',
+    active: 'product.status.active',
+    out_of_stock: 'product.status.outOfStock',
+    discontinued: 'product.status.discontinued',
+    archived: 'product.status.archived',
+};
 
 interface ProductFormStatusProps {
     control: Control<ProductFormValues>;
@@ -38,7 +46,13 @@ export function ProductFormStatus({ control }: ProductFormStatusProps) {
                             onValueChange={(v) => v && field.onChange(v)}
                         >
                             <SelectTrigger id="product-status" className={inputClass}>
-                                <SelectValue />
+                                <SelectValue>
+                                    {(value: string) =>
+                                        STATUS_LABEL_KEYS[value]
+                                            ? t(STATUS_LABEL_KEYS[value])
+                                            : value
+                                    }
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="draft">

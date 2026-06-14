@@ -1,110 +1,270 @@
 'use client';
 
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import { GoogleMap, MarkerF } from '@react-google-maps/api';
+import { Loader2, MapPin, Search } from 'lucide-react';
 import * as React from 'react';
-import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
-
-// Fix Leaflet's default icon paths (they break in bundlers like Next.js)
-// We override to use CDN-hosted icons.
-if (typeof window !== 'undefined') {
-    delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })
-        ._getIconUrl;
-    L.Icon.Default.mergeOptions({
-        iconRetinaUrl:
-            'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-    });
-}
+import { DEFAULT_CENTER, useGoogleMaps } from '@/lib/google-maps';
+import { searchPlaces, type GeocodeResult } from '@/lib/geocode';
 
 interface MapPickerProps {
     latitude: number;
     longitude: number;
-    onChange: (lat: number, lng: number) => void;
+    /**
+     * Called when the location changes. `address`/`city` are only provided when
+     * the change came from a search result (clicks/drags pass just coordinates).
+     */
+    onChange: (
+        lat: number,
+        lng: number,
+        address?: string,
+        city?: string,
+    ) => void;
     zoom?: number;
     height?: number;
+    /** Placeholder for the search box */
+    searchPlaceholder?: string;
+    /** Message shown when a search returns nothing */
+    searchNoResultsText?: string;
 }
 
+const containerStyle = { width: '100%', height: '100%' };
+
 /**
- * Interactive map for selecting coordinates by clicking or dragging the marker.
+ * Interactive Google Maps picker. Three ways to set the location:
+ *  - Type a place/address in the search box and pick a suggestion (free OSM search)
+ *  - Click anywhere on the map
+ *  - Drag the marker
+ *
+ * Dropping a pin does not recenter the map (feels natural); choosing a search
+ * result pans the map to it.
  */
 export function MapPicker({
-                              latitude,
-                              longitude,
-                              onChange,
-                              zoom = 15,
-                              height = 320,
-                          }: MapPickerProps) {
-    const safeLat = Number.isFinite(latitude) ? latitude : 11.5564;
-    const safeLng = Number.isFinite(longitude) ? longitude : 104.9282;
+    latitude,
+    longitude,
+    onChange,
+    zoom = 15,
+    height = 320,
+    searchPlaceholder = 'Search for a place or address',
+    searchNoResultsText = 'No places found. Try a street, market, or area name.',
+}: MapPickerProps) {
+    const { isLoaded, loadError } = useGoogleMaps();
+
+    // Initial viewport center — captured once so dropping pins doesn't recenter.
+    const [center] = React.useState(() => ({
+        lat: Number.isFinite(latitude) ? latitude : DEFAULT_CENTER.lat,
+        lng: Number.isFinite(longitude) ? longitude : DEFAULT_CENTER.lng,
+    }));
+
+    const mapRef = React.useRef<google.maps.Map | null>(null);
+
+    const markerPosition = {
+        lat: Number.isFinite(latitude) ? latitude : center.lat,
+        lng: Number.isFinite(longitude) ? longitude : center.lng,
+    };
+
+    const emit = React.useCallback(
+        (e: google.maps.MapMouseEvent) => {
+            if (e.latLng) onChange(e.latLng.lat(), e.latLng.lng());
+        },
+        [onChange],
+    );
+
+    const handleSearchSelect = React.useCallback(
+        (result: GeocodeResult) => {
+            onChange(result.lat, result.lng, result.address, result.city);
+            mapRef.current?.panTo({ lat: result.lat, lng: result.lng });
+            mapRef.current?.setZoom(16);
+        },
+        [onChange],
+    );
 
     return (
         <div
-            className="overflow-hidden rounded-lg border border-border/60"
+            className="relative overflow-hidden rounded-lg border border-border/60 bg-muted/40"
             style={{ height }}
         >
-            <MapContainer
-                center={[safeLat, safeLng]}
-                zoom={zoom}
-                scrollWheelZoom={true}
-                style={{ height: '100%', width: '100%' }}
-            >
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <ClickHandler onChange={onChange} />
-                <DraggableMarker
-                    lat={safeLat}
-                    lng={safeLng}
-                    onChange={onChange}
-                />
-            </MapContainer>
+            {loadError ? (
+                <div className="flex size-full items-center justify-center px-4 text-center text-sm text-muted-foreground">
+                    Map could not be loaded.
+                </div>
+            ) : !isLoaded ? (
+                <div className="flex size-full items-center justify-center">
+                    <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                </div>
+            ) : (
+                <>
+                    <GoogleMap
+                        mapContainerStyle={containerStyle}
+                        center={center}
+                        zoom={zoom}
+                        onLoad={(map) => {
+                            mapRef.current = map;
+                        }}
+                        onUnmount={() => {
+                            mapRef.current = null;
+                        }}
+                        onClick={emit}
+                        options={{
+                            mapTypeControl: true,
+                            // Move the Map/Satellite toggle to the top-right so it
+                            // doesn't sit under the search box (top-left).
+                            mapTypeControlOptions: {
+                                position:
+                                    google.maps.ControlPosition.TOP_RIGHT,
+                            },
+                            streetViewControl: false,
+                            fullscreenControl: false,
+                            zoomControl: true,
+                            gestureHandling: 'greedy',
+                            clickableIcons: false,
+                        }}
+                    >
+                        <MarkerF
+                            position={markerPosition}
+                            draggable
+                            onDragEnd={emit}
+                        />
+                    </GoogleMap>
+
+                    <PlaceSearchBox
+                        placeholder={searchPlaceholder}
+                        noResultsText={searchNoResultsText}
+                        onSelect={handleSearchSelect}
+                    />
+                </>
+            )}
         </div>
     );
 }
 
-/** Internal: capture map clicks to update the pin location. */
-function ClickHandler({
-                          onChange,
-                      }: {
-    onChange: (lat: number, lng: number) => void;
+/** Free OSM/Photon search box overlaid on the top-left of the map. */
+function PlaceSearchBox({
+    placeholder,
+    noResultsText,
+    onSelect,
+}: {
+    placeholder: string;
+    noResultsText: string;
+    onSelect: (result: GeocodeResult) => void;
 }) {
-    useMapEvents({
-        click(e) {
-            onChange(e.latlng.lat, e.latlng.lng);
-        },
-    });
-    return null;
-}
+    const [query, setQuery] = React.useState('');
+    const [results, setResults] = React.useState<GeocodeResult[]>([]);
+    const [open, setOpen] = React.useState(false);
+    const [loading, setLoading] = React.useState(false);
+    const boxRef = React.useRef<HTMLDivElement>(null);
+    const abortRef = React.useRef<AbortController | null>(null);
 
-/** Internal: draggable marker that emits new coordinates on drag end. */
-function DraggableMarker({
-                             lat,
-                             lng,
-                             onChange,
-                         }: {
-    lat: number;
-    lng: number;
-    onChange: (lat: number, lng: number) => void;
-}) {
-    const markerRef = React.useRef<L.Marker>(null);
+    // Debounced search as the user types
+    React.useEffect(() => {
+        const q = query.trim();
+        const handle = window.setTimeout(async () => {
+            if (q.length < 3) {
+                setResults([]);
+                setLoading(false);
+                return;
+            }
+            abortRef.current?.abort();
+            const controller = new AbortController();
+            abortRef.current = controller;
+            setLoading(true);
+            try {
+                const found = await searchPlaces(q, controller.signal);
+                setResults(found);
+                setOpen(true);
+            } catch (err) {
+                if (!(err instanceof DOMException && err.name === 'AbortError')) {
+                    setResults([]);
+                    setOpen(true);
+                }
+            } finally {
+                setLoading(false);
+            }
+        }, 300);
+        return () => window.clearTimeout(handle);
+    }, [query]);
+
+    // Close the dropdown when clicking outside
+    React.useEffect(() => {
+        function onDocPointerDown(e: MouseEvent) {
+            if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        }
+        document.addEventListener('mousedown', onDocPointerDown);
+        return () =>
+            document.removeEventListener('mousedown', onDocPointerDown);
+    }, []);
+
+    function handlePick(result: GeocodeResult) {
+        onSelect(result);
+        setQuery(result.primary);
+        setResults([]);
+        setOpen(false);
+    }
+
+    const showDropdown = open && query.trim().length >= 3;
 
     return (
-        <Marker
-            draggable
-            position={[lat, lng]}
-            ref={markerRef}
-            eventHandlers={{
-                dragend() {
-                    const m = markerRef.current;
-                    if (m) {
-                        const pos = m.getLatLng();
-                        onChange(pos.lat, pos.lng);
-                    }
-                },
-            }}
-        />
+        <div
+            ref={boxRef}
+            className="absolute left-3 top-3 z-10 w-80 max-w-[calc(100%-1.5rem)]"
+        >
+            {/* White, shadowed search field styled like the Google Maps search box */}
+            <div className="relative flex items-center rounded-lg bg-white shadow-[0_2px_6px_rgba(0,0,0,0.3)]">
+                <Search className="pointer-events-none absolute left-3 size-5 text-gray-500" />
+                <input
+                    type="text"
+                    value={query}
+                    placeholder={placeholder}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onFocus={() => query.trim().length >= 3 && setOpen(true)}
+                    // Prevent Enter from submitting the surrounding form
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.preventDefault();
+                        if (e.key === 'Escape') setOpen(false);
+                    }}
+                    className="h-11 w-full rounded-lg border-0 bg-transparent pl-10 pr-10 text-sm text-gray-900 placeholder:text-gray-500 outline-none"
+                />
+                {loading && (
+                    <Loader2 className="absolute right-3 size-4 animate-spin text-gray-500" />
+                )}
+            </div>
+
+            {showDropdown && (
+                <div className="mt-1.5 overflow-hidden rounded-lg bg-white shadow-[0_2px_6px_rgba(0,0,0,0.3)]">
+                    {results.length > 0 ? (
+                        <ul className="max-h-64 overflow-y-auto py-1">
+                            {results.map((result, i) => (
+                                <li key={`${result.lat},${result.lng},${i}`}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handlePick(result)}
+                                        className="flex w-full items-start gap-2.5 px-3 py-2 text-left hover:bg-gray-100"
+                                    >
+                                        <MapPin className="mt-0.5 size-4 shrink-0 text-gray-500" />
+                                        <span className="min-w-0">
+                                            <span className="block truncate text-sm text-gray-900">
+                                                {result.primary}
+                                            </span>
+                                            {result.secondary && (
+                                                <span className="block truncate text-xs text-gray-500">
+                                                    {result.secondary}
+                                                </span>
+                                            )}
+                                        </span>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        !loading && (
+                            <p className="px-3 py-3 text-sm text-gray-500">
+                                {noResultsText}
+                            </p>
+                        )
+                    )}
+                </div>
+            )}
+        </div>
     );
 }

@@ -55,7 +55,7 @@ export function VariantStockButton({
             ? 'text-amber-600 dark:text-amber-400'
             : 'text-foreground';
 
-    if (!isSaved || !variantId) {
+    if (!variantId) {
         return (
             <Button
                 type="button"
@@ -63,7 +63,6 @@ export function VariantStockButton({
                 size="sm"
                 disabled
                 className="h-9 gap-2 cursor-not-allowed opacity-60"
-                title={t('variant.stock.button.saveFirst')}
             >
                 <Warehouse className="size-3.5" />
                 <span className="font-mono text-sm">0</span>
@@ -115,6 +114,7 @@ export function VariantStockButton({
                 variantSize={variantSize}
                 variantColor={variantColor}
                 variantColorHex={variantColorHex}
+                isNew={!isSaved}
                 pendingEntries={pendingEntries}
                 onApply={onApply}
             />

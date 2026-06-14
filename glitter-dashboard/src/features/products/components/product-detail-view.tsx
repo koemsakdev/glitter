@@ -5,13 +5,15 @@ import {
     BadgeCheck,
     Edit,
     ImageIcon,
+    MapPin,
+    MessageSquare,
     Package,
     Star,
     Trash2,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,6 +45,8 @@ import { ProductBadgeDisplay } from './product-badge-display';
 import { resolveBadgeDisplay, type ProductBadge } from '@/types/product-badge';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { ProductAvailabilitySection } from '@/features/inventory-branch/components/product-availability-section';
+import { useProductAvailability } from '@/features/inventory-branch/use-inventory-branch';
+import { useSelectedBranchId } from '@/stores/use-branch-context';
 
 interface ProductDetailViewProps {
     id: string;
@@ -68,6 +72,41 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
 
     const { data: variants = [] } = useProductVariants(id);
     const { data: badges } = useProductBadges(id);
+
+    // Branch-scoped stock — when a branch is selected in the topbar, the detail
+    // page reflects that branch's stock instead of the global totals.
+    const selectedBranchId = useSelectedBranchId();
+    const { data: availability } = useProductAvailability(id);
+
+    // Per-variant available stock at the selected branch (null = all branches view)
+    const branchStockByVariant = useMemo(() => {
+        if (!selectedBranchId || !availability) return null;
+        const map = new Map<string, number>();
+        availability.branches
+            .filter((b) => b.branchId === selectedBranchId)
+            .forEach((b) => {
+                map.set(b.variantId, (map.get(b.variantId) ?? 0) + b.quantityAvailable);
+            });
+        return map;
+    }, [selectedBranchId, availability]);
+
+    // Total available at the selected branch, or the product's global total when "all"
+    const scopedTotalStock = useMemo(() => {
+        if (!branchStockByVariant) return product?.totalStock ?? 0;
+        let sum = 0;
+        branchStockByVariant.forEach((v) => (sum += v));
+        return sum;
+    }, [branchStockByVariant, product?.totalStock]);
+
+    // Name of the selected branch, derived from the availability payload
+    const selectedBranchName = useMemo(() => {
+        if (!selectedBranchId || !availability) return null;
+        const row = availability.branches.find(
+            (b) => b.branchId === selectedBranchId,
+        );
+        if (!row) return null;
+        return language === 'km' ? row.branchNameKm : row.branchNameEn;
+    }, [selectedBranchId, availability, language]);
 
     const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
     const deleteModal = useDeleteProductModal();
@@ -117,22 +156,6 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
 
     return (
         <div className="space-y-6">
-            {/* Backlink */}
-            <div className="flex items-center gap-2">
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    nativeButton={false}
-                    className="text-muted-foreground hover:text-foreground"
-                    render={
-                        <Link href="/dashboard/products">
-                            <ArrowLeft className="mr-1 size-4" />
-                            {t('product.detail.backToList')}
-                        </Link>
-                    }
-                />
-            </div>
-
             {/* Hero — larger image left, title/badges/actions right */}
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
                 {/* Bigger hero image */}
@@ -178,6 +201,17 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                         </div>
 
                         <div className="flex gap-2 sm:shrink-0">
+                            <Button
+                                variant="outline"
+                                nativeButton={false}
+                                className="text-muted-foreground hover:text-foreground"
+                                render={
+                                    <Link href="/dashboard/products">
+                                        <ArrowLeft className="mr-2 size-4" />
+                                        {t('common.back')}
+                                    </Link>
+                                }
+                            />
                             <Button
                                 variant="outline"
                                 nativeButton={false}
@@ -245,32 +279,25 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                         )}
                     </DetailSection>
 
-                    {/* Descriptions */}
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                        <DetailSection title={t('product.field.descriptionEn')}>
-                            {product.descriptionEn ? (
-                                <p className="text-sm leading-relaxed text-foreground">
-                                    {product.descriptionEn}
-                                </p>
-                            ) : (
-                                <p className="text-sm italic text-muted-foreground">
-                                    {t('product.detail.noDescription')}
-                                </p>
+                    {/* Descriptions — only render when at least one is filled */}
+                    {(product.descriptionEn || product.descriptionKm) && (
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                            {product.descriptionEn && (
+                                <DetailSection title={t('product.field.descriptionEn')}>
+                                    <p className="text-sm leading-relaxed text-foreground">
+                                        {product.descriptionEn}
+                                    </p>
+                                </DetailSection>
                             )}
-                        </DetailSection>
-
-                        <DetailSection title={t('product.field.descriptionKm')}>
-                            {product.descriptionKm ? (
-                                <p className="text-sm leading-relaxed text-foreground">
-                                    {product.descriptionKm}
-                                </p>
-                            ) : (
-                                <p className="text-sm italic text-muted-foreground">
-                                    {t('product.detail.noDescription')}
-                                </p>
+                            {product.descriptionKm && (
+                                <DetailSection title={t('product.field.descriptionKm')}>
+                                    <p className="text-sm leading-relaxed text-foreground">
+                                        {product.descriptionKm}
+                                    </p>
+                                </DetailSection>
                             )}
-                        </DetailSection>
-                    </div>
+                        </div>
+                    )}
 
                     {/* Details */}
                     {(product.detailsEn || product.detailsKm) && (
@@ -312,6 +339,7 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                                 )
                                 : undefined
                         }
+                        action={<BranchScopeBadge branchName={selectedBranchName} />}
                     >
                         {variants.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/20 py-8">
@@ -321,12 +349,18 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                                 </p>
                             </div>
                         ) : (
-                            <VariantTable variants={variants} />
+                            <VariantTable
+                                variants={variants}
+                                branchStockByVariant={branchStockByVariant}
+                            />
                         )}
                     </DetailSection>
 
                     {/* NEW — Per-branch availability */}
-                    <ProductAvailabilitySection productId={product.id} />
+                    <ProductAvailabilitySection
+                        productId={product.id}
+                        selectedBranchId={selectedBranchId}
+                    />
 
                     {/* Badges */}
                     <DetailSection
@@ -358,9 +392,15 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                     {/* Inventory */}
                     <DetailSection title={t('product.detail.inventory')}>
                         <div className="space-y-2.5">
-                            <DetailField label={t('product.field.stock')}>
+                            <DetailField
+                                label={
+                                    selectedBranchName
+                                        ? `${t('product.field.stock')} · ${selectedBranchName}`
+                                        : t('product.field.stock')
+                                }
+                            >
                                 {(() => {
-                                    const stock = product.totalStock;
+                                    const stock = scopedTotalStock;
                                     if (stock === 0) {
                                         return (
                                             <span className="font-semibold text-destructive">
@@ -380,6 +420,13 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                                     );
                                 })()}
                             </DetailField>
+                            {selectedBranchName && (
+                                <DetailField label={t('product.scope.allBranches')}>
+                                    <span className="text-muted-foreground">
+                                        {formatStock(product.totalStock)}
+                                    </span>
+                                </DetailField>
+                            )}
                             <DetailField label={t('product.field.hasBox')}>
                                 {product.hasBox ? t('common.yes') : t('common.no')}
                             </DetailField>
@@ -405,17 +452,27 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
 
                     {/* Ratings */}
                     <DetailSection title={t('product.detail.reviews')}>
-                        <div className="space-y-2.5">
-                            <DetailField label={t('product.field.rating')}>
-                <span className="font-semibold">
-                  {product.averageRating.toFixed(1)}
-                </span>{' '}
-                                <span className="text-sm text-muted-foreground">/ 5.0</span>
-                            </DetailField>
-                            <DetailField label={t('product.field.reviewCount')}>
-                                {product.reviewCount}
-                            </DetailField>
-                        </div>
+                        {product.reviewCount === 0 ? (
+                            <div className="flex items-center gap-2 text-sm italic text-muted-foreground">
+                                <MessageSquare className="size-4 shrink-0 opacity-40" />
+                                {t('product.detail.noReviews')}
+                            </div>
+                        ) : (
+                            <div className="space-y-2.5">
+                                <DetailField label={t('product.field.rating')}>
+                                    <div className="flex items-center gap-2">
+                                        <StarRating value={product.averageRating ?? 0} />
+                                        <span className="text-sm font-semibold">
+                                            {(product.averageRating ?? 0).toFixed(1)}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">/ 5.0</span>
+                                    </div>
+                                </DetailField>
+                                <DetailField label={t('product.field.reviewCount')}>
+                                    {product.reviewCount}
+                                </DetailField>
+                            </div>
+                        )}
                     </DetailSection>
 
                     {/* Metadata */}
@@ -506,9 +563,38 @@ function ImageGallery({
     );
 }
 /**
- * Variant table — shows all sizes, colors, SKUs, stock, and effective prices.
+ * Small pill shown in section headers indicating which branch the numbers reflect.
  */
-function VariantTable({ variants }: { variants: ProductVariant[] }) {
+function BranchScopeBadge({ branchName }: { branchName: string | null }) {
+    const { t } = useI18n();
+    return (
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+            <MapPin
+                className={`size-3 ${
+                    branchName
+                        ? 'text-pink-500 dark:text-pink-400'
+                        : 'text-muted-foreground/60'
+                }`}
+            />
+            {branchName
+                ? t('product.scope.showingBranch').replace('{branch}', branchName)
+                : t('product.scope.allBranches')}
+        </span>
+    );
+}
+
+/**
+ * Variant table — one row per variant with a combined size·color identity column,
+ * SKU, branch-scoped stock, and effective price. Designed to stay compact as the
+ * number of size/color combinations grows.
+ */
+function VariantTable({
+    variants,
+    branchStockByVariant,
+}: {
+    variants: ProductVariant[];
+    branchStockByVariant: Map<string, number> | null;
+}) {
     const { t } = useI18n();
 
     return (
@@ -517,61 +603,62 @@ function VariantTable({ variants }: { variants: ProductVariant[] }) {
                 <thead className="border-b bg-muted/30">
                 <tr className="text-left">
                     <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        {t('product.variant.col.size')}
-                    </th>
-                    <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        {t('product.variant.col.color')}
+                        {t('product.variant.col.variant')}
                     </th>
                     <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                         {t('product.variant.col.sku')}
                     </th>
-                    <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                         {t('product.variant.col.stock')}
                     </th>
-                    <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                         {t('product.variant.col.effectivePrice')}
                     </th>
                 </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                {variants.map((v) => (
-                    <tr key={v.id} className="bg-card hover:bg-muted/20">
-                        <td className="px-3 py-2.5 text-sm">
-                            {v.size ?? <span className="text-muted-foreground">—</span>}
-                        </td>
-                        <td className="px-3 py-2.5">
-                            {v.color ? (
-                                <div className="flex items-center gap-2">
-                                    {v.colorHex && (
+                {variants.map((v) => {
+                    const label = [v.size, v.color].filter(Boolean).join(' · ');
+                    const stock = branchStockByVariant
+                        ? branchStockByVariant.get(v.id) ?? 0
+                        : v.quantityInStock;
+                    return (
+                        <tr key={v.id} className="bg-card hover:bg-muted/20">
+                            <td className="px-3 py-2.5">
+                                <div className="flex items-center gap-2.5">
+                                    {v.color && v.colorHex && (
                                         <span
-                                            className="inline-block size-4 rounded-full border border-border"
+                                            className="inline-block size-4 shrink-0 rounded-full border border-border"
                                             style={{ backgroundColor: v.colorHex }}
+                                            title={v.color}
                                         />
                                     )}
-                                    <span className="text-sm">{v.color}</span>
+                                    {label ? (
+                                        <span className="text-sm font-medium">{label}</span>
+                                    ) : (
+                                        <span className="text-sm text-muted-foreground">—</span>
+                                    )}
                                 </div>
-                            ) : (
-                                <span className="text-sm text-muted-foreground">—</span>
-                            )}
-                        </td>
-                        <td className="px-3 py-2.5">
+                            </td>
+                            <td className="px-3 py-2.5">
                 <span className="inline-block whitespace-nowrap rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
                   {v.variantSku}
                 </span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                            <VariantStockCell stock={v.quantityInStock} />
-                        </td>
-                        <td className="px-3 py-2.5 font-medium">
-                            {formatPrice(v.effectivePrice)}
-                            {v.priceOverride !== null && (
-                                <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                            </td>
+                            <td className="px-3 py-2.5 text-right">
+                                <VariantStockCell stock={stock} />
+                            </td>
+                            <td className="px-3 py-2.5 text-right font-medium">
+                                {formatPrice(v.effectivePrice)}
+                                {v.priceOverride !== null && (
+                                    <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
                     Override
                   </span>
-                            )}
-                        </td>
-                    </tr>
-                ))}
+                                )}
+                            </td>
+                        </tr>
+                    );
+                })}
                 </tbody>
             </table>
         </div>
@@ -689,6 +776,33 @@ function ProductTypeBadge({ type }: { type: ProductType }) {
       />
             {labels[type]}
         </Badge>
+    );
+}
+
+/**
+ * Five-star display — filled stars for the integer part, half for .5+, empty otherwise.
+ */
+function StarRating({ value }: { value: number }) {
+    return (
+        <div className="flex items-center gap-0.5">
+            {Array.from({ length: 5 }, (_, i) => {
+                const filled = value >= i + 1;
+                const half = !filled && value >= i + 0.5;
+                return (
+                    <span key={i} className="relative inline-block size-4">
+                        <Star className="absolute inset-0 size-4 text-muted-foreground/25" />
+                        {(filled || half) && (
+                            <span
+                                className="absolute inset-0 overflow-hidden"
+                                style={{ width: filled ? '100%' : '50%' }}
+                            >
+                                <Star className="size-4 fill-amber-400 text-amber-400" />
+                            </span>
+                        )}
+                    </span>
+                );
+            })}
+        </div>
     );
 }
 

@@ -202,9 +202,7 @@ export function ProductVariantsSection({
                                     <VariantRowEditor
                                         key={row.id}
                                         row={row}
-                                        pendingStockEntries={
-                                            row.isExisting ? pendingStockChanges.get(row.id) ?? null : null
-                                        }
+                                        pendingStockEntries={pendingStockChanges.get(row.id) ?? null}
                                         onFieldChange={(field, value) =>
                                             handleFieldChange(row.id, field, value)
                                         }
@@ -286,10 +284,10 @@ const VariantRowEditor = React.memo(function VariantRowEditor({
             </td>
             <td className="px-3 py-2">
                 <VariantStockButton
-                    variantId={row.isExisting ? row.id : null}
+                    variantId={row.id}
                     variantSku={row.variantSku}
-                    variantSize={row.size}
-                    variantColor={row.color}
+                    variantSize={row.size || null}
+                    variantColor={row.color || null}
                     variantColorHex={row.colorHex}
                     totalStock={row.quantityInStock}
                     isSaved={row.isExisting}

@@ -397,8 +397,13 @@ export class ProductVariantsService {
     const newSize = dto.size !== undefined ? dto.size : variant.size;
     const newColor = dto.color !== undefined ? dto.color : variant.color;
 
-    // Protect against turning a real variant into a null/null
-    if (newSize === null && newColor === null) {
+    // Only guard when size/color is explicitly being changed — allows updating
+    // stock/price on the default (null/null) single-variant without error.
+    if (
+      (dto.size !== undefined || dto.color !== undefined) &&
+      newSize === null &&
+      newColor === null
+    ) {
       throw new BadRequestException(
         'Variant must have at least a size or a color',
       );

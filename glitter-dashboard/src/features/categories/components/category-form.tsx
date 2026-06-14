@@ -36,15 +36,22 @@ import {
 } from '@/features/categories/use-categories';
 import { getErrorMessage } from '@/lib/api-client';
 import { getFileUrl } from '@/lib/file-url';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, type TranslationKey } from '@/lib/i18n';
 import type { Category, CategoryFormValues } from '@/types/category';
 import {useToast} from "@/hooks/use-toast";
+import { SavingOverlay } from '@/components/feedback/saving-overlay';
 
 const MAX_ICON_SIZE_MB = 2;
 const MAX_ICON_SIZE = MAX_ICON_SIZE_MB * 1024 * 1024;
 
 const inputClass =
     'h-11 shadow-none focus:shadow-none focus-visible:shadow-none focus:outline-0 focus-visible:outline-none focus:ring-0 focus-visible:ring-0 rounded-lg focus-visible:border-pink-500 dark:focus-visible:border-pink-800';
+
+const TYPE_LABEL_KEYS: Record<string, TranslationKey> = {
+    main: 'category.type.main',
+    sub: 'category.type.sub',
+    featured: 'category.type.featured',
+};
 
 const textareaClass =
     'shadow-none focus:shadow-none focus-visible:shadow-none focus:outline-0 focus-visible:outline-none focus:ring-0 focus-visible:ring-0 rounded-lg focus-visible:border-pink-500 dark:focus-visible:border-pink-800';
@@ -298,6 +305,7 @@ export function CategoryForm({
 
     return (
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
+            <SavingOverlay open={isPending} />
             <div className="space-y-5 px-6 pb-2 pt-2">
                 {/* Icon */}
                 <Field>
@@ -610,7 +618,13 @@ export function CategoryForm({
                                         onValueChange={(v) => v && field.onChange(v)}
                                     >
                                         <SelectTrigger id="category-type" className={inputClass}>
-                                            <SelectValue />
+                                            <SelectValue>
+                                                {(value: string) =>
+                                                    TYPE_LABEL_KEYS[value]
+                                                        ? t(TYPE_LABEL_KEYS[value])
+                                                        : value
+                                                }
+                                            </SelectValue>
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="main">

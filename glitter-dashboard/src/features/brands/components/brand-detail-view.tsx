@@ -68,22 +68,6 @@ export function BrandDetailView({id}: BrandDetailViewProps) {
 
     return (
         <div className="space-y-6">
-            {/* Back button + breadcrumb */}
-            <div className="flex items-center gap-2">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    nativeButton={false}
-                    className="text-muted-foreground hover:text-foreground"
-                    render={
-                        <Link href="/dashboard/brands">
-                            <ArrowLeft className="mr-1 size-4" />
-                            {t('brand.detail.backToList')}
-                        </Link>
-                    }
-                />
-            </div>
-
             {/* Hero — logo + name + status + actions */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
@@ -115,6 +99,17 @@ export function BrandDetailView({id}: BrandDetailViewProps) {
                 </div>
 
                 <div className="flex gap-2 sm:shrink-0">
+                    <Button
+                        variant="outline"
+                        nativeButton={false}
+                        className="text-muted-foreground hover:text-foreground"
+                        render={
+                            <Link href="/dashboard/brands">
+                                <ArrowLeft className="mr-2 size-4" />
+                                {t('common.back')}
+                            </Link>
+                        }
+                    />
                     <Button variant="outline" onClick={handleEdit}>
                         <Edit className="mr-2 size-4"/>
                         {t('brand.action.edit')}

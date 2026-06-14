@@ -52,23 +52,30 @@ export function Combobox({
 
     /**
      * Preserve the scroll position when the popover opens/closes.
-     * Base UI's Popover sometimes scrolls the trigger into view,
-     * which is jarring when the trigger is already visible.
+     *
+     * When the popover opens, the search input inside it is auto-focused before
+     * the popover has been positioned, so the browser scrolls the page (often all
+     * the way to the top) trying to bring the not-yet-positioned element into view.
+     * Restoring after the fact (e.g. via rAF) shows a visible jump-and-snap-back.
+     *
+     * Instead we pin the scroll position: any scroll fired during the short
+     * open/close transition is immediately reverted, so the page never moves.
      */
     const handleOpenChange = React.useCallback((nextOpen: boolean) => {
-        const scrollY = window.scrollY;
-        const scrollX = window.scrollX;
+        const x = window.scrollX;
+        const y = window.scrollY;
+        const pin = () => {
+            if (window.scrollX !== x || window.scrollY !== y) {
+                window.scrollTo(x, y);
+            }
+        };
+
+        window.addEventListener('scroll', pin, true);
+        window.setTimeout(() => {
+            window.removeEventListener('scroll', pin, true);
+        }, 300);
 
         setOpen(nextOpen);
-
-        // Restore scroll on the next 2 frames to outwait any browser auto-scroll
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                if (window.scrollY !== scrollY) {
-                    window.scrollTo({ left: scrollX, top: scrollY, behavior: 'instant' as ScrollBehavior });
-                }
-            });
-        });
     }, []);
 
     return (

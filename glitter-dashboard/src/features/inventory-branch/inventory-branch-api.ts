@@ -1,5 +1,7 @@
 import { apiClient } from '@/lib/api-client';
 import type {
+    BranchInventoryGroupedResponse,
+    BranchInventoryParams,
     BranchInventorySummary,
     CreateInventoryBranchPayload,
     InventoryBranchRecord,
@@ -44,14 +46,18 @@ export const inventoryBranchApi = {
     },
 
     /**
-     * Get all inventory at a specific branch.
-     * Used by: a branch detail page inventory section.
+     * Get inventory at a branch, grouped by product and paginated.
+     * Used by: the branch detail page inventory section.
      */
-    async getByBranch(branchId: string): Promise<InventoryBranchRecord[]> {
-        const { data } = await apiClient.get<ListEnvelope<InventoryBranchRecord>>(
+    async getByBranch(
+        branchId: string,
+        params?: BranchInventoryParams,
+    ): Promise<BranchInventoryGroupedResponse> {
+        const { data } = await apiClient.get<BranchInventoryGroupedResponse>(
             `${BASE}/branch/${branchId}`,
+            { params },
         );
-        return data.data;
+        return data;
     },
 
     /**

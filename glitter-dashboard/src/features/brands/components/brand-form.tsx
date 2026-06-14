@@ -37,7 +37,8 @@ import {
 } from '@/features/brands/use-brands';
 import {getErrorMessage} from '@/lib/api-client';
 import {getFileUrl} from '@/lib/file-url';
-import {useI18n} from '@/lib/i18n';
+import {useI18n, type TranslationKey} from '@/lib/i18n';
+import {SavingOverlay} from '@/components/feedback/saving-overlay';
 import type {Brand, BrandFormValues} from '@/types/brand';
 
 const MAX_LOGO_SIZE_MB = 2;
@@ -45,6 +46,11 @@ const MAX_LOGO_SIZE = MAX_LOGO_SIZE_MB * 1024 * 1024;
 
 const inputClass =
     'h-11 shadow-none focus:shadow-none focus-visible:shadow-none focus:outline-0 focus-visible:outline-none focus:ring-0 focus-visible:ring-0 rounded-lg focus-visible:border-pink-500 dark:focus-visible:border-pink-800';
+
+const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {
+    active: 'brand.status.active',
+    inactive: 'brand.status.inactive',
+};
 
 function extractFilename(url: string | null): string | null {
     if (!url) return null;
@@ -308,6 +314,7 @@ export function BrandForm({brand, onSuccess, onCancel}: BrandFormProps) {
 
     return (
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
+            <SavingOverlay open={isPending} />
             <div className="space-y-5 px-6 pb-2 pt-2">
                 {/* Logo */}
                 <Field>
@@ -567,7 +574,13 @@ export function BrandForm({brand, onSuccess, onCancel}: BrandFormProps) {
                                     onValueChange={(v) => v && field.onChange(v)}
                                 >
                                     <SelectTrigger id="brand-status" className={inputClass}>
-                                        <SelectValue/>
+                                        <SelectValue>
+                                            {(value: string) =>
+                                                STATUS_LABEL_KEYS[value]
+                                                    ? t(STATUS_LABEL_KEYS[value])
+                                                    : value
+                                            }
+                                        </SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="active">

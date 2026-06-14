@@ -11,6 +11,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { BrandedLoader } from '@/components/feedback/branded-loader';
 import { useActiveBranches } from '@/features/branches/use-branches';
 import { useVariantInventory } from '@/features/inventory-branch/use-inventory-branch';
 import { useI18n } from '@/lib/i18n';
@@ -40,6 +41,8 @@ interface VariantStockDialogProps {
     pendingEntries: VariantStockEntry[] | null;
     /** Called when a user applies — parent stores in a local state, does NOT call API */
     onApply: (entries: VariantStockEntry[]) => void;
+    /** When true, skip the inventory API fetch — used for variants not yet saved to the backend */
+    isNew?: boolean;
 }
 
 interface BranchStockState {
@@ -63,12 +66,13 @@ export function VariantStockDialog({
                                        variantColorHex,
                                        pendingEntries,
                                        onApply,
+                                       isNew = false,
                                    }: VariantStockDialogProps) {
     const { t, language } = useI18n();
 
     const { data: branches, isLoading: branchesLoading } = useActiveBranches();
     const { data: inventory, isLoading: inventoryLoading } = useVariantInventory(
-        open ? variantId : undefined,
+        open && !isNew ? variantId : undefined,
     );
 
     const [rows, setRows] = useState<BranchStockState[]>([]);
@@ -81,10 +85,11 @@ export function VariantStockDialog({
             setSeeded(false);
             return;
         }
-        if (seeded || !branches || !inventory) return;
+        if (seeded || !branches) return;
+        if (!isNew && !inventory) return;
 
         const inventoryByBranch = new Map<string, InventoryBranchRecord>();
-        inventory.forEach((row) => inventoryByBranch.set(row.branchId, row));
+        (inventory ?? []).forEach((row) => inventoryByBranch.set(row.branchId, row));
 
         const pendingByBranch = new Map<string, VariantStockEntry>();
         pendingEntries?.forEach((e) => pendingByBranch.set(e.branchId, e));
@@ -111,7 +116,7 @@ export function VariantStockDialog({
 
         setRows(seededRows);
         setSeeded(true);
-    }, [open, branches, inventory, pendingEntries, seeded]);
+    }, [open, branches, inventory, isNew, pendingEntries, seeded]);
 
     function handleFieldChange(
         branchId: string,
@@ -138,7 +143,7 @@ export function VariantStockDialog({
         onOpenChange(false);
     }
 
-    const isLoading = branchesLoading || inventoryLoading;
+    const isLoading = branchesLoading || (!isNew && inventoryLoading);
     const grandTotalAvailable = rows.reduce(
         (sum, r) => sum + r.quantityAvailable,
         0,
@@ -170,7 +175,7 @@ export function VariantStockDialog({
                 <div className="space-y-4 py-2">
                     {isLoading ? (
                         <div className="flex items-center justify-center py-8">
-                            <div className="size-6 animate-spin rounded-full border-2 border-pink-400 border-t-transparent" />
+                            <BrandedLoader size="sm" />
                         </div>
                     ) : rows.length === 0 ? (
                         <p className="py-8 text-center text-sm italic text-muted-foreground">
@@ -178,6 +183,11 @@ export function VariantStockDialog({
                         </p>
                     ) : (
                         <>
+                            <div className="space-y-1.5 rounded-lg border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
+                                <p>{t('variant.stock.dialog.perBranchHint')}</p>
+                                <p>{t('variant.stock.dialog.hint')}</p>
+                            </div>
+
                             <div className="overflow-x-auto rounded-lg border border-border/60">
                                 <table className="w-full text-sm">
                                     <thead className="border-b bg-muted/30">
