@@ -312,6 +312,27 @@
   }
 }
 
+/* Print isolation — only the receipt prints, never the dashboard chrome */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  #print-receipt,
+  #print-receipt * {
+    visibility: visible !important;
+  }
+  #print-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
 /* View Transitions — Theme switch animation */
 ::view-transition-old(root),
 ::view-transition-new(root) {

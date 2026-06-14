@@ -22,6 +22,8 @@ export interface ComboboxOption {
     value: string;
     label: string;
     secondary?: string;
+    /** Optional leading visual (image thumbnail, color swatch, icon). */
+    leading?: React.ReactNode;
 }
 
 interface ComboboxProps {
@@ -94,8 +96,15 @@ export function Combobox({
                             className,
                         )}
                     >
-                        <span className="truncate">
-                          {selected ? selected.label : isLoading ? 'Loading...' : placeholder}
+                        <span className="flex min-w-0 items-center gap-2">
+                            {selected?.leading}
+                            <span className="truncate">
+                                {selected
+                                    ? selected.label
+                                    : isLoading
+                                        ? 'Loading...'
+                                        : placeholder}
+                            </span>
                         </span>
                         <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
                     </Button>
@@ -121,10 +130,11 @@ export function Combobox({
                                         setOpen(false);
                                     }}
                                 >
-                                    <div className="flex flex-1 flex-col">
-                                        <span>{option.label}</span>
+                                    {option.leading}
+                                    <div className="flex min-w-0 flex-1 flex-col">
+                                        <span className="truncate">{option.label}</span>
                                         {option.secondary && (
-                                            <span className="text-xs text-muted-foreground">
+                                            <span className="truncate text-xs text-muted-foreground">
                                                 {option.secondary}
                                             </span>
                                         )}

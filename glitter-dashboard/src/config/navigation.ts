@@ -5,6 +5,7 @@ import {
     LayoutDashboard,
     MapPin,
     Package,
+    Receipt,
     Settings,
     Shapes,
     UserCog,
@@ -71,6 +72,12 @@ export const navigation: NavGroup[] = [
     {
         labelKey: 'nav.group.operations',
         items: [
+            {
+                href: '/dashboard/orders',
+                labelKey: 'nav.orders',
+                icon: Receipt,
+                roles: ALL_STAFF,
+            },
             {
                 href: '/dashboard/branches',
                 labelKey: 'nav.branches',

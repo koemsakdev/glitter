@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { ProductVariantEntity } from '../product-variants/entities/product-variant.entity';
 import { BranchEntity } from '../branch/entities/branch.entity';
 import { ProductEntity } from '../products/entities/product.entity';
@@ -265,6 +265,112 @@ export class InventoryBranchService {
       .filter((g): g is BranchInventoryProductGroup => g !== undefined);
 
     return { data, total, page, limit };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Transaction-aware stock primitives — used by the Orders service so that order
+  // creation and stock movement commit (or roll back) together, atomically.
+  // Each locks the inventory row for the variant+branch with a pessimistic write.
+  // ---------------------------------------------------------------------------
+
+  private async lockStockRow(
+    manager: EntityManager,
+    productVariantId: string,
+    branchId: string,
+  ): Promise<InventoryBranchEntity> {
+    const record = await manager.getRepository(InventoryBranchEntity).findOne({
+      where: { productVariantId, branchId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (record === null) {
+      throw new BadRequestException(
+        'This product is not stocked at the selected branch',
+      );
+    }
+    return record;
+  }
+
+  /** In-store sale: goods leave the shelf immediately (available -= qty). */
+  async sellStockTx(
+    manager: EntityManager,
+    productVariantId: string,
+    branchId: string,
+    quantity: number,
+  ): Promise<void> {
+    const repo = manager.getRepository(InventoryBranchEntity);
+    const record = await this.lockStockRow(manager, productVariantId, branchId);
+    if (record.quantityAvailable < quantity) {
+      throw new BadRequestException(
+        `Insufficient stock for ${record.productVariantId}: have ${record.quantityAvailable}, need ${quantity}`,
+      );
+    }
+    record.quantityAvailable -= quantity;
+    await repo.save(record);
+    await this.syncVariantGlobalStockViaManager(manager, productVariantId);
+  }
+
+  /** Online order placed: hold stock (available -= qty, reserved += qty). */
+  async reserveStockTx(
+    manager: EntityManager,
+    productVariantId: string,
+    branchId: string,
+    quantity: number,
+  ): Promise<void> {
+    const repo = manager.getRepository(InventoryBranchEntity);
+    const record = await this.lockStockRow(manager, productVariantId, branchId);
+    if (record.quantityAvailable < quantity) {
+      throw new BadRequestException(
+        `Insufficient stock for ${record.productVariantId}: have ${record.quantityAvailable}, need ${quantity}`,
+      );
+    }
+    record.quantityAvailable -= quantity;
+    record.quantityReserved += quantity;
+    await repo.save(record);
+    await this.syncVariantGlobalStockViaManager(manager, productVariantId);
+  }
+
+  /** Online order fulfilled: reserved stock is sold (reserved -= qty). */
+  async commitStockTx(
+    manager: EntityManager,
+    productVariantId: string,
+    branchId: string,
+    quantity: number,
+  ): Promise<void> {
+    const repo = manager.getRepository(InventoryBranchEntity);
+    const record = await this.lockStockRow(manager, productVariantId, branchId);
+    record.quantityReserved = Math.max(0, record.quantityReserved - quantity);
+    await repo.save(record);
+    await this.syncVariantGlobalStockViaManager(manager, productVariantId);
+  }
+
+  /** Online order cancelled before fulfilment: release the hold back to available. */
+  async releaseStockTx(
+    manager: EntityManager,
+    productVariantId: string,
+    branchId: string,
+    quantity: number,
+  ): Promise<void> {
+    const repo = manager.getRepository(InventoryBranchEntity);
+    const record = await this.lockStockRow(manager, productVariantId, branchId);
+    const release = Math.min(quantity, record.quantityReserved);
+    record.quantityReserved -= release;
+    record.quantityAvailable += release;
+    await repo.save(record);
+    await this.syncVariantGlobalStockViaManager(manager, productVariantId);
+  }
+
+  /** Refund: sold goods come back onto the shelf (available += qty). */
+  async returnStockTx(
+    manager: EntityManager,
+    productVariantId: string,
+    branchId: string,
+    quantity: number,
+  ): Promise<void> {
+    const repo = manager.getRepository(InventoryBranchEntity);
+    const record = await this.lockStockRow(manager, productVariantId, branchId);
+    record.quantityAvailable += quantity;
+    await repo.save(record);
+    await this.syncVariantGlobalStockViaManager(manager, productVariantId);
   }
 
   /** Shared base query: inventory at a branch joined to its variant + product. */

@@ -36,6 +36,7 @@ import { BranchModule } from './branch/branch.module';
 import { BrandsModule } from './brands/brands.module';
 import { CategoriesModule } from './category/category.module';
 import { InventoryBranchModule } from './inventory-branch/inventory-branch.module';
+import { OrdersModule } from './orders/orders.module';
 import { ProductBadgesModule } from './product-badges/product-badge.module';
 import { ProductImagesModule } from './product-images/product-image.module';
 import { ProductVariantsModule } from './product-variants/product-variant.module';
@@ -74,6 +75,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     ProductVariantsModule,
     ProductBadgesModule,
     InventoryBranchModule,
+    OrdersModule,
     UsersModule,
     AddressesModule,
     SeedModule,
