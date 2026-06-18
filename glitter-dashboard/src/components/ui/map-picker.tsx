@@ -1,10 +1,14 @@
 'use client';
 
 import { GoogleMap, MarkerF } from '@react-google-maps/api';
-import { Loader2, MapPin, Search } from 'lucide-react';
+import { Loader2, LocateFixed, MapPin, Search } from 'lucide-react';
 import * as React from 'react';
 import { DEFAULT_CENTER, useGoogleMaps } from '@/lib/google-maps';
-import { searchPlaces, type GeocodeResult } from '@/lib/geocode';
+import {
+    reverseGeocode,
+    searchPlaces,
+    type GeocodeResult,
+} from '@/lib/geocode';
 
 interface MapPickerProps {
     latitude: number;
@@ -25,6 +29,14 @@ interface MapPickerProps {
     searchPlaceholder?: string;
     /** Message shown when a search returns nothing */
     searchNoResultsText?: string;
+    /** Show a "use my current location" button (browser geolocation). */
+    showCurrentLocation?: boolean;
+    /** Reverse-geocode pin drops / current location so `address` is filled. */
+    reverseOnPick?: boolean;
+    /** Auto-detect the current location once when the map loads. */
+    autoLocate?: boolean;
+    /** Label for the current-location button. */
+    currentLocationText?: string;
 }
 
 const containerStyle = { width: '100%', height: '100%' };
@@ -46,8 +58,13 @@ export function MapPicker({
     height = 320,
     searchPlaceholder = 'Search for a place or address',
     searchNoResultsText = 'No places found. Try a street, market, or area name.',
+    showCurrentLocation = false,
+    reverseOnPick = false,
+    autoLocate = false,
+    currentLocationText = 'Use my current location',
 }: MapPickerProps) {
     const { isLoaded, loadError } = useGoogleMaps();
+    const [locating, setLocating] = React.useState(false);
 
     // Initial viewport center — captured once so dropping pins doesn't recenter.
     const [center] = React.useState(() => ({
@@ -62,12 +79,49 @@ export function MapPicker({
         lng: Number.isFinite(longitude) ? longitude : center.lng,
     };
 
+    const emitCoords = React.useCallback(
+        (lat: number, lng: number) => {
+            onChange(lat, lng);
+            if (reverseOnPick) {
+                void reverseGeocode(lat, lng).then((result) => {
+                    if (result) onChange(lat, lng, result.address, result.city);
+                });
+            }
+        },
+        [onChange, reverseOnPick],
+    );
+
     const emit = React.useCallback(
         (e: google.maps.MapMouseEvent) => {
-            if (e.latLng) onChange(e.latLng.lat(), e.latLng.lng());
+            if (e.latLng) emitCoords(e.latLng.lat(), e.latLng.lng());
         },
-        [onChange],
+        [emitCoords],
     );
+
+    const handleCurrentLocation = React.useCallback(() => {
+        if (!navigator.geolocation) return;
+        setLocating(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const { latitude: lat, longitude: lng } = pos.coords;
+                mapRef.current?.panTo({ lat, lng });
+                mapRef.current?.setZoom(17);
+                emitCoords(lat, lng);
+                setLocating(false);
+            },
+            () => setLocating(false),
+            { enableHighAccuracy: true, timeout: 10000 },
+        );
+    }, [emitCoords]);
+
+    // Auto-detect the current location once when the map is ready.
+    const autoTriedRef = React.useRef(false);
+    React.useEffect(() => {
+        if (autoLocate && isLoaded && !autoTriedRef.current) {
+            autoTriedRef.current = true;
+            handleCurrentLocation();
+        }
+    }, [autoLocate, isLoaded, handleCurrentLocation]);
 
     const handleSearchSelect = React.useCallback(
         (result: GeocodeResult) => {
@@ -131,6 +185,22 @@ export function MapPicker({
                         noResultsText={searchNoResultsText}
                         onSelect={handleSearchSelect}
                     />
+
+                    {showCurrentLocation && (
+                        <button
+                            type="button"
+                            onClick={handleCurrentLocation}
+                            disabled={locating}
+                            className="absolute bottom-3 left-3 z-10 flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-[0_2px_6px_rgba(0,0,0,0.3)] hover:bg-gray-50 disabled:opacity-60"
+                        >
+                            {locating ? (
+                                <Loader2 className="size-4 animate-spin text-gray-500" />
+                            ) : (
+                                <LocateFixed className="size-4 text-pink-500" />
+                            )}
+                            {currentLocationText}
+                        </button>
+                    )}
                 </>
             )}
         </div>

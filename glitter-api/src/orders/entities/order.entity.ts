@@ -37,6 +37,8 @@ export type OrderStatus =
 @Index(['branchId'])
 @Index(['status'])
 @Index(['source'])
+// Orders list = filter by branch (+ status) ordered by recency.
+@Index('idx_order_branch_status_created', ['branchId', 'status', 'createdAt'])
 export class OrderEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

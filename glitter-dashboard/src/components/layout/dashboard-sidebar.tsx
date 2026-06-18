@@ -102,10 +102,15 @@ export function DashboardSidebar() {
                                     }
 
                                     // ----- Normal item -----
+                                    // Match the exact route or a sub-route
+                                    // (e.g. /customers/[id]), but NOT a sibling
+                                    // that merely shares a prefix (a path
+                                    // boundary "/" is required, so /staff would
+                                    // not match a sibling like /staff-x).
                                     const isActive =
                                         pathname === item.href ||
                                         (item.href !== '/dashboard' &&
-                                            pathname.startsWith(item.href));
+                                            pathname.startsWith(item.href + '/'));
 
                                     return (
                                         <SidebarMenuItem key={item.href}>

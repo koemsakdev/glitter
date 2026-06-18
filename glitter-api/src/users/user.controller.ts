@@ -207,6 +207,23 @@ export class UsersController {
       );
     }
 
+    // You cannot change your OWN role or account status — that prevents
+    // self-demotion / self-suspension and locking yourself out. Use another
+    // admin, or the Profile page for your own name/email/phone.
+    if (currentUser.id === id) {
+      if (dto.role !== undefined && dto.role !== currentUser.role) {
+        throw new ForbiddenException('You cannot change your own role');
+      }
+      if (
+        dto.accountStatus !== undefined &&
+        dto.accountStatus !== currentUser.accountStatus
+      ) {
+        throw new ForbiddenException(
+          'You cannot change your own account status',
+        );
+      }
+    }
+
     return this.usersService.update(id, dto);
   }
 
@@ -295,7 +312,13 @@ export class UsersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Soft-delete a user (admin only)' })
   @ApiParam({ name: 'id', type: String })
-  async delete(@Param('id') id: string): Promise<void> {
+  async delete(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: UserEntity,
+  ): Promise<void> {
+    if (currentUser.id === id) {
+      throw new ForbiddenException('You cannot delete your own account');
+    }
     await this.usersService.softDelete(id);
   }
 
@@ -310,7 +333,13 @@ export class UsersController {
     summary: 'Permanently delete a user (super_admin only, DESTRUCTIVE)',
   })
   @ApiParam({ name: 'id', type: String })
-  async hardDelete(@Param('id') id: string): Promise<void> {
+  async hardDelete(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: UserEntity,
+  ): Promise<void> {
+    if (currentUser.id === id) {
+      throw new ForbiddenException('You cannot delete your own account');
+    }
     await this.usersService.hardDelete(id);
   }
 }

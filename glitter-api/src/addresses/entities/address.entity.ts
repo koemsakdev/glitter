@@ -52,15 +52,15 @@ export class AddressEntity {
    * Cambodian geographic breakdown.
    * Province examples: "Phnom Penh", "Siem Reap", "Battambang"
    */
-  @Column({ type: 'varchar', length: 100 })
-  province!: string;
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  province!: string | null;
 
   /**
    * District in provinces, Khan (ខណ្ឌ) in Phnom Penh.
    * Examples: "Chamkar Mon", "Tuol Kouk", "Sen Sok"
    */
-  @Column({ type: 'varchar', length: 100 })
-  district!: string;
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  district!: string | null;
 
   /**
    * Commune (ឃុំ) in provinces, Sangkat (សង្កាត់) in Phnom Penh.

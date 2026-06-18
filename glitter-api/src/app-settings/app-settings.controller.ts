@@ -32,9 +32,10 @@ export class AppSettingsController {
     return this.appSettingsService.create(dto);
   }
 
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'super_admin')
   @Get()
-  @ApiOperation({ summary: 'Get all application settings' })
+  @ApiOperation({ summary: 'Get all application settings (admin only)' })
   @ApiResponse({ status: 200, description: 'List application settings' })
   async findAll(): Promise<AppSettingResponse[]> {
     return this.appSettingsService.findAll();

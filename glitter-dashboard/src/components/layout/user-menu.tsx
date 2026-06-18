@@ -12,6 +12,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useLogout } from '@/features/auth/use-auth';
+import { getFileUrl } from '@/lib/file-url';
 import { useI18n } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/auth-store';
 import {useToast} from "@/hooks/use-toast";
@@ -41,6 +42,7 @@ export function UserMenu() {
     const fullName = user.fullName ?? user.email ?? 'User';
     const initials = getInitials(user.fullName);
     const role = (user.role ?? 'user').replace('_', ' ');
+    const avatarUrl = getFileUrl(user.profileImageUrl);
 
     async function handleLogout() {
         const toastId = showLoadingToast(t('common.toast.logout'), t('common.toast.wait'));
@@ -73,8 +75,8 @@ export function UserMenu() {
                         className="flex h-10 items-center gap-2 px-2"
                     >
                         <Avatar className="size-8">
-                            {user.profileImageUrl && (
-                                <AvatarImage src={user.profileImageUrl} alt={fullName} />
+                            {avatarUrl && (
+                                <AvatarImage src={avatarUrl} alt={fullName} />
                             )}
                             <AvatarFallback className="bg-pink-400 text-xs text-white dark:bg-pink-300 dark:text-pink-950">
                                 {initials}

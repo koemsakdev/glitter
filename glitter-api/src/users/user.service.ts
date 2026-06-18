@@ -85,6 +85,9 @@ export class UsersService {
 
     const role: UserRole = dto.role ?? 'customer';
     await this.validateRoleBranchCombination(role, dto.branchId ?? null);
+    if (role === 'super_admin') {
+      await this.assertNoOtherSuperAdmin();
+    }
 
     const entity = this.userRepository.create({
       email: dto.email ? dto.email.toLowerCase() : null,
@@ -130,6 +133,10 @@ export class UsersService {
       qb.andWhere('user.role = :role', { role: query.role });
     }
 
+    if (query.staffOnly) {
+      qb.andWhere('user.role != :customerRole', { customerRole: 'customer' });
+    }
+
     if (query.branchId) {
       qb.andWhere('user.branchId = :branchId', { branchId: query.branchId });
     }
@@ -148,7 +155,12 @@ export class UsersService {
       );
     }
 
-    qb.orderBy('user.createdAt', 'DESC').skip(skip).take(limit);
+    // Highest role first (role enum is declared customer→…→super_admin, so
+    // DESC puts super_admin on top), then newest within the same role.
+    qb.orderBy('user.role', 'DESC')
+      .addOrderBy('user.createdAt', 'DESC')
+      .skip(skip)
+      .take(limit);
 
     const [users, total] = await qb.getManyAndCount();
 
@@ -232,6 +244,9 @@ export class UsersService {
 
     if (dto.role !== undefined || dto.branchId !== undefined) {
       await this.validateRoleBranchCombination(newRole, newBranchId);
+      if (newRole === 'super_admin') {
+        await this.assertNoOtherSuperAdmin(user.id);
+      }
 
       if (dto.role !== undefined) {
         // Role change invalidates tokens so new permissions take effect
@@ -639,6 +654,19 @@ export class UsersService {
    *   cashier/manager → MUST have branchId
    *   customer/admin/super_admin → MUST NOT have branchId
    */
+  /** There can be only one super_admin in the system. */
+  private async assertNoOtherSuperAdmin(excludeId?: string): Promise<void> {
+    const qb = this.userRepository
+      .createQueryBuilder('user')
+      .where('user.role = :role', { role: 'super_admin' });
+    if (excludeId) {
+      qb.andWhere('user.id != :excludeId', { excludeId });
+    }
+    if ((await qb.getCount()) > 0) {
+      throw new ConflictException('There can only be one Super Admin');
+    }
+  }
+
   private async validateRoleBranchCombination(
     role: UserRole,
     branchId: string | null,

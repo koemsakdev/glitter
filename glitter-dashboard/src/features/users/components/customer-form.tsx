@@ -1,0 +1,482 @@
+'use client';
+
+import { useQueryClient } from '@tanstack/react-query';
+import { Camera, Loader2, MapPin, Trash2, UserRound } from 'lucide-react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { SavingOverlay } from '@/components/feedback/saving-overlay';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { addressApi } from '@/features/addresses/address-api';
+import {
+    CustomerAddressesField,
+    addressToDraft,
+    type AddressDraft,
+} from '@/features/users/components/customer-addresses-field';
+import {
+    useCreateUser,
+    useRemoveUserAvatar,
+    useUpdateUser,
+    useUploadUserAvatar,
+} from '@/features/users/use-users';
+import { getErrorMessage } from '@/lib/api-client';
+import { getFileUrl } from '@/lib/file-url';
+import { useToast } from '@/hooks/use-toast';
+import { useI18n, type TranslationKey } from '@/lib/i18n';
+import type { Address } from '@/types/address';
+import {
+    ACCOUNT_STATUSES,
+    type AccountStatus,
+    type User,
+} from '@/types/user';
+
+const STATUS_LABELS: Record<AccountStatus, TranslationKey> = {
+    active: 'user.status.active',
+    suspended: 'user.status.suspended',
+    deleted: 'user.status.deleted',
+};
+
+const inputClass =
+    'h-11 shadow-none focus-visible:outline-none focus-visible:ring-0 rounded-lg focus-visible:border-pink-500 dark:focus-visible:border-pink-800';
+
+/** Strip spaces / dashes / parens so the Cambodian phone regex matches. */
+function normalizePhone(p: string): string {
+    return p.replace(/[\s().-]/g, '');
+}
+
+interface CustomerFormProps {
+    /** Existing customer (edit mode). Omit for create. */
+    customer?: User | null;
+    /** The customer's saved delivery addresses (edit mode). */
+    addresses?: Address[];
+}
+
+export function CustomerForm({ customer, addresses }: CustomerFormProps) {
+    const { t } = useI18n();
+    const { toast } = useToast();
+    const router = useRouter();
+    const queryClient = useQueryClient();
+    const fileRef = useRef<HTMLInputElement>(null);
+    const isEdit = Boolean(customer);
+
+    const createUser = useCreateUser();
+    const updateUser = useUpdateUser();
+    const uploadAvatar = useUploadUserAvatar();
+    const removeAvatar = useRemoveUserAvatar();
+
+    const [submitting, setSubmitting] = useState(false);
+
+    // Avatar — staged; applied on submit.
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    const [removeFlag, setRemoveFlag] = useState(false);
+
+    // Details
+    const [fullName, setFullName] = useState(customer?.fullName ?? '');
+    const [email, setEmail] = useState(customer?.email ?? '');
+    const [phone, setPhone] = useState(customer?.phoneNumber ?? '');
+    const [accountStatus, setAccountStatus] = useState<AccountStatus>(
+        customer?.accountStatus ?? 'active',
+    );
+
+    // Addresses — many, managed locally and synced on submit.
+    const [addressDrafts, setAddressDrafts] = useState<AddressDraft[]>(
+        () => addresses?.map(addressToDraft) ?? [],
+    );
+    const [originalIds] = useState<string[]>(
+        () => addresses?.map((a) => a.id) ?? [],
+    );
+
+    useEffect(() => {
+        return () => {
+            if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+        };
+    }, [avatarPreview]);
+
+    const currentAvatar = getFileUrl(customer?.profileImageUrl);
+    const shownAvatar = avatarPreview ?? (removeFlag ? null : currentAvatar);
+    const initials =
+        fullName
+            .split(' ')
+            .map((p) => p[0])
+            .filter(Boolean)
+            .slice(0, 2)
+            .join('')
+            .toUpperCase() || '?';
+
+    function pickAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+        setAvatarFile(file);
+        setAvatarPreview(URL.createObjectURL(file));
+        setRemoveFlag(false);
+    }
+
+    function clearAvatar() {
+        if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+        setAvatarFile(null);
+        setAvatarPreview(null);
+        setRemoveFlag(Boolean(customer?.profileImageUrl));
+    }
+
+    function fail(key: TranslationKey) {
+        toast({
+            title: t('common.toast.error'),
+            description: t(key),
+            variant: 'destructive',
+        });
+    }
+
+    async function persistAvatar(id: string) {
+        if (avatarFile) {
+            await uploadAvatar.mutateAsync({ id, file: avatarFile });
+        } else if (removeFlag) {
+            await removeAvatar.mutateAsync(id);
+        }
+    }
+
+    async function persistAddresses(id: string) {
+        // Create new / update existing.
+        for (const d of addressDrafts) {
+            const payload = {
+                userId: id,
+                label: d.label.trim() || undefined,
+                recipientName: d.recipientName.trim() || fullName.trim(),
+                recipientPhone: normalizePhone(
+                    d.recipientPhone.trim() || phone.trim(),
+                ),
+                streetAddress: d.addressText.trim().slice(0, 500),
+                province: d.city.trim() || undefined,
+                landmark: d.note.trim() || undefined,
+                latitude: Number(d.lat.toFixed(6)),
+                longitude: Number(d.lng.toFixed(6)),
+                addressType: 'shipping' as const,
+                isDefaultShipping: d.isDefault,
+                isDefaultBilling: false,
+            };
+            if (d.id) {
+                await addressApi.update(d.id, payload);
+            } else {
+                await addressApi.create(payload);
+            }
+        }
+        // Delete the ones the user removed.
+        const keptIds = new Set(
+            addressDrafts.map((d) => d.id).filter(Boolean) as string[],
+        );
+        for (const oldId of originalIds) {
+            if (!keptIds.has(oldId)) {
+                await addressApi.remove(oldId);
+            }
+        }
+    }
+
+    async function handleSubmit() {
+        if (!fullName.trim()) {
+            fail('user.validation.nameRequired');
+            return;
+        }
+        // Every address needs a contact phone (its own or the customer's).
+        const missingPhone = addressDrafts.some(
+            (d) => !(d.recipientPhone.trim() || phone.trim()),
+        );
+        if (missingPhone) {
+            fail('address.validation.recipientPhone');
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            let id: string;
+            const accountPhone = normalizePhone(phone.trim()) || undefined;
+            if (isEdit && customer) {
+                await updateUser.mutateAsync({
+                    id: customer.id,
+                    payload: {
+                        fullName: fullName.trim(),
+                        email: email.trim() || undefined,
+                        phoneNumber: accountPhone,
+                        accountStatus,
+                    },
+                });
+                id = customer.id;
+            } else {
+                const created = await createUser.mutateAsync({
+                    fullName: fullName.trim(),
+                    email: email.trim() || undefined,
+                    phoneNumber: accountPhone,
+                    role: 'customer',
+                    accountStatus,
+                });
+                id = created.id;
+            }
+
+            try {
+                await persistAvatar(id);
+            } catch {
+                toast({
+                    title: t('customer.create.avatarFailed'),
+                    variant: 'destructive',
+                });
+            }
+            try {
+                await persistAddresses(id);
+            } catch (e) {
+                toast({
+                    title: t('customer.create.addressFailed'),
+                    description: getErrorMessage(e),
+                    variant: 'destructive',
+                });
+            }
+
+            // The address writes went through addressApi directly, so refresh
+            // the cached lists before navigating to the detail page.
+            await queryClient.invalidateQueries({ queryKey: ['addresses'] });
+            await queryClient.invalidateQueries({ queryKey: ['users'] });
+
+            toast({
+                title: isEdit
+                    ? t('user.edit.success')
+                    : t('user.create.success'),
+                variant: 'success',
+            });
+            router.push(`/dashboard/customers/${id}`);
+        } catch (error) {
+            toast({
+                title: t('common.toast.error'),
+                description: getErrorMessage(error),
+                variant: 'destructive',
+            });
+            setSubmitting(false);
+        }
+    }
+
+    return (
+        <form
+            onSubmit={(e) => {
+                e.preventDefault();
+                void handleSubmit();
+            }}
+            className="space-y-6"
+        >
+            <SavingOverlay open={submitting} label={t('common.saving')} />
+
+            <div className="flex justify-end gap-2">
+                <Button
+                    type="button"
+                    variant="outline"
+                    disabled={submitting}
+                    onClick={() => router.back()}
+                >
+                    {t('common.cancel')}
+                </Button>
+                <Button
+                    type="submit"
+                    disabled={submitting}
+                    className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
+                >
+                    {submitting && (
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                    )}
+                    {isEdit
+                        ? t('user.edit.submit')
+                        : t('customer.create.submit')}
+                </Button>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-5">
+                {/* Left: photo + details */}
+                <div className="space-y-6 lg:col-span-2">
+                    <Section
+                        icon={<Camera className="size-4" />}
+                        title={t('profile.title')}
+                    >
+                        <div className="flex items-center gap-5">
+                            <div className="flex size-24 items-center justify-center overflow-hidden rounded-full bg-pink-100 text-2xl font-semibold text-pink-700 ring-4 ring-pink-100/60 dark:bg-pink-500/15 dark:text-pink-300 dark:ring-pink-500/10">
+                                {shownAvatar ? (
+                                    <Image
+                                        src={shownAvatar}
+                                        alt={fullName || 'avatar'}
+                                        width={96}
+                                        height={96}
+                                        className="size-full object-cover"
+                                        unoptimized
+                                    />
+                                ) : (
+                                    initials
+                                )}
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <input
+                                    ref={fileRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={pickAvatar}
+                                />
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => fileRef.current?.click()}
+                                    >
+                                        <Camera className="mr-2 size-4" />
+                                        {t('profile.avatar.change')}
+                                    </Button>
+                                    {shownAvatar && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={clearAvatar}
+                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                        >
+                                            <Trash2 className="mr-2 size-4" />
+                                            {t('profile.avatar.remove')}
+                                        </Button>
+                                    )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    {t('customer.create.photoHint')}
+                                </p>
+                            </div>
+                        </div>
+                    </Section>
+
+                    <Section
+                        icon={<UserRound className="size-4" />}
+                        title={t('user.detail.information')}
+                    >
+                        <div className="space-y-4">
+                            <Field label={t('user.field.fullName')}>
+                                <Input
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
+                                    placeholder="Sok Dara"
+                                    className={inputClass}
+                                />
+                            </Field>
+                            <Field label={t('user.field.email')}>
+                                <Input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="name@example.com"
+                                    className={inputClass}
+                                />
+                            </Field>
+                            <Field label={t('user.field.phone')}>
+                                <Input
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    placeholder="+85512345678"
+                                    className={inputClass}
+                                />
+                            </Field>
+                            <Field label={t('user.field.status')}>
+                                <Select
+                                    value={accountStatus}
+                                    onValueChange={(v) =>
+                                        v && setAccountStatus(v as AccountStatus)
+                                    }
+                                >
+                                    <SelectTrigger className="h-11 w-full">
+                                        <SelectValue>
+                                            {(v: string) =>
+                                                t(
+                                                    STATUS_LABELS[
+                                                        v as AccountStatus
+                                                    ],
+                                                )
+                                            }
+                                        </SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {ACCOUNT_STATUSES.map((s) => (
+                                            <SelectItem key={s} value={s}>
+                                                {t(STATUS_LABELS[s])}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                        </div>
+                    </Section>
+                </div>
+
+                {/* Right: delivery addresses (many) */}
+                <div className="lg:col-span-3">
+                    <Section
+                        icon={<MapPin className="size-4" />}
+                        title={t('address.section.title')}
+                        hint={t('customer.create.addressOptional')}
+                    >
+                        <CustomerAddressesField
+                            value={addressDrafts}
+                            onChange={setAddressDrafts}
+                            fallbackName={fullName.trim() || undefined}
+                            fallbackPhone={phone.trim() || undefined}
+                        />
+                    </Section>
+                </div>
+            </div>
+        </form>
+    );
+}
+
+function Section({
+    icon,
+    title,
+    hint,
+    children,
+}: {
+    icon?: React.ReactNode;
+    title: string;
+    hint?: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="rounded-2xl border bg-card p-5 shadow-sm">
+            <div className="mb-4 flex items-start gap-2.5">
+                {icon && (
+                    <span className="mt-0.5 flex size-7 items-center justify-center rounded-lg bg-pink-100 text-pink-600 dark:bg-pink-500/15 dark:text-pink-300">
+                        {icon}
+                    </span>
+                )}
+                <div>
+                    <h2 className="text-base font-semibold">{title}</h2>
+                    {hint && (
+                        <p className="text-sm text-muted-foreground">{hint}</p>
+                    )}
+                </div>
+            </div>
+            {children}
+        </div>
+    );
+}
+
+function Field({
+    label,
+    children,
+}: {
+    label: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="space-y-1.5">
+            <label className="text-sm font-medium">{label}</label>
+            {children}
+        </div>
+    );
+}

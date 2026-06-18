@@ -41,7 +41,7 @@ import { ProductBadgesModule } from './product-badges/product-badge.module';
 import { ProductImagesModule } from './product-images/product-image.module';
 import { ProductVariantsModule } from './product-variants/product-variant.module';
 import { ProductsModule } from './products/product.module';
-import { StaffModule } from './staff/staff.module';
+import { UploadsModule } from './uploads/uploads.module';
 import { UsersModule } from './users/user.module';
 import { SeedModule } from './seed/seed.module';
 import { AiModule } from './ai/ai.module';
@@ -67,7 +67,6 @@ import { DashboardModule } from './dashboard/dashboard.module';
     AuthModule,
     AppSettingsModule,
     BranchModule,
-    StaffModule,
     CategoriesModule,
     BrandsModule,
     ProductsModule,
@@ -78,6 +77,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     OrdersModule,
     UsersModule,
     AddressesModule,
+    UploadsModule,
     SeedModule,
     AiModule,
     DashboardModule,

@@ -9,7 +9,7 @@ export type UserRole =
     | 'admin'
     | 'super_admin';
 
-export type AccountStatus = 'active' | 'suspended' | 'banned';
+export type AccountStatus = 'active' | 'suspended' | 'deleted';
 
 export type ProfileImageSource = 'none' | 'oauth' | 'uploaded';
 

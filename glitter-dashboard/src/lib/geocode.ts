@@ -48,6 +48,52 @@ export async function searchPlaces(
 /** True when a Mapbox token is configured (used to surface setup hints). */
 export const hasMapboxToken = Boolean(MAPBOX_TOKEN);
 
+/**
+ * Reverse-geocode a coordinate into a readable address. Used when the user
+ * drops a pin or taps "use my current location".
+ */
+export async function reverseGeocode(
+    lat: number,
+    lng: number,
+    signal?: AbortSignal,
+): Promise<GeocodeResult | null> {
+    try {
+        if (MAPBOX_TOKEN) {
+            const params = new URLSearchParams({
+                longitude: String(lng),
+                latitude: String(lat),
+                access_token: MAPBOX_TOKEN,
+                language: 'en',
+                limit: '1',
+            });
+            const res = await fetch(
+                `https://api.mapbox.com/search/geocode/v6/reverse?${params}`,
+                { signal },
+            );
+            if (!res.ok) return null;
+            const data = (await res.json()) as { features?: MapboxFeature[] };
+            const feature = data.features?.[0];
+            return feature ? mapMapboxFeature(feature) : null;
+        }
+
+        const params = new URLSearchParams({
+            lat: String(lat),
+            lon: String(lng),
+            lang: 'en',
+        });
+        const res = await fetch(`https://photon.komoot.io/reverse?${params}`, {
+            signal,
+        });
+        if (!res.ok) return null;
+        const data = (await res.json()) as { features?: PhotonFeature[] };
+        const feature = data.features?.[0];
+        return feature ? mapPhotonFeature(feature) : null;
+    } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') throw err;
+        return null;
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Mapbox Geocoding v6
 // ---------------------------------------------------------------------------

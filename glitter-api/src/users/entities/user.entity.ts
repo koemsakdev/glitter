@@ -35,6 +35,9 @@ export type UserRole =
   | 'super_admin';
 
 @Entity('users')
+// Customer / staff lists filter by role and account status.
+@Index('idx_user_role', ['role'])
+@Index('idx_user_account_status', ['accountStatus'])
 export class UserEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

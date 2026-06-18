@@ -48,17 +48,17 @@ export class CreateAddressDto {
   })
   recipientPhone!: string;
 
-  @ApiProperty({ example: 'Phnom Penh' })
+  @ApiPropertyOptional({ example: 'Phnom Penh' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(100)
-  province!: string;
+  province?: string;
 
-  @ApiProperty({ example: 'Chamkar Mon' })
+  @ApiPropertyOptional({ example: 'Chamkar Mon' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(100)
-  district!: string;
+  district?: string;
 
   @ApiPropertyOptional({ example: 'Tuol Tompoung 1' })
   @IsOptional()

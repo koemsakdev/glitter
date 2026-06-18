@@ -3,10 +3,9 @@ import {
     Building2,
     Hexagon,
     LayoutDashboard,
-    MapPin,
     Package,
+    Paintbrush,
     Receipt,
-    Settings,
     Shapes,
     UserCog,
     Users,
@@ -32,7 +31,6 @@ export interface NavGroup {
 const ALL_STAFF: UserRole[] = ['cashier', 'manager', 'admin', 'super_admin'];
 const MANAGER_PLUS: UserRole[] = ['manager', 'admin', 'super_admin'];
 const ADMIN_ONLY: UserRole[] = ['admin', 'super_admin'];
-const SUPER_ONLY: UserRole[] = ['super_admin'];
 
 export const navigation: NavGroup[] = [
     {
@@ -70,7 +68,7 @@ export const navigation: NavGroup[] = [
         ],
     },
     {
-        labelKey: 'nav.group.operations',
+        labelKey: 'nav.group.sales',
         items: [
             {
                 href: '/dashboard/orders',
@@ -79,9 +77,9 @@ export const navigation: NavGroup[] = [
                 roles: ALL_STAFF,
             },
             {
-                href: '/dashboard/branches',
-                labelKey: 'nav.branches',
-                icon: Building2,
+                href: '/dashboard/customers',
+                labelKey: 'nav.customers',
+                icon: Users,
                 roles: ADMIN_ONLY,
                 comingSoon: false,
             },
@@ -92,26 +90,16 @@ export const navigation: NavGroup[] = [
                 roles: ALL_STAFF,
                 comingSoon: true,
             },
+        ],
+    },
+    {
+        labelKey: 'nav.group.storefront',
+        items: [
             {
-                href: '/dashboard/staff',
-                labelKey: 'nav.staff',
-                icon: UserCog,
-                roles: MANAGER_PLUS,
-                comingSoon: true,
-            },
-            {
-                href: '/dashboard/users',
-                labelKey: 'nav.users',
-                icon: Users,
+                href: '/dashboard/app-settings',
+                labelKey: 'nav.appSettings',
+                icon: Paintbrush,
                 roles: ADMIN_ONLY,
-                comingSoon: true,
-            },
-            {
-                href: '/dashboard/addresses',
-                labelKey: 'nav.addresses',
-                icon: MapPin,
-                roles: ADMIN_ONLY,
-                comingSoon: true,
             },
         ],
     },
@@ -119,11 +107,18 @@ export const navigation: NavGroup[] = [
         labelKey: 'nav.group.settings',
         items: [
             {
-                href: '/dashboard/app-settings',
-                labelKey: 'nav.appSettings',
-                icon: Settings,
-                roles: SUPER_ONLY,
-                comingSoon: true,
+                href: '/dashboard/branches',
+                labelKey: 'nav.branches',
+                icon: Building2,
+                roles: ADMIN_ONLY,
+                comingSoon: false,
+            },
+            {
+                href: '/dashboard/staff',
+                labelKey: 'nav.staffAccess',
+                icon: UserCog,
+                roles: ADMIN_ONLY,
+                comingSoon: false,
             },
         ],
     },

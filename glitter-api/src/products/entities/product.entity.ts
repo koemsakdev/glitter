@@ -24,6 +24,10 @@ export type ProductStatus =
   | 'archived';
 
 @Entity('products')
+// Catalog listing filters by status, often within a category/brand.
+@Index('idx_product_status', ['status'])
+@Index('idx_product_category', ['categoryId'])
+@Index('idx_product_brand', ['brandId'])
 export class ProductEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

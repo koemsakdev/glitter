@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -48,6 +49,14 @@ export class UserQueryDto {
   @IsOptional()
   @IsUUID()
   branchId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Only staff-role accounts (exclude customers)',
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  staffOnly?: boolean;
 
   @ApiPropertyOptional({
     enum: ['email', 'google', 'facebook', 'apple', 'telegram'],

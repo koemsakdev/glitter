@@ -6,8 +6,8 @@ export interface AddressResponse {
   label: string | null;
   recipientName: string;
   recipientPhone: string;
-  province: string;
-  district: string;
+  province: string | null;
+  district: string | null;
   commune: string | null;
   village: string | null;
   streetAddress: string;
