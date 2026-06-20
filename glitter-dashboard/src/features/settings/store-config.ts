@@ -23,6 +23,25 @@ export interface StoreBanner {
     enabled: boolean;
 }
 
+export interface StoreTheme {
+    id: string;
+    name: string;
+    color: string; // hex
+}
+
+export interface ContactField {
+    id: string;
+    label: string;
+    value: string;
+}
+
+export interface SocialLink {
+    id: string;
+    name: string;
+    url: string;
+    iconUrl: string;
+}
+
 export type FontScale = 'sm' | 'md' | 'lg';
 export type RadiusPreset = 'none' | 'sm' | 'md' | 'lg' | 'xl';
 export type Density = 'compact' | 'comfortable';
@@ -50,7 +69,10 @@ export interface StoreConfig {
     taglineEn: string;
     taglineKm: string;
 
+    /** Active theme's colour (kept in sync with the active theme). */
     themeColor: string; // hex, e.g. #ec4899
+    themes: StoreTheme[];
+    activeThemeId: string;
 
     appearance: StoreAppearance;
 
@@ -75,6 +97,11 @@ export interface StoreConfig {
     instagramUrl: string;
     telegramUrl: string;
 
+    contacts: ContactField[];
+    socials: SocialLink[];
+    footerDescriptionEn: string;
+    footerDescriptionKm: string;
+
     banners: StoreBanner[];
     sections: HomeSection[];
 }
@@ -89,6 +116,8 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
     taglineKm: 'សម្ផស្ស និងពន្លឺ ភ្នំពេញ។',
 
     themeColor: '#ec4899',
+    themes: [{ id: 'default', name: 'Pink', color: '#ec4899' }],
+    activeThemeId: 'default',
 
     appearance: {
         fontScale: 'md',
@@ -120,6 +149,26 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
     instagramUrl: 'https://instagram.com/glittershop',
     telegramUrl: 'https://t.me/glittershop',
 
+    contacts: [
+        { id: 'phone', label: 'Phone', value: '+855 12 345 678' },
+        { id: 'email', label: 'Email', value: 'hello@glitter.shop' },
+        {
+            id: 'address',
+            label: 'Address',
+            value: 'St. 432, Toul Tompong, Phnom Penh',
+        },
+    ],
+    socials: [
+        {
+            id: 'facebook',
+            name: 'Facebook',
+            url: 'https://facebook.com/glittershop',
+            iconUrl: '',
+        },
+    ],
+    footerDescriptionEn: '',
+    footerDescriptionKm: '',
+
     banners: [],
 
     sections: [
@@ -143,9 +192,76 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
 /** Merge a parsed config with defaults so new fields always have a value. */
 export function mergeStoreConfig(partial: unknown): StoreConfig {
     const p = (partial ?? {}) as Partial<StoreConfig>;
+
+    // Themes: migrate an old single `themeColor` into one theme if needed.
+    const themes =
+        Array.isArray(p.themes) && p.themes.length > 0
+            ? p.themes
+            : [
+                  {
+                      id: 'default',
+                      name: 'Default',
+                      color: p.themeColor ?? DEFAULT_STORE_CONFIG.themeColor,
+                  },
+              ];
+    const activeThemeId = themes.some((t) => t.id === p.activeThemeId)
+        ? (p.activeThemeId as string)
+        : themes[0].id;
+    const themeColor =
+        themes.find((t) => t.id === activeThemeId)?.color ??
+        DEFAULT_STORE_CONFIG.themeColor;
+
+    // Contacts / socials: migrate old fixed fields into lists on first run.
+    const contacts = Array.isArray(p.contacts)
+        ? p.contacts
+        : [
+              p.contactPhone && {
+                  id: 'phone',
+                  label: 'Phone',
+                  value: p.contactPhone,
+              },
+              p.contactEmail && {
+                  id: 'email',
+                  label: 'Email',
+                  value: p.contactEmail,
+              },
+              p.contactAddressEn && {
+                  id: 'address',
+                  label: 'Address',
+                  value: p.contactAddressEn,
+              },
+          ].filter(Boolean as unknown as (x: unknown) => x is ContactField);
+    const socials = Array.isArray(p.socials)
+        ? p.socials
+        : [
+              p.facebookUrl && {
+                  id: 'facebook',
+                  name: 'Facebook',
+                  url: p.facebookUrl,
+                  iconUrl: '',
+              },
+              p.instagramUrl && {
+                  id: 'instagram',
+                  name: 'Instagram',
+                  url: p.instagramUrl,
+                  iconUrl: '',
+              },
+              p.telegramUrl && {
+                  id: 'telegram',
+                  name: 'Telegram',
+                  url: p.telegramUrl,
+                  iconUrl: '',
+              },
+          ].filter(Boolean as unknown as (x: unknown) => x is SocialLink);
+
     return {
         ...DEFAULT_STORE_CONFIG,
         ...p,
+        themes,
+        activeThemeId,
+        themeColor,
+        contacts,
+        socials,
         appearance: {
             ...DEFAULT_STORE_CONFIG.appearance,
             ...(p.appearance ?? {}),

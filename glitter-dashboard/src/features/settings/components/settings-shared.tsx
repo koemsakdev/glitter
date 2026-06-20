@@ -1,5 +1,6 @@
 'use client';
 
+import { Loader2, Save } from 'lucide-react';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -96,6 +97,11 @@ export function SettingsPage({
                     disabled={save.isPending}
                     className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800 sm:shrink-0"
                 >
+                    {save.isPending ? (
+                        <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                        <Save className="size-4" />
+                    )}
                     {t('common.save')}
                 </Button>
             </div>

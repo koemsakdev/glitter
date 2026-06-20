@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { fileUrl } from '@/lib/api';
 import { pick, tr, type Lang } from '@/lib/locale';
 import type { StoreConfig } from '@/lib/store-config';
 
@@ -11,13 +12,12 @@ export function SiteFooter({
 }) {
     const shopName = pick(lang, config.brandNameEn, config.brandNameKm) || 'Glitter';
     const tagline = pick(lang, config.taglineEn, config.taglineKm);
-    const address = pick(lang, config.contactAddressEn, config.contactAddressKm);
+    const description =
+        pick(lang, config.footerDescriptionEn, config.footerDescriptionKm) ||
+        tagline;
 
-    const socials = [
-        { label: 'Facebook', url: config.facebookUrl },
-        { label: 'Instagram', url: config.instagramUrl },
-        { label: 'Telegram', url: config.telegramUrl },
-    ].filter((s) => s.url?.trim());
+    const contacts = config.contacts.filter((c) => c.value?.trim());
+    const socials = config.socials.filter((s) => s.url?.trim());
 
     return (
         <footer className="mt-16 border-t border-zinc-200 bg-zinc-50">
@@ -29,7 +29,11 @@ export function SiteFooter({
                         </span>
                         <span className="font-semibold text-zinc-900">{shopName}</span>
                     </div>
-                    {tagline && <p className="mt-2 text-sm text-zinc-500">{tagline}</p>}
+                    {description && (
+                        <p className="mt-2 text-sm text-zinc-500">
+                            {description}
+                        </p>
+                    )}
                 </div>
 
                 <div>
@@ -51,23 +55,34 @@ export function SiteFooter({
                         {tr(lang, 'contact')}
                     </h3>
                     <ul className="mt-2 space-y-1.5 text-sm text-zinc-600">
-                        {config.contactPhone?.trim() && <li>{config.contactPhone}</li>}
-                        {config.contactEmail?.trim() && <li>{config.contactEmail}</li>}
-                        {address.trim() && <li>{address}</li>}
+                        {contacts.map((c) => (
+                            <li key={c.id}>{c.value}</li>
+                        ))}
                     </ul>
                     {socials.length > 0 && (
-                        <div className="mt-3 flex gap-3 text-sm">
-                            {socials.map((s) => (
-                                <a
-                                    key={s.label}
-                                    href={s.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-zinc-500 hover:text-(--brand)"
-                                >
-                                    {s.label}
-                                </a>
-                            ))}
+                        <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                            {socials.map((s) => {
+                                const icon = fileUrl(s.iconUrl);
+                                return (
+                                    <a
+                                        key={s.id}
+                                        href={s.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-(--brand)"
+                                    >
+                                        {icon ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img
+                                                src={icon}
+                                                alt={s.name}
+                                                className="size-4 object-contain"
+                                            />
+                                        ) : null}
+                                        {s.name}
+                                    </a>
+                                );
+                            })}
                         </div>
                     )}
                 </div>

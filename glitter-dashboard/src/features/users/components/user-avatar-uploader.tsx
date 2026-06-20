@@ -1,6 +1,6 @@
 'use client';
 
-import { Camera, Check, Loader2, Trash2, X } from 'lucide-react';
+import { Camera, Loader2, Save, Trash2, X } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -136,7 +136,7 @@ export function UserAvatarUploader({
                             onClick={save}
                             className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
                         >
-                            <Check className="mr-2 size-4" />
+                            <Save className="size-4" />
                             {t('user.avatar.save')}
                         </Button>
                         <Button
@@ -146,7 +146,7 @@ export function UserAvatarUploader({
                             disabled={busy}
                             onClick={cancelStaged}
                         >
-                            <X className="mr-2 size-4" />
+                            <X className="size-4" />
                             {t('common.cancel')}
                         </Button>
                     </>
@@ -159,7 +159,7 @@ export function UserAvatarUploader({
                             disabled={busy}
                             onClick={() => fileRef.current?.click()}
                         >
-                            <Camera className="mr-2 size-4" />
+                            <Camera className="size-4" />
                             {t('profile.avatar.change')}
                         </Button>
                         {currentAvatar && (
@@ -171,7 +171,7 @@ export function UserAvatarUploader({
                                 onClick={remove}
                                 className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                             >
-                                <Trash2 className="mr-2 size-4" />
+                                <Trash2 className="size-4" />
                                 {t('profile.avatar.remove')}
                             </Button>
                         )}

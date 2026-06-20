@@ -9,7 +9,9 @@ const BASE = '/dashboard/app-settings';
 
 const TABS: { href: string; label: string }[] = [
     { href: `${BASE}/general`, label: 'General' },
+    { href: `${BASE}/theme`, label: 'Theme' },
     { href: `${BASE}/appearance`, label: 'Appearance' },
+    { href: `${BASE}/contact`, label: 'Contact' },
     { href: `${BASE}/home`, label: 'Home' },
     { href: `${BASE}/banners`, label: 'Banners' },
     { href: `${BASE}/sections`, label: 'Sections' },
@@ -22,6 +24,10 @@ export default function AppSettingsLayout({
 }) {
     const pathname = usePathname();
     const { t } = useI18n();
+
+    // Deeper pages (e.g. the banner add/edit form) render standalone — no tabs.
+    const isTab = TABS.some((tab) => tab.href === pathname);
+    if (!isTab) return <>{children}</>;
 
     return (
         <div className="space-y-6">

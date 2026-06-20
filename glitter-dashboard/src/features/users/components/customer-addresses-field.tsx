@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Loader2, MapPin, Pencil, Phone, Plus, Star, Trash2, X } from 'lucide-react';
+import { Loader2, MapPin, Pencil, Phone, Plus, Save, Star, Trash2, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -254,7 +254,7 @@ export function CustomerAddressesField({
                         size="sm"
                         onClick={closeEditor}
                     >
-                        <X className="mr-1.5 size-4" />
+                        <X className="size-4" />
                         {t('common.cancel')}
                     </Button>
                     <Button
@@ -264,7 +264,7 @@ export function CustomerAddressesField({
                         onClick={saveDraft}
                         className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
                     >
-                        <Check className="mr-1.5 size-4" />
+                        <Save className="size-4" />
                         {t('phone.action.save')}
                     </Button>
                 </div>
@@ -296,7 +296,7 @@ export function CustomerAddressesField({
                                     </span>
                                     {d.isDefault && (
                                         <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/15">
-                                            <Star className="mr-1 size-3" />
+                                            <Star className="size-3" />
                                             {t('address.badge.default')}
                                         </Badge>
                                     )}
@@ -342,7 +342,7 @@ export function CustomerAddressesField({
                 size="sm"
                 onClick={openNew}
             >
-                <Plus className="mr-2 size-4" />
+                <Plus className="size-4" />
                 {t('address.action.create')}
             </Button>
         </div>
