@@ -6,6 +6,7 @@ import { ResponsiveModal } from "@/components/responsive-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { inputClass } from "@/features/settings/components/settings-shared";
+import { useI18n } from "@/lib/i18n";
 import { useToast } from "@/hooks/use-toast";
 import type { StoreTheme } from "@/features/settings/store-config";
 
@@ -28,6 +29,7 @@ export function ThemeFormDialog({
   onOpenChange,
   onSave,
 }: ThemeFormDialogProps) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const isEdit = Boolean(theme);
   const [name, setName] = useState(theme?.name ?? "");
@@ -35,7 +37,10 @@ export function ThemeFormDialog({
 
   function handleSave() {
     if (!name.trim()) {
-      toast({ title: "Please name the theme", variant: "destructive" });
+      toast({
+        title: t("settings.theme.nameRequired"),
+        variant: "destructive",
+      });
       return;
     }
     onSave({ id: theme?.id ?? newId(), name: name.trim(), color });
@@ -50,22 +55,26 @@ export function ThemeFormDialog({
       <div className="flex flex-col">
         <div className="px-6 pb-4 pt-6">
           <h2 className="text-xl font-bold tracking-tight">
-            {isEdit ? "Edit theme" : "Add theme"}
+            {isEdit ? t("settings.theme.editTitle") : t("settings.theme.add")}
           </h2>
         </div>
 
         <div className="space-y-4 px-6 pb-2">
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">Name</label>
+            <label className="text-sm font-medium">
+              {t("settings.theme.name")}
+            </label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Pink, Blue, Festive"
+              placeholder={t("settings.theme.namePlaceholder")}
               className={inputClass}
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">Color</label>
+            <label className="text-sm font-medium">
+              {t("settings.theme.color")}
+            </label>
             <div className="flex items-center gap-3">
               <div className="relative size-11 shrink-0 overflow-hidden rounded-lg shadow-sm transition-transform">
                 <input
@@ -90,7 +99,7 @@ export function ThemeFormDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             type="button"
@@ -98,7 +107,7 @@ export function ThemeFormDialog({
             className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
           >
             {isEdit ? <Save className="size-4" /> : <Plus className="size-4" />}
-            {isEdit ? "Save changes" : "Add theme"}
+            {isEdit ? t("settings.saveChanges") : t("settings.theme.add")}
           </Button>
         </div>
       </div>

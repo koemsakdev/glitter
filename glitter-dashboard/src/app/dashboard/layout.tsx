@@ -6,11 +6,13 @@ import { DashboardTopbar } from '@/components/layout/dashboard-topbar';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { ProtectedRoute } from '@/features/auth/components/protected-route';
 import { useAuthStore } from '@/stores/auth-store';
+import { usePathname } from 'next/navigation';
 import React from "react";
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
     const user = useAuthStore((s) => s.user);
     const isHydrated = useAuthStore((s) => s.isHydrated);
+    const pathname = usePathname();
 
     if (!isHydrated || !user) {
         return <LoadingScreen variant="page" />;
@@ -22,7 +24,12 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             <SidebarInset className="min-w-0">
                 <DashboardTopbar />
                 <main className="flex-1">
-                    <div className="p-2 md:p-4 lg:p-6">{children}</div>
+                    <div
+                        key={pathname}
+                        className="p-2 duration-300 animate-in fade-in-50 slide-in-from-bottom-2 md:p-4 lg:p-6"
+                    >
+                        {children}
+                    </div>
                 </main>
             </SidebarInset>
         </SidebarProvider>

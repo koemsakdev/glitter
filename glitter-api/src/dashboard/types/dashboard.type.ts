@@ -69,4 +69,22 @@ export interface DashboardStatsResponse {
     averagePrice: number;
     averageStockPerProduct: number;
   };
+  bestSelling: Array<{
+    id: string;
+    nameEn: string;
+    nameKm: string;
+    sku: string;
+    price: number;
+    primaryImageUrl: string | null;
+    count: number;
+  }>;
+  mostBought: Array<{
+    id: string;
+    nameEn: string;
+    nameKm: string;
+    sku: string;
+    price: number;
+    primaryImageUrl: string | null;
+    count: number;
+  }>;
 }

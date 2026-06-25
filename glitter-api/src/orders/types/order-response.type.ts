@@ -1,4 +1,8 @@
-import type { OrderSource, OrderStatus } from '../entities/order.entity';
+import type {
+  OrderPaymentStatus,
+  OrderSource,
+  OrderStatus,
+} from '../entities/order.entity';
 import type { PaymentMethod, PaymentStatus } from '../entities/payment.entity';
 
 export interface OrderItemResponse {
@@ -37,7 +41,10 @@ export interface OrderResponse {
   customerPhone: string | null;
   subtotal: number;
   discountTotal: number;
+  shippingCost: number;
+  taxAmount: number;
   grandTotal: number;
+  paymentStatus: OrderPaymentStatus;
   currency: string;
   note: string | null;
   itemCount: number;

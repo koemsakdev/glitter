@@ -39,6 +39,25 @@ export class InventoryBranchService {
     private readonly dataSource: DataSource,
   ) {}
 
+  /** Set a variant's available stock at a branch — create or update (upsert). */
+  async setStock(
+    dto: CreateInventoryBranchDto,
+  ): Promise<InventoryBranchDetailResponse> {
+    const existing = await this.inventoryRepository.findOne({
+      where: {
+        productVariantId: dto.productVariantId,
+        branchId: dto.branchId,
+      },
+    });
+    if (existing === null) {
+      return this.create(dto);
+    }
+    existing.quantityAvailable = dto.quantityAvailable ?? 0;
+    await this.inventoryRepository.save(existing);
+    await this.syncVariantGlobalStock(existing.productVariantId);
+    return this.findOne(existing.id);
+  }
+
   async create(
     dto: CreateInventoryBranchDto,
   ): Promise<InventoryBranchDetailResponse> {

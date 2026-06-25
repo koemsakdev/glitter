@@ -9,6 +9,7 @@ import { QueryProvider } from "@/lib/query-provider";
 import { Toaster } from "sonner";
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ThemeProvider } from '@/lib/theme-provider';
+import { RealtimeListener } from '@/lib/realtime-listener';
 
 const googleSans = localFont({
   src: [
@@ -40,6 +41,7 @@ export default function RootLayout({
          <NuqsAdapter>
           <ThemeProvider>
             <QueryProvider>
+              <RealtimeListener />
               <AuthProvider>
                 <TooltipProvider>
                   {children}

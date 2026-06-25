@@ -77,6 +77,21 @@ export class ProductsController {
     return this.productsService.findAll(query);
   }
 
+  @Public()
+  @Get('best-selling')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get best-selling products',
+    description: 'Top active products by units sold (falls back to recent).',
+  })
+  @ApiResponse({ status: 200, type: ProductListResponseDto })
+  async findBestSelling(
+    @Query('limit') limit?: string,
+  ): Promise<ProductListResponse> {
+    const n = Math.min(Math.max(parseInt(limit ?? '8', 10) || 8, 1), 24);
+    return this.productsService.findBestSelling(n);
+  }
+
   /**
    * Bulk sync stock across all products.
    * Useful one-time after data imports or manual DB fixes.

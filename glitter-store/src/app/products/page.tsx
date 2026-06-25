@@ -1,12 +1,16 @@
 import Link from 'next/link';
 import { ProductCard } from '@/components/product-card';
+import { SectionBlock, resolveSectionProducts } from '@/components/home-section';
 import {
     getActiveBrands,
     getCategories,
     getProducts,
+    getStoreConfig,
     type ProductQuery,
 } from '@/lib/api';
-import { getLang, pick, tr } from '@/lib/locale';
+import { getLang } from '@/lib/lang';
+import { productGridClass } from '@/lib/store-config';
+import { pick, tr } from '@/lib/locale';
 import { cn } from '@/lib/utils';
 
 export const metadata = { title: 'Shop' };
@@ -52,11 +56,16 @@ export default async function ProductsPage({
 }: {
     searchParams: Promise<SearchParams>;
 }) {
-    const [sp, lang] = await Promise.all([searchParams, getLang()]);
+    const [sp, lang, config] = await Promise.all([
+        searchParams,
+        getLang(),
+        getStoreConfig(),
+    ]);
     const search = first(sp.search) ?? '';
     const categoryId = first(sp.categoryId) ?? '';
     const brandId = first(sp.brandId) ?? '';
-    const sort = (first(sp.sort) as SortKey) || 'newest';
+    const sort =
+        (first(sp.sort) as SortKey) || config.appearance.productSort;
     const page = Math.max(1, Number(first(sp.page)) || 1);
 
     const sortDef = SORTS.find((s) => s.key === sort) ?? SORTS[0];
@@ -81,15 +90,51 @@ export default async function ProductsPage({
     const products = result?.data ?? [];
     const total = result?.total ?? 0;
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const colClass = productGridClass(config.appearance.productColumns);
+
+    // Configured sections for this page — only on the unfiltered base view.
+    const isBaseView = !search && !categoryId && !brandId && page === 1;
+    const productSections = isBaseView
+        ? config.sections.filter((s) => s.enabled && s.page === 'products')
+        : [];
+    const latest = productSections.some((s) => s.type === 'new-arrivals')
+        ? ((
+              await getProducts({
+                  limit: 12,
+                  sortBy: 'createdAt',
+                  sortOrder: 'DESC',
+              }).catch(() => null)
+          )?.data ?? [])
+        : [];
+    const sectionProducts = await resolveSectionProducts(
+        productSections,
+        latest,
+        getProducts,
+    );
 
     return (
-        <div className="mx-auto max-w-6xl px-4 py-8">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <>
+            {productSections.length > 0 && (
+                <div className="border-b border-zinc-100">
+                    {productSections.map((section) => (
+                        <SectionBlock
+                            key={section.id}
+                            section={section}
+                            lang={lang}
+                            categories={categories}
+                            products={sectionProducts.get(section.id) ?? []}
+                            columns={config.appearance.productColumns}
+                        />
+                    ))}
+                </div>
+            )}
+            <div className="mx-auto max-w-6xl px-4 py-8">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
+                    <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
                         {tr(lang, 'shop')}
                     </h1>
-                    <p className="mt-1 text-sm text-zinc-500">
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                         {search ? `${tr(lang, 'results')} “${search}” · ` : ''}
                         {total} {tr(lang, 'products')}
                     </p>
@@ -103,8 +148,8 @@ export default async function ProductsPage({
                             className={cn(
                                 'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
                                 s.key === sort
-                                    ? 'border-(--brand) bg-pink-50 text-(--brand)'
-                                    : 'border-zinc-200 text-zinc-600 hover:border-(--brand)',
+                                    ? 'border-(--brand) bg-pink-50 text-(--brand) dark:bg-(--brand)/15'
+                                    : 'border-zinc-200 text-zinc-600 hover:border-(--brand) dark:border-zinc-700 dark:text-zinc-300',
                             )}
                         >
                             {tr(lang, s.trKey)}
@@ -143,11 +188,11 @@ export default async function ProductsPage({
 
                 <div>
                     {products.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 py-20 text-center">
-                            <p className="font-medium text-zinc-700">
+                        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 py-20 text-center dark:border-zinc-700">
+                            <p className="font-medium text-zinc-700 dark:text-zinc-200">
                                 {tr(lang, 'noProducts')}
                             </p>
-                            <p className="mt-1 text-sm text-zinc-500">
+                            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                                 {tr(lang, 'tryDifferent')}
                             </p>
                             <Link
@@ -159,7 +204,9 @@ export default async function ProductsPage({
                         </div>
                     ) : (
                         <>
-                            <div className="grid grid-cols-2 gap-(--ui-gap) sm:grid-cols-3">
+                            <div
+                                className={`stagger grid gap-(--ui-gap) ${colClass}`}
+                            >
                                 {products.map((p) => (
                                     <ProductCard key={p.id} product={p} lang={lang} />
                                 ))}
@@ -170,19 +217,19 @@ export default async function ProductsPage({
                                     {page > 1 && (
                                         <Link
                                             href={buildHref(current, { page: page - 1 })}
-                                            className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:border-(--brand)"
+                                            className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:border-(--brand) dark:border-zinc-700 dark:text-zinc-200"
                                         >
                                             {tr(lang, 'previous')}
                                         </Link>
                                     )}
-                                    <span className="px-2 text-sm text-zinc-500">
+                                    <span className="px-2 text-sm text-zinc-500 dark:text-zinc-400">
                                         {tr(lang, 'page')} {page} {tr(lang, 'of')}{' '}
                                         {totalPages}
                                     </span>
                                     {page < totalPages && (
                                         <Link
                                             href={buildHref(current, { page: page + 1 })}
-                                            className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:border-(--brand)"
+                                            className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:border-(--brand) dark:border-zinc-700 dark:text-zinc-200"
                                         >
                                             {tr(lang, 'next')}
                                         </Link>
@@ -194,6 +241,7 @@ export default async function ProductsPage({
                 </div>
             </div>
         </div>
+        </>
     );
 }
 
@@ -223,8 +271,8 @@ function FilterGroup({
                         className={cn(
                             'block rounded-md px-2 py-1.5 transition-colors',
                             allActive
-                                ? 'bg-pink-50 font-medium text-(--brand)'
-                                : 'text-zinc-600 hover:bg-zinc-50',
+                                ? 'bg-pink-50 font-medium text-(--brand) dark:bg-(--brand)/15'
+                                : 'text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800',
                         )}
                     >
                         {allLabel}
@@ -237,8 +285,8 @@ function FilterGroup({
                             className={cn(
                                 'block rounded-md px-2 py-1.5 transition-colors',
                                 it.active
-                                    ? 'bg-pink-50 font-medium text-(--brand)'
-                                    : 'text-zinc-600 hover:bg-zinc-50',
+                                    ? 'bg-pink-50 font-medium text-(--brand) dark:bg-(--brand)/15'
+                                    : 'text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800',
                             )}
                         >
                             {it.label}

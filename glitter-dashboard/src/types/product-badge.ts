@@ -1,13 +1,31 @@
-export type BadgeType =
-    | 'new'
-    | 'sale'
-    | 'bestseller'
-    | 'limited'
-    | 'exclusive'
-    | 'hot'
-    | 'featured'
-    | 'coming_soon';
+import type { CSSProperties } from 'react';
 
+/** Convert a #rrggbb hex to an rgba() string with the given alpha. */
+export function hexToRgba(hex: string, alpha: number): string {
+    const h = hex.replace('#', '');
+    if (h.length < 6) return hex;
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * Tinted badge style that reads well in both light and dark mode: a low-opacity
+ * background of the chosen colour with the same colour as the text.
+ */
+export function badgeTintStyle(hex: string): CSSProperties {
+    return {
+        color: hex,
+        backgroundColor: hexToRgba(hex, 0.15),
+        borderColor: hexToRgba(hex, 0.3),
+    };
+}
+
+/** A badge slug from the dynamic catalog. Free-form so admins can add types. */
+export type BadgeType = string;
+
+/** The original built-in badge slugs (kept as fallback display defaults). */
 export const ALL_BADGE_TYPES: BadgeType[] = [
     'new',
     'sale',
@@ -64,8 +82,18 @@ export const BADGE_DEFAULTS: Record<
     },
 };
 
+/** Minimal shape of a catalog badge needed to resolve display values. */
+export interface BadgeCatalogEntry {
+    slug: string;
+    nameEn: string;
+    nameKm: string;
+    color: string;
+}
+
 /**
- * Resolve a badge's displayed label and color, using overrides if present, defaults otherwise.
+ * Resolve a badge's displayed label and color. Priority: per-product override →
+ * the live badges catalog (by slug) → built-in defaults → neutral fallback.
+ * Catalog-aware and crash-safe for custom badge slugs.
  */
 export function resolveBadgeDisplay(
     badge: Pick<
@@ -73,12 +101,28 @@ export function resolveBadgeDisplay(
         'badgeType' | 'badgeLabelEn' | 'badgeLabelKm' | 'badgeIconColor'
     >,
     language: 'en' | 'km',
+    catalog?: BadgeCatalogEntry[],
 ) {
-    const defaults = BADGE_DEFAULTS[badge.badgeType];
-    const label =
-        language === 'km'
-            ? badge.badgeLabelKm?.trim() || defaults.labelKm
-            : badge.badgeLabelEn?.trim() || defaults.labelEn;
-    const color = badge.badgeIconColor?.trim() || defaults.color;
+    const cat = catalog?.find((b) => b.slug === badge.badgeType);
+    const defaults = BADGE_DEFAULTS[badge.badgeType as BadgeType] as
+        | { labelEn: string; labelKm: string; color: string }
+        | undefined;
+
+    const labelEn =
+        badge.badgeLabelEn?.trim() ||
+        cat?.nameEn ||
+        defaults?.labelEn ||
+        badge.badgeType;
+    const labelKm =
+        badge.badgeLabelKm?.trim() ||
+        cat?.nameKm ||
+        defaults?.labelKm ||
+        badge.badgeType;
+    const label = language === 'km' ? labelKm : labelEn;
+    const color =
+        badge.badgeIconColor?.trim() ||
+        cat?.color ||
+        defaults?.color ||
+        '#64748b';
     return {label, color};
 }

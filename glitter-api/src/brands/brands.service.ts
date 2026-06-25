@@ -16,6 +16,7 @@ import {
   BrandResponse,
 } from './types/brand-response.type';
 import { ImageOptimizationService } from '../common/services/image-optimization.service';
+import { RealtimeService } from '../realtime/realtime.service';
 
 const BRAND_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'brands');
 
@@ -25,6 +26,7 @@ export class BrandsService {
     @InjectRepository(BrandEntity)
     private readonly brandRepository: Repository<BrandEntity>,
     private readonly optimizer: ImageOptimizationService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   async create(
@@ -59,6 +61,7 @@ export class BrandsService {
     });
 
     const saved = await this.brandRepository.save(entity);
+    this.realtime.publish('brands');
     const brandData: BrandResponse = this.toResponse(saved);
     return {
       data: brandData,
@@ -230,6 +233,7 @@ export class BrandsService {
     }
 
     const updated = await this.brandRepository.save(brand);
+    this.realtime.publish('brands');
 
     const brandData: BrandResponse = this.toResponse(updated);
     return {
@@ -250,6 +254,7 @@ export class BrandsService {
     }
 
     await this.brandRepository.remove(brand);
+    this.realtime.publish('brands');
   }
 
   /**

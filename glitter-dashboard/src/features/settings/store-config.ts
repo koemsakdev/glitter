@@ -4,14 +4,26 @@
  * `home_config`, isPublic=true). All customer-facing text is bilingual (EN/KM).
  */
 
-export type HomeSectionType = 'new-arrivals' | 'categories';
+export type HomeSectionType =
+    | 'new-arrivals'
+    | 'categories'
+    | 'category-products'
+    | 'best-selling';
+
+/** Which storefront page a section is rendered on. */
+export type SectionPage = 'home' | 'products';
 
 export interface HomeSection {
     id: string;
+    page: SectionPage;
     type: HomeSectionType;
     titleEn: string;
     titleKm: string;
     enabled: boolean;
+    /** For `category-products`: which category to pull from. */
+    categoryId?: string;
+    /** For product grids: how many products to show. */
+    limit?: number;
 }
 
 export interface StoreBanner {
@@ -29,6 +41,12 @@ export interface StoreTheme {
     color: string; // hex
 }
 
+export interface StoreLogo {
+    id: string;
+    name: string;
+    url: string; // served image path
+}
+
 export interface ContactField {
     id: string;
     label: string;
@@ -42,9 +60,21 @@ export interface SocialLink {
     iconUrl: string;
 }
 
+export interface Announcement {
+    id: string;
+    textEn: string;
+    textKm: string;
+    enabled: boolean;
+    /** ISO date (YYYY-MM-DD) or null = no bound. */
+    startAt: string | null;
+    endAt: string | null;
+}
+
 export type FontScale = 'sm' | 'md' | 'lg';
 export type RadiusPreset = 'none' | 'sm' | 'md' | 'lg' | 'xl';
 export type Density = 'compact' | 'comfortable';
+export type ProductColumns = '2' | '3' | '4' | '5' | '6';
+export type ProductSort = 'newest' | 'price-asc' | 'price-desc';
 
 /** Storefront look & feel — applied via CSS variables on the store root. */
 export interface StoreAppearance {
@@ -53,19 +83,39 @@ export interface StoreAppearance {
     fontFamily: string;
     radius: RadiusPreset;
     density: Density;
+    /** Product grid columns on wide screens. */
+    productColumns: ProductColumns;
+    /** Default product sort when none is chosen. */
+    productSort: ProductSort;
 }
 
+// Each option pairs a Latin font with a Khmer font (EN + KM support); the
+// storefront maps the value (key) to the font stack + Google Fonts load.
+// `labelKey` is a friendly, translated name (shown in the dashboard selector).
 export const FONT_FAMILY_OPTIONS = [
-    { value: '', label: 'Default' },
-    { value: 'system-ui, sans-serif', label: 'System' },
-    { value: 'Georgia, "Times New Roman", serif', label: 'Serif' },
-    { value: '"Trebuchet MS", "Segoe UI", sans-serif', label: 'Rounded' },
-    { value: 'ui-monospace, monospace', label: 'Monospace' },
+    { value: '', labelKey: 'settings.appearance.font.system' },
+    { value: 'sora', labelKey: 'settings.appearance.font.sora' },
+    { value: 'roboto', labelKey: 'settings.appearance.font.roboto' },
+    { value: 'inter', labelKey: 'settings.appearance.font.inter' },
+    { value: 'nunito', labelKey: 'settings.appearance.font.nunito' },
 ] as const;
+
+export interface StoreDelivery {
+    /** Flat delivery fee charged at checkout. */
+    fee: number;
+    /** Order subtotal at/above which delivery is free (0 = never free). */
+    freeOver: number;
+}
+
 
 export interface StoreConfig {
     brandNameEn: string;
     brandNameKm: string;
+    /** Saved logos; the active one's url is mirrored to `logoUrl`. */
+    logos: StoreLogo[];
+    activeLogoId: string;
+    /** Active logo image (served path). Falls back to the badge when empty. */
+    logoUrl: string;
     taglineEn: string;
     taglineKm: string;
 
@@ -79,6 +129,7 @@ export interface StoreConfig {
     announcementEnabled: boolean;
     announcementEn: string;
     announcementKm: string;
+    announcements: Announcement[];
 
     heroTitleEn: string;
     heroTitleKm: string;
@@ -104,12 +155,16 @@ export interface StoreConfig {
 
     banners: StoreBanner[];
     sections: HomeSection[];
+    delivery: StoreDelivery;
 }
 
 export const STORE_CONFIG_GROUP = 'storefront';
 export const STORE_CONFIG_KEY = 'home_config';
 
 export const DEFAULT_STORE_CONFIG: StoreConfig = {
+    logos: [],
+    activeLogoId: '',
+    logoUrl: '',
     brandNameEn: 'Glitter',
     brandNameKm: 'Glitter',
     taglineEn: 'Beauty & glitter, Phnom Penh.',
@@ -124,11 +179,24 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
         fontFamily: '',
         radius: 'lg',
         density: 'comfortable',
+        productColumns: '4',
+        productSort: 'newest',
     },
 
     announcementEnabled: true,
     announcementEn: 'Free pickup at our Phnom Penh branches — visit us today! ✨',
     announcementKm: 'ទទួលទំនិញដោយឥតគិតថ្លៃនៅសាខាភ្នំពេញ — អញ្ជើញថ្ងៃនេះ! ✨',
+    announcements: [
+        {
+            id: 'default',
+            textEn:
+                'Free pickup at our Phnom Penh branches — visit us today! ✨',
+            textKm: 'ទទួលទំនិញដោយឥតគិតថ្លៃនៅសាខាភ្នំពេញ — អញ្ជើញថ្ងៃនេះ! ✨',
+            enabled: true,
+            startAt: null,
+            endAt: null,
+        },
+    ],
 
     heroTitleEn: 'Sparkle in every shade.',
     heroTitleKm: 'ភ្លឺចែងចាំងគ្រប់ពណ៌។',
@@ -170,10 +238,12 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
     footerDescriptionKm: '',
 
     banners: [],
+    delivery: { fee: 1.5, freeOver: 15 },
 
     sections: [
         {
             id: 'categories',
+            page: 'home',
             type: 'categories',
             titleEn: 'Shop by category',
             titleKm: 'ទិញតាមប្រភេទ',
@@ -181,10 +251,12 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
         },
         {
             id: 'new-arrivals',
+            page: 'home',
             type: 'new-arrivals',
             titleEn: 'New arrivals',
             titleKm: 'ទំនិញថ្មី',
             enabled: true,
+            limit: 8,
         },
     ],
 };
@@ -254,22 +326,61 @@ export function mergeStoreConfig(partial: unknown): StoreConfig {
               },
           ].filter(Boolean as unknown as (x: unknown) => x is SocialLink);
 
+    // Logos: migrate an old single `logoUrl` into one logo if needed.
+    const logos = Array.isArray(p.logos)
+        ? p.logos
+        : p.logoUrl
+          ? [{ id: 'default', name: 'Logo', url: p.logoUrl }]
+          : [];
+    const activeLogoId = logos.some((l) => l.id === p.activeLogoId)
+        ? (p.activeLogoId as string)
+        : (logos[0]?.id ?? '');
+    const logoUrl = logos.find((l) => l.id === activeLogoId)?.url ?? '';
+
+    // Announcements: migrate the old single announcement into a list.
+    const announcements = Array.isArray(p.announcements)
+        ? p.announcements
+        : p.announcementEn || p.announcementKm
+          ? [
+                {
+                    id: 'default',
+                    textEn: p.announcementEn ?? '',
+                    textKm: p.announcementKm ?? '',
+                    enabled: p.announcementEnabled ?? false,
+                    startAt: null,
+                    endAt: null,
+                },
+            ]
+          : [];
+
     return {
         ...DEFAULT_STORE_CONFIG,
         ...p,
         themes,
         activeThemeId,
         themeColor,
+        logos,
+        activeLogoId,
+        logoUrl,
         contacts,
         socials,
+        announcements,
         appearance: {
             ...DEFAULT_STORE_CONFIG.appearance,
             ...(p.appearance ?? {}),
         },
+        delivery: {
+            ...DEFAULT_STORE_CONFIG.delivery,
+            ...(p.delivery ?? {}),
+        },
         banners: Array.isArray(p.banners) ? p.banners : [],
         sections:
             Array.isArray(p.sections) && p.sections.length > 0
-                ? p.sections
+                ? (
+                      p.sections as Array<
+                          Omit<HomeSection, 'page'> & { page?: SectionPage }
+                      >
+                  ).map((s) => ({ ...s, page: s.page ?? 'home' }))
                 : DEFAULT_STORE_CONFIG.sections,
     };
 }

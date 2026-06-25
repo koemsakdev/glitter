@@ -4,6 +4,7 @@ import type {ColumnDef} from '@tanstack/react-table';
 import {
     Edit,
     Eye,
+    Heart,
     ImageIcon,
     MoreHorizontal,
     Trash2,
@@ -34,6 +35,7 @@ interface ProductColumnsContext {
     brandsById: Map<string, Brand>;
     categoriesById: Map<string, Category>;
     hasBranchFilter?: boolean;
+    wishlistCounts?: Record<string, number>;
     onDelete: (product: Product) => void;
 }
 
@@ -116,6 +118,7 @@ export function getProductColumns({
                                       brandsById,
                                       categoriesById,
                                       hasBranchFilter,
+                                      wishlistCounts,
                                       onDelete,
                                   }: ProductColumnsContext): ColumnDef<Product>[] {
     return [
@@ -263,6 +266,26 @@ export function getProductColumns({
                 );
             },
             size: 100,
+        },
+        {
+            id: 'wishlists',
+            header: () => t('product.field.wishlists'),
+            cell: ({ row }) => {
+                const count = wishlistCounts?.[row.original.id] ?? 0;
+                return (
+                    <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                        <Heart
+                            className={`size-3.5 ${
+                                count > 0
+                                    ? 'fill-pink-500 text-pink-500'
+                                    : 'text-muted-foreground/40'
+                            }`}
+                        />
+                        {count}
+                    </span>
+                );
+            },
+            size: 90,
         },
         {
             id: 'status',

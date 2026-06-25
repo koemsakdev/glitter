@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
     useOrder,
     useUpdateOrderStatus,
+    useUpdatePaymentStatus,
 } from '@/features/orders/use-orders';
 import { getErrorMessage } from '@/lib/api-client';
 import { formatPrice } from '@/lib/formatters';
@@ -23,7 +24,12 @@ import {
     type OrderStatus,
     type PaymentMethod,
 } from '@/types/order';
-import { OrderSourceBadge, OrderStatusBadge } from './order-status-badge';
+import {
+    OrderSourceBadge,
+    OrderStatusBadge,
+    PaymentStatusBadge,
+} from './order-status-badge';
+import { OrderFulfillmentCard } from './order-fulfillment-card';
 
 const PAYMENT_METHOD_LABELS: Record<PaymentMethod, TranslationKey> = {
     cash: 'order.payment.method.cash',
@@ -46,6 +52,7 @@ export function OrderDetailView({ id }: { id: string }) {
     const { toast } = useToast();
     const { data: order, isLoading, isError, refetch } = useOrder(id);
     const updateStatus = useUpdateOrderStatus();
+    const updatePayment = useUpdatePaymentStatus();
 
     if (isLoading) return <LoadingScreen variant="page" />;
 
@@ -91,6 +98,7 @@ export function OrderDetailView({ id }: { id: string }) {
                         </h1>
                         <OrderStatusBadge status={order.status} />
                         <OrderSourceBadge source={order.source} />
+                        <PaymentStatusBadge status={order.paymentStatus} />
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
                         {formatDate(order.createdAt)}
@@ -120,6 +128,46 @@ export function OrderDetailView({ id }: { id: string }) {
                             </Link>
                         }
                     />
+                    {order.paymentStatus !== 'refunded' && (
+                        <Button
+                            variant="outline"
+                            disabled={updatePayment.isPending}
+                            onClick={() =>
+                                updatePayment.mutate(
+                                    {
+                                        id,
+                                        paymentStatus:
+                                            order.paymentStatus === 'paid'
+                                                ? 'unpaid'
+                                                : 'paid',
+                                    },
+                                    {
+                                        onSuccess: () =>
+                                            toast({
+                                                title: t(
+                                                    'order.toast.paymentUpdated',
+                                                ),
+                                                variant: 'success',
+                                            }),
+                                        onError: (error) =>
+                                            toast({
+                                                title: t('common.toast.error'),
+                                                description:
+                                                    getErrorMessage(error),
+                                                variant: 'destructive',
+                                            }),
+                                    },
+                                )
+                            }
+                        >
+                            {updatePayment.isPending && (
+                                <Loader2 className="mr-2 size-4 animate-spin" />
+                            )}
+                            {order.paymentStatus === 'paid'
+                                ? t('order.payment.markUnpaid')
+                                : t('order.payment.markPaid')}
+                        </Button>
+                    )}
                     {allowedNext.map((next) => (
                         <Button
                             key={next}
@@ -151,6 +199,11 @@ export function OrderDetailView({ id }: { id: string }) {
 
                 {/* Sidebar (right, 1/3) */}
                 <div className="space-y-6">
+                    {/* Fulfillment (online orders) */}
+                    {order.source === 'online' && (
+                        <OrderFulfillmentCard orderId={id} />
+                    )}
+
                     {/* Customer */}
                     <DetailSection title={t('order.detail.customer')}>
                         <div className="space-y-2.5">
@@ -322,6 +375,26 @@ function OrderItemsTable({ order }: { order: Order }) {
                         </span>
                         <span className="tabular-nums text-amber-600 dark:text-amber-400">
                             −{formatPrice(order.discountTotal)}
+                        </span>
+                    </div>
+                )}
+                {order.shippingCost > 0 && (
+                    <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">
+                            {t('order.detail.shipping')}
+                        </span>
+                        <span className="tabular-nums">
+                            {formatPrice(order.shippingCost)}
+                        </span>
+                    </div>
+                )}
+                {order.taxAmount > 0 && (
+                    <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">
+                            {t('order.detail.tax')}
+                        </span>
+                        <span className="tabular-nums">
+                            {formatPrice(order.taxAmount)}
                         </span>
                     </div>
                 )}

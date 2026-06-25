@@ -11,6 +11,7 @@ import { CategoryEntity, type CategoryType } from './entities/category.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { ImageOptimizationService } from '../common/services/image-optimization.service';
+import { RealtimeService } from '../realtime/realtime.service';
 
 const CATEGORY_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'categories');
 
@@ -45,6 +46,7 @@ export class CategoriesService {
     @InjectRepository(CategoryEntity)
     private readonly categoryRepository: Repository<CategoryEntity>,
     private readonly optimizer: ImageOptimizationService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   async create(
@@ -78,6 +80,7 @@ export class CategoriesService {
     });
 
     const saved = await this.categoryRepository.save(entity);
+    this.realtime.publish('categories');
     return { data: this.toResponse(saved) };
   }
 
@@ -200,6 +203,7 @@ export class CategoriesService {
     }
 
     const updated = await this.categoryRepository.save(category);
+    this.realtime.publish('categories');
     return { data: this.toResponse(updated) };
   }
 
@@ -214,6 +218,7 @@ export class CategoriesService {
     }
 
     await this.categoryRepository.remove(category);
+    this.realtime.publish('categories');
   }
 
   /**

@@ -5,6 +5,7 @@ import type {
     OrderListResponse,
     OrderQuery,
     OrderStats,
+    OrderPaymentStatus,
     OrderStatus,
 } from '@/types/order';
 
@@ -53,6 +54,17 @@ export const orderApi = {
         const { data } = await apiClient.patch<ApiEnvelope<Order>>(
             `/api/orders/${id}/status`,
             { status },
+        );
+        return data.data;
+    },
+
+    async updatePaymentStatus(
+        id: string,
+        paymentStatus: OrderPaymentStatus,
+    ): Promise<Order> {
+        const { data } = await apiClient.patch<ApiEnvelope<Order>>(
+            `/api/orders/${id}/payment-status`,
+            { paymentStatus },
         );
         return data.data;
     },

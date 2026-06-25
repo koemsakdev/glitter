@@ -1,11 +1,20 @@
-export type HomeSectionType = 'new-arrivals' | 'categories';
+export type HomeSectionType =
+    | 'new-arrivals'
+    | 'categories'
+    | 'category-products'
+    | 'best-selling';
+
+export type SectionPage = 'home' | 'products';
 
 export interface HomeSection {
     id: string;
+    page: SectionPage;
     type: HomeSectionType;
     titleEn: string;
     titleKm: string;
     enabled: boolean;
+    categoryId?: string;
+    limit?: number;
 }
 
 export interface StoreBanner {
@@ -23,6 +32,12 @@ export interface StoreTheme {
     color: string;
 }
 
+export interface StoreLogo {
+    id: string;
+    name: string;
+    url: string;
+}
+
 export interface ContactField {
     id: string;
     label: string;
@@ -36,20 +51,43 @@ export interface SocialLink {
     iconUrl: string;
 }
 
+export interface Announcement {
+    id: string;
+    textEn: string;
+    textKm: string;
+    enabled: boolean;
+    startAt: string | null;
+    endAt: string | null;
+}
+
 export type FontScale = 'sm' | 'md' | 'lg';
 export type RadiusPreset = 'none' | 'sm' | 'md' | 'lg' | 'xl';
 export type Density = 'compact' | 'comfortable';
+export type ProductColumns = '2' | '3' | '4' | '5' | '6';
+export type ProductSort = 'newest' | 'price-asc' | 'price-desc';
 
 export interface StoreAppearance {
     fontScale: FontScale;
     fontFamily: string;
     radius: RadiusPreset;
     density: Density;
+    productColumns: ProductColumns;
+    productSort: ProductSort;
+}
+
+export interface StoreDelivery {
+    /** Flat delivery fee charged at checkout. */
+    fee: number;
+    /** Order subtotal at/above which delivery is free (0 = never free). */
+    freeOver: number;
 }
 
 export interface StoreConfig {
     brandNameEn: string;
     brandNameKm: string;
+    logos: StoreLogo[];
+    activeLogoId: string;
+    logoUrl: string;
     taglineEn: string;
     taglineKm: string;
     themeColor: string;
@@ -59,6 +97,7 @@ export interface StoreConfig {
     announcementEnabled: boolean;
     announcementEn: string;
     announcementKm: string;
+    announcements: Announcement[];
     heroTitleEn: string;
     heroTitleKm: string;
     heroSubtitleEn: string;
@@ -79,9 +118,13 @@ export interface StoreConfig {
     footerDescriptionKm: string;
     banners: StoreBanner[];
     sections: HomeSection[];
+    delivery: StoreDelivery;
 }
 
 export const DEFAULT_STORE_CONFIG: StoreConfig = {
+    logos: [],
+    activeLogoId: '',
+    logoUrl: '',
     brandNameEn: 'Glitter',
     brandNameKm: 'Glitter',
     taglineEn: 'Beauty & glitter, Phnom Penh.',
@@ -94,10 +137,13 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
         fontFamily: '',
         radius: 'lg',
         density: 'comfortable',
+        productColumns: '4',
+        productSort: 'newest',
     },
     announcementEnabled: false,
     announcementEn: '',
     announcementKm: '',
+    announcements: [],
     heroTitleEn: 'Sparkle in every shade.',
     heroTitleKm: 'ភ្លឺចែងចាំងគ្រប់ពណ៌។',
     heroSubtitleEn:
@@ -118,9 +164,11 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
     footerDescriptionEn: '',
     footerDescriptionKm: '',
     banners: [],
+    delivery: { fee: 1.5, freeOver: 15 },
     sections: [
         {
             id: 'categories',
+            page: 'home',
             type: 'categories',
             titleEn: 'Shop by category',
             titleKm: 'ទិញតាមប្រភេទ',
@@ -128,10 +176,12 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
         },
         {
             id: 'new-arrivals',
+            page: 'home',
             type: 'new-arrivals',
             titleEn: 'New arrivals',
             titleKm: 'ទំនិញថ្មី',
             enabled: true,
+            limit: 8,
         },
     ],
 };
@@ -198,24 +248,108 @@ export function mergeStoreConfig(partial: unknown): StoreConfig {
               },
           ].filter(Boolean as unknown as (x: unknown) => x is SocialLink);
 
+    const logos = Array.isArray(p.logos)
+        ? p.logos
+        : p.logoUrl
+          ? [{ id: 'default', name: 'Logo', url: p.logoUrl }]
+          : [];
+    const activeLogoId = logos.some((l) => l.id === p.activeLogoId)
+        ? (p.activeLogoId as string)
+        : (logos[0]?.id ?? '');
+    const logoUrl = logos.find((l) => l.id === activeLogoId)?.url ?? '';
+
+    const announcements = Array.isArray(p.announcements)
+        ? p.announcements
+        : p.announcementEn || p.announcementKm
+          ? [
+                {
+                    id: 'default',
+                    textEn: p.announcementEn ?? '',
+                    textKm: p.announcementKm ?? '',
+                    enabled: p.announcementEnabled ?? false,
+                    startAt: null,
+                    endAt: null,
+                },
+            ]
+          : [];
+
     return {
         ...DEFAULT_STORE_CONFIG,
         ...p,
         themes,
         activeThemeId,
         themeColor,
+        logos,
+        activeLogoId,
+        logoUrl,
         contacts,
         socials,
+        announcements,
         appearance: {
             ...DEFAULT_STORE_CONFIG.appearance,
             ...(p.appearance ?? {}),
         },
+        delivery: {
+            ...DEFAULT_STORE_CONFIG.delivery,
+            ...(p.delivery ?? {}),
+        },
         banners: Array.isArray(p.banners) ? p.banners : [],
         sections:
             Array.isArray(p.sections) && p.sections.length > 0
-                ? p.sections
+                ? (
+                      p.sections as Array<
+                          Omit<HomeSection, 'page'> & { page?: SectionPage }
+                      >
+                  ).map((s) => ({ ...s, page: s.page ?? 'home' }))
                 : DEFAULT_STORE_CONFIG.sections,
     };
+}
+
+/**
+ * Font options. Each pairs a Latin font with a Khmer font (so EN + KM both
+ * render well). `href` loads the pair from Google Fonts; `stack` is the CSS
+ * font-family (with Google Sans as a final fallback). Key '' = System default.
+ */
+export const FONT_OPTIONS: Record<
+    string,
+    { stack: string; href: string }
+> = {
+    '': { stack: '', href: '' },
+    sora: {
+        stack: "'Sora', 'Siemreap', var(--font-google-sans), sans-serif",
+        href: 'https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Siemreap&display=swap',
+    },
+    roboto: {
+        stack: "'Roboto', 'Hanuman', var(--font-google-sans), sans-serif",
+        href: 'https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Hanuman:wght@400;700&display=swap',
+    },
+    inter: {
+        stack: "'Inter', 'Battambang', var(--font-google-sans), sans-serif",
+        href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Battambang:wght@400;700&display=swap',
+    },
+    nunito: {
+        stack: "'Nunito', 'Suwannaphum', var(--font-google-sans), sans-serif",
+        href: 'https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Suwannaphum:wght@400;700&display=swap',
+    },
+};
+
+export function resolveFont(key: string): { stack: string; href: string } {
+    return FONT_OPTIONS[key] ?? FONT_OPTIONS[''];
+}
+
+/**
+ * Tailwind grid classes for the configured product-column count. Progressive
+ * so the choice is visible across screen sizes (and the higher counts actually
+ * differ). Classes are written out literally so Tailwind detects them.
+ */
+export function productGridClass(columns: ProductColumns): string {
+    return {
+        '2': 'grid-cols-2',
+        '3': 'grid-cols-2 sm:grid-cols-3',
+        '4': 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4',
+        '5': 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5',
+        '6': 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6',
+    }[columns];
 }
 
 /** CSS values for the appearance presets, applied as variables on the root. */
@@ -231,11 +365,12 @@ export function appearanceVars(
         xl: '1rem',
     }[a.radius];
     const compact = a.density === 'compact';
+    const fontStack = resolveFont(a.fontFamily).stack;
     return {
         '--ui-radius': radius,
         '--ui-pad': compact ? '0.5rem' : '0.875rem',
         '--ui-gap': compact ? '0.625rem' : '1rem',
-        ...(a.fontFamily ? { '--ui-font': a.fontFamily } : {}),
+        ...(fontStack ? { '--ui-font': fontStack } : {}),
         fontSize,
     };
 }

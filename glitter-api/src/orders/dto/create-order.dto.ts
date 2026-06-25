@@ -77,12 +77,29 @@ export class CreateOrderDto {
   @IsString()
   note?: string;
 
-  @ApiPropertyOptional({ description: 'Manual discount on the order total', default: 0 })
+  @ApiPropertyOptional({
+    description: 'Manual discount on the order total',
+    default: 0,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
   discountTotal?: number;
+
+  @ApiPropertyOptional({ description: 'Shipping / delivery fee', default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  shippingCost?: number;
+
+  @ApiPropertyOptional({ description: 'Tax amount on the order', default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  taxAmount?: number;
 
   @ApiProperty({ type: [OrderItemInputDto] })
   @IsArray()

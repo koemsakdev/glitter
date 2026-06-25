@@ -33,6 +33,9 @@ export type OrderStatus =
   | 'cancelled'
   | 'refunded';
 
+/** Whether the order has been paid for. */
+export type OrderPaymentStatus = 'unpaid' | 'partial' | 'paid' | 'refunded';
+
 @Entity('orders')
 @Index(['branchId'])
 @Index(['status'])
@@ -89,10 +92,20 @@ export class OrderEntity {
   cashier?: UserEntity | null;
 
   // Snapshot of customer contact for the receipt (works for walk-ins too).
-  @Column({ type: 'varchar', length: 255, nullable: true, name: 'customer_name' })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    name: 'customer_name',
+  })
   customerName!: string | null;
 
-  @Column({ type: 'varchar', length: 20, nullable: true, name: 'customer_phone' })
+  @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+    name: 'customer_phone',
+  })
   customerPhone!: string | null;
 
   @Column({
@@ -117,10 +130,38 @@ export class OrderEntity {
     type: 'decimal',
     precision: 12,
     scale: 2,
+    default: 0,
+    name: 'shipping_cost',
+    transformer: numericTransformer,
+  })
+  shippingCost!: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    name: 'tax_amount',
+    transformer: numericTransformer,
+  })
+  taxAmount!: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
     name: 'grand_total',
     transformer: numericTransformer,
   })
   grandTotal!: number;
+
+  @Column({
+    type: 'enum',
+    enum: ['unpaid', 'partial', 'paid', 'refunded'],
+    default: 'unpaid',
+    name: 'payment_status',
+  })
+  paymentStatus!: OrderPaymentStatus;
 
   @Column({ type: 'varchar', length: 8, default: 'USD' })
   currency!: string;

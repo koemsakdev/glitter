@@ -90,6 +90,15 @@ export function useCreateInventoryBranch() {
     });
 }
 
+export function useSetInventoryStock() {
+    const invalidate = useInvalidateInventory();
+    return useMutation({
+        mutationFn: (payload: CreateInventoryBranchPayload) =>
+            inventoryBranchApi.setStock(payload),
+        onSuccess: invalidate,
+    });
+}
+
 export function useUpdateInventoryBranch() {
     const invalidate = useInvalidateInventory();
     return useMutation({

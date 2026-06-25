@@ -1,9 +1,15 @@
 import type {
+    Banner,
+    Branch,
     Brand,
     Category,
+    MenuItem,
+    Page,
     Paginated,
     Product,
     ProductAvailability,
+    Review,
+    ReviewSummary,
 } from './types';
 import {
     DEFAULT_STORE_CONFIG,
@@ -26,8 +32,11 @@ export function formatPrice(value: number | string | null | undefined): string {
     return `$${(Number.isFinite(n) ? (n as number) : 0).toFixed(2)}`;
 }
 
-/** Server-side fetch with ISR caching (revalidates every 60s by default). */
-async function apiGet<T>(path: string, revalidate = 60): Promise<T> {
+/**
+ * Server-side fetch. Defaults to always-fresh (revalidate 0) so that a live
+ * `router.refresh()` triggered by the SSE stream always serves new data.
+ */
+async function apiGet<T>(path: string, revalidate = 0): Promise<T> {
     const res = await fetch(`${API_URL}${path}`, {
         next: { revalidate },
     });
@@ -59,13 +68,18 @@ export async function getProducts(
     if (query.brandId) params.set('brandId', query.brandId);
     if (query.sortBy) params.set('sortBy', query.sortBy);
     if (query.sortOrder) params.set('sortOrder', query.sortOrder);
-    return apiGet<Paginated<Product>>(`/api/products?${params.toString()}`);
+    // Cache briefly so toggling language / re-renders don't re-hit the API.
+    return apiGet<Paginated<Product>>(
+        `/api/products?${params.toString()}`,
+        30,
+    );
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
     try {
         const res = await apiGet<{ data: Product }>(
             `/api/products/slug/${encodeURIComponent(slug)}`,
+            30,
         );
         return res.data;
     } catch {
@@ -74,13 +88,109 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 }
 
 export async function getCategories(): Promise<Category[]> {
-    const res = await apiGet<Paginated<Category>>(`/api/categories?limit=100`);
+    const res = await apiGet<Paginated<Category>>(
+        `/api/categories?limit=100`,
+        300,
+    );
     return res.data ?? [];
 }
 
 export async function getActiveBrands(): Promise<Brand[]> {
-    const res = await apiGet<{ data: Brand[] }>(`/api/brands/status/active`);
+    const res = await apiGet<{ data: Brand[] }>(`/api/brands/status/active`, 300);
     return res.data ?? [];
+}
+
+export async function getBestSellers(limit = 8): Promise<Product[]> {
+    try {
+        const res = await apiGet<{ data: Product[] }>(
+            `/api/products/best-selling?limit=${limit}`,
+            120,
+        );
+        return res.data ?? [];
+    } catch {
+        return [];
+    }
+}
+
+export async function getActiveBranches(): Promise<Branch[]> {
+    try {
+        const res = await apiGet<{ data: Branch[] }>(
+            `/api/branches/status/active`,
+            300,
+        );
+        return res.data ?? [];
+    } catch {
+        return [];
+    }
+}
+
+/** Approved reviews for a product, with the rating summary. */
+export async function getProductReviews(
+    productId: string,
+): Promise<{ data: Review[]; summary: ReviewSummary }> {
+    try {
+        return await apiGet<{ data: Review[]; summary: ReviewSummary }>(
+            `/api/reviews/product/${productId}`,
+        );
+    } catch {
+        return { data: [], summary: { average: 0, count: 0 } };
+    }
+}
+
+/** Active hero banners for the storefront carousel. */
+export async function getBanners(
+    location = 'home_hero',
+): Promise<Banner[]> {
+    try {
+        const res = await apiGet<{ data: Banner[] }>(
+            `/api/banners/placement/${location}`,
+            0,
+        );
+        return res.data ?? [];
+    } catch {
+        return [];
+    }
+}
+
+/** Active "you may also like" products for a product detail page. */
+export async function getRelatedProducts(
+    productId: string,
+): Promise<Product[]> {
+    try {
+        const res = await apiGet<{ data: Product[] }>(
+            `/api/related-products/product/${productId}/active`,
+        );
+        return res.data ?? [];
+    } catch {
+        return [];
+    }
+}
+
+/** A custom CMS page by slug (or null if missing). */
+export async function getPage(slug: string): Promise<Page | null> {
+    try {
+        const res = await apiGet<{ data: Page }>(
+            `/api/pages/slug/${encodeURIComponent(slug)}`,
+        );
+        return res.data ?? null;
+    } catch {
+        return null;
+    }
+}
+
+/** Active storefront navigation links (header + footer), ordered. */
+export async function getMenu(): Promise<MenuItem[]> {
+    try {
+        const res = await apiGet<{ data: MenuItem[] }>(
+            `/api/menu?isActive=true`,
+            300,
+        );
+        return (res.data ?? []).sort(
+            (a, b) => a.displayOrder - b.displayOrder,
+        );
+    } catch {
+        return [];
+    }
 }
 
 interface RawSetting {
@@ -96,7 +206,7 @@ export async function getStoreConfig(): Promise<StoreConfig> {
         // Fetch just the one public config row (not the whole settings table).
         const row = await apiGet<RawSetting | null>(
             `/api/app-settings/group/storefront/key/home_config`,
-            60,
+            0,
         );
         if (!row?.settingValue) return DEFAULT_STORE_CONFIG;
         return mergeStoreConfig(JSON.parse(row.settingValue));

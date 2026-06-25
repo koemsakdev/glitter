@@ -9,15 +9,9 @@ import {
 } from 'typeorm';
 import { ProductEntity } from '../../products/entities/product.entity';
 
-export type BadgeType =
-  | 'new'
-  | 'sale'
-  | 'bestseller'
-  | 'limited'
-  | 'exclusive'
-  | 'hot'
-  | 'featured'
-  | 'coming_soon';
+// A badge's slug now refers to a row in the dynamic `badges` catalog, so it is
+// just a string (admins can create custom badge types).
+export type BadgeType = string;
 
 @Entity('product_badges')
 @Index(['productId', 'badgeType'], { unique: true })
@@ -35,20 +29,8 @@ export class ProductBadgeEntity {
   @JoinColumn({ name: 'product_id' })
   product?: ProductEntity;
 
-  @Column({
-    type: 'enum',
-    enum: [
-      'new',
-      'sale',
-      'bestseller',
-      'limited',
-      'exclusive',
-      'hot',
-      'featured',
-      'coming_soon',
-    ],
-    name: 'badge_type',
-  })
+  // Free-form slug referencing the dynamic `badges` catalog.
+  @Column({ type: 'varchar', length: 50, name: 'badge_type' })
   badgeType!: BadgeType;
 
   @Column({

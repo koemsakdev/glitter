@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 
 export interface LightboxImage {
     src: string;
@@ -177,8 +178,9 @@ export function ImageLightbox({
 
     const currentImage = images[currentIndex];
     if (!currentImage) return null;
+    if (typeof document === 'undefined') return null;
 
-    return (
+    return createPortal(
         <div
             role="dialog"
             aria-modal="true"
@@ -331,6 +333,7 @@ export function ImageLightbox({
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }

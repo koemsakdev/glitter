@@ -8,12 +8,14 @@ import { Repository } from 'typeorm';
 import { CreateAppSettingDto } from './dto/create-app-setting.dto';
 import { AppSettingEntity } from './entities/app-setting.entity';
 import { AppSettingResponse } from './types/app-setting-response.type';
+import { RealtimeService } from '../realtime/realtime.service';
 
 @Injectable()
 export class AppSettingsService {
   constructor(
     @InjectRepository(AppSettingEntity)
     private readonly appSettingRepository: Repository<AppSettingEntity>,
+    private readonly realtime: RealtimeService,
   ) {}
 
   async create(dto: CreateAppSettingDto): Promise<AppSettingResponse> {
@@ -41,6 +43,7 @@ export class AppSettingsService {
 
     const saved = await this.appSettingRepository.save(entity);
 
+    this.realtime.publish('store-config');
     return this.toResponse(saved);
   }
 
@@ -74,6 +77,7 @@ export class AppSettingsService {
 
     const updatedSetting = await this.appSettingRepository.save(setting);
 
+    this.realtime.publish('store-config');
     return this.toResponse(updatedSetting);
   }
 

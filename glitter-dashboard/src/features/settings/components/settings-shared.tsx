@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { SavingOverlay } from '@/components/feedback/saving-overlay';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import {
     useSaveStoreConfig,
@@ -165,17 +166,27 @@ export function ChoiceField({
     return (
         <div className="space-y-1.5">
             <label className="text-sm font-medium">{label}</label>
-            <select
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="h-11 w-full rounded-lg border border-input bg-transparent px-3 text-sm focus-visible:border-pink-500 focus-visible:outline-none dark:bg-input/30 dark:focus-visible:border-pink-800"
-            >
-                {options.map(([v, l]) => (
-                    <option key={v} value={v}>
-                        {l}
-                    </option>
-                ))}
-            </select>
+            <div className="flex flex-wrap gap-1.5 rounded-xl border border-input bg-muted/40 p-1.5 dark:bg-input/20">
+                {options.map(([v, l]) => {
+                    const selected = v === value;
+                    return (
+                        <button
+                            key={v}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => onChange(v)}
+                            className={cn(
+                                'flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-all',
+                                selected
+                                    ? 'bg-pink-500 text-white shadow-sm dark:bg-pink-600'
+                                    : 'text-muted-foreground hover:bg-background hover:text-foreground dark:hover:bg-background/40',
+                            )}
+                        >
+                            {l}
+                        </button>
+                    );
+                })}
+            </div>
         </div>
     );
 }
@@ -187,6 +198,7 @@ export function BilingualField({
     onEn,
     onKm,
     textarea,
+    maxLength,
 }: {
     label: string;
     en: string;
@@ -194,6 +206,7 @@ export function BilingualField({
     onEn: (v: string) => void;
     onKm: (v: string) => void;
     textarea?: boolean;
+    maxLength?: number;
 }) {
     const fieldClass =
         'rounded-lg shadow-none focus-visible:outline-none focus-visible:ring-0 focus-visible:border-pink-500 dark:focus-visible:border-pink-800';
@@ -207,6 +220,7 @@ export function BilingualField({
                             value={en}
                             onChange={(e) => onEn(e.target.value)}
                             rows={2}
+                            maxLength={maxLength}
                             placeholder="English"
                             className={fieldClass}
                         />
@@ -214,12 +228,18 @@ export function BilingualField({
                         <Input
                             value={en}
                             onChange={(e) => onEn(e.target.value)}
+                            maxLength={maxLength}
                             placeholder="English"
                             className={`${inputClass} ${fieldClass}`}
                         />
                     )}
-                    <span className="mt-0.5 block text-[10px] uppercase tracking-wider text-muted-foreground">
-                        EN
+                    <span className="mt-0.5 flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <span>EN</span>
+                        {maxLength && (
+                            <span>
+                                {en.length}/{maxLength}
+                            </span>
+                        )}
                     </span>
                 </div>
                 <div>
@@ -228,6 +248,7 @@ export function BilingualField({
                             value={km}
                             onChange={(e) => onKm(e.target.value)}
                             rows={2}
+                            maxLength={maxLength}
                             placeholder="ខ្មែរ"
                             className={fieldClass}
                         />
@@ -235,12 +256,18 @@ export function BilingualField({
                         <Input
                             value={km}
                             onChange={(e) => onKm(e.target.value)}
+                            maxLength={maxLength}
                             placeholder="ខ្មែរ"
                             className={`${inputClass} ${fieldClass}`}
                         />
                     )}
-                    <span className="mt-0.5 block text-[10px] uppercase tracking-wider text-muted-foreground">
-                        KM
+                    <span className="mt-0.5 flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <span>KM</span>
+                        {maxLength && (
+                            <span>
+                                {km.length}/{maxLength}
+                            </span>
+                        )}
                     </span>
                 </div>
             </div>

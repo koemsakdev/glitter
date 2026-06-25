@@ -98,6 +98,17 @@ export const inventoryBranchApi = {
         return data.data;
     },
 
+    /** Create or update a variant's stock at a branch (upsert). */
+    async setStock(
+        payload: CreateInventoryBranchPayload,
+    ): Promise<InventoryBranchRecord> {
+        const { data } = await apiClient.post<ApiEnvelope<InventoryBranchRecord>>(
+            `${BASE}/set`,
+            payload,
+        );
+        return data.data;
+    },
+
     async update(
         id: string,
         payload: UpdateInventoryBranchPayload,

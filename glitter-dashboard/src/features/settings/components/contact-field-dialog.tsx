@@ -6,6 +6,7 @@ import { ResponsiveModal } from '@/components/responsive-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { inputClass } from '@/features/settings/components/settings-shared';
+import { useI18n } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import type { ContactField } from '@/features/settings/store-config';
 
@@ -28,6 +29,7 @@ export function ContactFieldDialog({
     onOpenChange,
     onSave,
 }: ContactFieldDialogProps) {
+    const { t } = useI18n();
     const { toast } = useToast();
     const isEdit = Boolean(field);
     const [label, setLabel] = useState(field?.label ?? '');
@@ -36,7 +38,7 @@ export function ContactFieldDialog({
     function handleSave() {
         if (!label.trim() || !value.trim()) {
             toast({
-                title: 'Enter a label and value',
+                title: t('settings.contact.fieldRequired'),
                 variant: 'destructive',
             });
             return;
@@ -57,25 +59,31 @@ export function ContactFieldDialog({
             <div className="flex flex-col">
                 <div className="px-6 pb-4 pt-6">
                     <h2 className="text-xl font-bold tracking-tight">
-                        {isEdit ? 'Edit field' : 'Add field'}
+                        {isEdit
+                            ? t('settings.contact.editField')
+                            : t('settings.contact.addField')}
                     </h2>
                 </div>
                 <div className="space-y-4 px-6 pb-2">
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Label</label>
+                        <label className="text-sm font-medium">
+                            {t('settings.contact.label')}
+                        </label>
                         <Input
                             value={label}
                             onChange={(e) => setLabel(e.target.value)}
-                            placeholder="Phone, Email, Map…"
+                            placeholder={t('settings.contact.labelPlaceholder')}
                             className={inputClass}
                         />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Value</label>
+                        <label className="text-sm font-medium">
+                            {t('settings.contact.value')}
+                        </label>
                         <Input
                             value={value}
                             onChange={(e) => setValue(e.target.value)}
-                            placeholder="+855…, hello@…, https://maps…"
+                            placeholder={t('settings.contact.valuePlaceholder')}
                             className={inputClass}
                         />
                     </div>
@@ -86,7 +94,7 @@ export function ContactFieldDialog({
                         variant="outline"
                         onClick={() => onOpenChange(false)}
                     >
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         type="button"
@@ -98,7 +106,9 @@ export function ContactFieldDialog({
                         ) : (
                             <Plus className="size-4" />
                         )}
-                        {isEdit ? 'Save changes' : 'Add field'}
+                        {isEdit
+                            ? t('settings.saveChanges')
+                            : t('settings.contact.addField')}
                     </Button>
                 </div>
             </div>

@@ -19,6 +19,31 @@ interface UserAvatarUploaderProps {
     name: string;
 }
 
+/** Avatar image that falls back to initials if the URL fails to load. */
+function AvatarImage({
+    src,
+    name,
+    initials,
+}: {
+    src: string;
+    name: string;
+    initials: string;
+}) {
+    const [failed, setFailed] = useState(false);
+    if (failed) return <>{initials}</>;
+    return (
+        <Image
+            src={src}
+            alt={name}
+            width={80}
+            height={80}
+            className="size-full object-cover"
+            unoptimized
+            onError={() => setFailed(true)}
+        />
+    );
+}
+
 export function UserAvatarUploader({
     userId,
     profileImageUrl,
@@ -100,13 +125,11 @@ export function UserAvatarUploader({
             <div className="relative">
                 <div className="flex size-20 items-center justify-center overflow-hidden rounded-full bg-pink-100 text-xl font-semibold text-pink-700 dark:bg-pink-500/15 dark:text-pink-300">
                     {shown ? (
-                        <Image
+                        <AvatarImage
+                            key={shown}
                             src={shown}
-                            alt={name}
-                            width={80}
-                            height={80}
-                            className="size-full object-cover"
-                            unoptimized
+                            name={name}
+                            initials={initials}
                         />
                     ) : (
                         initials

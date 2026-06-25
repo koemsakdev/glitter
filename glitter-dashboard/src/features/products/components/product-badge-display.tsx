@@ -1,7 +1,12 @@
 'use client';
 
 import { useI18n } from '@/lib/i18n';
-import { resolveBadgeDisplay, type ProductBadge } from '@/types/product-badge';
+import {
+    badgeTintStyle,
+    resolveBadgeDisplay,
+    type ProductBadge,
+} from '@/types/product-badge';
+import { useBadges } from '@/features/badges/use-badges';
 
 interface ProductBadgeDisplayProps {
     badges: ProductBadge[];
@@ -16,6 +21,7 @@ export function ProductBadgeDisplay({
                                         size = 'md',
                                     }: ProductBadgeDisplayProps) {
     const { language } = useI18n();
+    const { data: catalog } = useBadges();
 
     const displayed = activeOnly
         ? badges.filter((b) => b.isActive)
@@ -31,12 +37,16 @@ export function ProductBadgeDisplay({
     return (
         <div className="flex flex-wrap gap-1.5">
             {displayed.map((badge) => {
-                const { label, color } = resolveBadgeDisplay(badge, language);
+                const { label, color } = resolveBadgeDisplay(
+                    badge,
+                    language,
+                    catalog,
+                );
                 return (
                     <span
                         key={badge.id}
-                        className={`inline-flex items-center rounded-full font-semibold uppercase tracking-wider text-white shadow-sm ${sizeClasses}`}
-                        style={{ backgroundColor: color }}
+                        className={`inline-flex items-center rounded-full border font-semibold uppercase tracking-wider ${sizeClasses}`}
+                        style={badgeTintStyle(color)}
                     >
             {label}
           </span>

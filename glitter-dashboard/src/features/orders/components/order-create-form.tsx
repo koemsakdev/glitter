@@ -63,6 +63,8 @@ export function OrderCreateForm() {
     const [customerPhone, setCustomerPhone] = useState('');
     const [note, setNote] = useState('');
     const [discount, setDiscount] = useState(0);
+    const [shipping, setShipping] = useState(0);
+    const [tax, setTax] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
     const [items, setItems] = useState<CartLine[]>([]);
 
@@ -101,7 +103,9 @@ export function OrderCreateForm() {
         () => round2(items.reduce((s, i) => s + i.unitPrice * i.quantity, 0)),
         [items],
     );
-    const grandTotal = round2(Math.max(0, subtotal - discount));
+    const grandTotal = round2(
+        Math.max(0, subtotal - discount) + shipping + tax,
+    );
 
     function addLine(line: CartLine) {
         setItems((prev) => {
@@ -162,6 +166,8 @@ export function OrderCreateForm() {
             customerPhone: customerPhone.trim() || undefined,
             note: note.trim() || undefined,
             discountTotal: discount > 0 ? round2(discount) : undefined,
+            shippingCost: shipping > 0 ? round2(shipping) : undefined,
+            taxAmount: tax > 0 ? round2(tax) : undefined,
             items: items.map((l) => ({
                 productVariantId: l.productVariantId,
                 quantity: l.quantity,
@@ -352,6 +358,54 @@ export function OrderCreateForm() {
                                                 value={discount || ''}
                                                 onChange={(e) =>
                                                     setDiscount(
+                                                        e.target.value === ''
+                                                            ? 0
+                                                            : Number(e.target.value),
+                                                    )
+                                                }
+                                                className="h-9 pl-6 text-right"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-muted-foreground">
+                                            {t('order.detail.shipping')}
+                                        </span>
+                                        <div className="relative w-28">
+                                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                                $
+                                            </span>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                step="0.01"
+                                                value={shipping || ''}
+                                                onChange={(e) =>
+                                                    setShipping(
+                                                        e.target.value === ''
+                                                            ? 0
+                                                            : Number(e.target.value),
+                                                    )
+                                                }
+                                                className="h-9 pl-6 text-right"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-muted-foreground">
+                                            {t('order.detail.tax')}
+                                        </span>
+                                        <div className="relative w-28">
+                                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                                $
+                                            </span>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                step="0.01"
+                                                value={tax || ''}
+                                                onChange={(e) =>
+                                                    setTax(
                                                         e.target.value === ''
                                                             ? 0
                                                             : Number(e.target.value),

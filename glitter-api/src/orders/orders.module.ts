@@ -5,6 +5,8 @@ import { OrderEntity } from './entities/order.entity';
 import { OrderItemEntity } from './entities/order-item.entity';
 import { PaymentEntity } from './entities/payment.entity';
 import { OrdersController } from './orders.controller';
+import { OrdersPublicController } from './orders-public.controller';
+import { OrdersCustomerController } from './orders-customer.controller';
 import { OrdersService } from './orders.service';
 
 @Module({
@@ -12,7 +14,11 @@ import { OrdersService } from './orders.service';
     TypeOrmModule.forFeature([OrderEntity, OrderItemEntity, PaymentEntity]),
     InventoryBranchModule,
   ],
-  controllers: [OrdersController],
+  controllers: [
+    OrdersController,
+    OrdersPublicController,
+    OrdersCustomerController,
+  ],
   providers: [OrdersService],
   exports: [OrdersService],
 })

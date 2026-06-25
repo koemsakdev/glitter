@@ -7,6 +7,7 @@ import {
 import { orderApi } from './order-api';
 import type {
     CreateOrderPayload,
+    OrderPaymentStatus,
     OrderQuery,
     OrderStatus,
 } from '@/types/order';
@@ -63,6 +64,20 @@ export function useUpdateOrderStatus() {
     return useMutation({
         mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
             orderApi.updateStatus(id, status),
+        onSuccess: invalidate,
+    });
+}
+
+export function useUpdatePaymentStatus() {
+    const invalidate = useInvalidateAfterOrder();
+    return useMutation({
+        mutationFn: ({
+            id,
+            paymentStatus,
+        }: {
+            id: string;
+            paymentStatus: OrderPaymentStatus;
+        }) => orderApi.updatePaymentStatus(id, paymentStatus),
         onSuccess: invalidate,
     });
 }

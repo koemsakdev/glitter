@@ -1,12 +1,19 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { AddToCart } from '@/components/add-to-cart';
+import { ProductCard } from '@/components/product-card';
+import { ProductReviews } from '@/components/product-reviews';
+import { WishlistButton } from '@/components/wishlist-button';
 import {
     fileUrl,
     formatPrice,
     getAvailability,
     getProductBySlug,
+    getProductReviews,
+    getRelatedProducts,
 } from '@/lib/api';
-import { getLang, pick, tr } from '@/lib/locale';
+import { getLang } from '@/lib/lang';
+import { pick, tr } from '@/lib/locale';
 import type { Metadata } from 'next';
 
 export async function generateMetadata({
@@ -31,7 +38,11 @@ export default async function ProductDetailPage({
     ]);
     if (!product) notFound();
 
-    const availability = await getAvailability(product.id);
+    const [availability, productReviews, related] = await Promise.all([
+        getAvailability(product.id),
+        getProductReviews(product.id),
+        getRelatedProducts(product.id),
+    ]);
 
     const name = pick(lang, product.nameEn, product.nameKm);
     const secondaryName =
@@ -47,7 +58,6 @@ export default async function ProductDetailPage({
     const primary =
         images.find((i) => i.imageType === 'primary') ?? images[0] ?? null;
     const heroUrl = fileUrl(primary?.imageUrl);
-    const variants = product.variants ?? [];
     const hasDiscount =
         product.originalPrice != null && product.originalPrice > product.price;
     const inStock = product.totalStock > 0;
@@ -161,46 +171,15 @@ export default async function ProductDetailPage({
                         )}
                     </div>
 
-                    {variants.length > 0 && (
-                        <div className="mt-6">
-                            <h2 className="text-sm font-semibold text-zinc-900">
-                                {tr(lang, 'availableOptions')}
-                            </h2>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                                {variants.map((v) => {
-                                    const label =
-                                        [v.size, v.color].filter(Boolean).join(' · ') ||
-                                        v.variantSku;
-                                    return (
-                                        <span
-                                            key={v.id}
-                                            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                                        >
-                                            {v.colorHex && (
-                                                <span
-                                                    className="size-3.5 rounded-full border border-zinc-300"
-                                                    style={{ backgroundColor: v.colorHex }}
-                                                />
-                                            )}
-                                            {label}
-                                        </span>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
+                    <AddToCart product={product} lang={lang} />
 
-                    <div className="mt-8">
-                        <button
-                            type="button"
-                            disabled
-                            className="w-full cursor-not-allowed rounded-full bg-(--brand) px-6 py-3 text-sm font-semibold text-white opacity-60 sm:w-auto sm:px-10"
-                        >
-                            {tr(lang, 'addToCart')}
-                        </button>
-                        <p className="mt-2 text-xs text-zinc-400">
-                            {tr(lang, 'checkoutSoon')}
-                        </p>
+                    <div className="mt-3 flex items-center gap-2 text-sm text-zinc-600">
+                        <WishlistButton
+                            productId={product.id}
+                            size="lg"
+                            className="border border-zinc-200"
+                        />
+                        {tr(lang, 'saveToWishlist')}
                     </div>
 
                     {branches.length > 0 && (
@@ -246,6 +225,26 @@ export default async function ProductDetailPage({
                     )}
                 </div>
             </div>
+
+            <ProductReviews
+                productId={product.id}
+                lang={lang}
+                reviews={productReviews.data}
+                summary={productReviews.summary}
+            />
+
+            {related.length > 0 && (
+                <section className="mt-12 border-t border-zinc-200 pt-8">
+                    <h2 className="text-lg font-bold tracking-tight text-zinc-900">
+                        {tr(lang, 'youMayAlsoLike')}
+                    </h2>
+                    <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                        {related.map((p) => (
+                            <ProductCard key={p.id} product={p} lang={lang} />
+                        ))}
+                    </div>
+                </section>
+            )}
         </div>
     );
 }

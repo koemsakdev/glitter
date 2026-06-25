@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -53,6 +54,35 @@ interface UploadResult {
 @Controller('uploads')
 export class UploadsController {
   constructor(private readonly optimizer: ImageOptimizationService) {}
+
+  /** List previously uploaded images (most recent first) for re-use pickers. */
+  @Roles('admin', 'super_admin')
+  @Get('images')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'List previously uploaded images (admin only)' })
+  async listImages(): Promise<{ data: { url: string; name: string }[] }> {
+    let names: string[] = [];
+    try {
+      names = await fs.readdir(UPLOAD_DIR);
+    } catch {
+      return { data: [] };
+    }
+    const withTimes = await Promise.all(
+      names
+        .filter((n) => /\.(webp|jpe?g|png|avif)$/i.test(n))
+        .map(async (name) => {
+          const stat = await fs
+            .stat(path.join(UPLOAD_DIR, name))
+            .catch(() => null);
+          return stat ? { name, mtime: stat.mtimeMs } : null;
+        }),
+    );
+    const data = withTimes
+      .filter((f): f is { name: string; mtime: number } => f !== null)
+      .sort((a, b) => b.mtime - a.mtime)
+      .map((f) => ({ url: `/upload/uploads/${f.name}`, name: f.name }));
+    return { data };
+  }
 
   /**
    * Upload + optimize a single image (admin only). Validates a minimum width

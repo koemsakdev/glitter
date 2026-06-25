@@ -1,21 +1,54 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: `dark:` applies when <html> (or an ancestor) has .dark */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #18181b;
 }
 
+.dark {
+  --background: #0b0b0e;
+  --foreground: #f4f4f5;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-google-sans);
+  --font-mono: var(--font-google-sans);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-google-sans), system-ui, sans-serif;
+}
+
+/* Banner Swiper: dots, with the active one as a wider brand pill. */
+.banner-swiper .swiper-pagination-bullet {
+  width: 8px;
+  height: 8px;
+  opacity: 1;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+.banner-swiper .swiper-pagination-bullet-active {
+  width: 22px;
+  border-radius: 9999px;
+}
+
+/* Every interactive control gets a pointer cursor (disabled ones don't). */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label[for],
+summary,
+a[href] {
+  cursor: pointer;
+}
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
 }
 
 ::-webkit-scrollbar {
@@ -28,4 +61,46 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #d4d4d8;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+
+/* Entrance animations (used for page transitions + lists) */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Staggered list entrance — apply `.stagger` to a grid/list container. */
+.stagger > * {
+  animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 50ms; }
+.stagger > *:nth-child(3) { animation-delay: 100ms; }
+.stagger > *:nth-child(4) { animation-delay: 150ms; }
+.stagger > *:nth-child(5) { animation-delay: 200ms; }
+.stagger > *:nth-child(6) { animation-delay: 250ms; }
+.stagger > *:nth-child(7) { animation-delay: 300ms; }
+.stagger > *:nth-child(8) { animation-delay: 350ms; }
+.stagger > *:nth-child(n + 9) { animation-delay: 400ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .stagger > * {
+    animation: none;
+  }
 }

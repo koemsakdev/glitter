@@ -25,6 +25,7 @@ import {
 } from '@/features/products/product-config';
 import { useDeleteProductModal } from '@/features/products/hooks/use-delete-product-modal';
 import { useProducts } from '@/features/products/use-products';
+import { useWishlistCounts } from '@/features/wishlists/use-wishlists';
 import { useBrandOptions } from '@/lib/hooks/use-brand-options';
 import { useCategoryOptions } from '@/lib/hooks/use-category-options';
 import { useI18n } from '@/lib/i18n';
@@ -72,6 +73,7 @@ export default function ProductsPage() {
     });
 
     const products = data?.data ?? [];
+    const { data: wishlistCounts } = useWishlistCounts();
     const total = data?.total ?? 0;
 
     const { data: brands } = useBrandOptions();
@@ -138,13 +140,14 @@ export default function ProductsPage() {
                 brandsById,
                 categoriesById,
                 hasBranchFilter: Boolean(selectedBranchId),  // ← NEW
+                wishlistCounts,
                 onDelete: (product) => {
                     setDeletingProduct(product);
                     deleteModal.open();
                 },
             }),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [t, language, brandsById, categoriesById, selectedBranchId],
+        [t, language, brandsById, categoriesById, selectedBranchId, wishlistCounts],
     );
 
     function handleStatusChange(value: ProductStatusFilter) {

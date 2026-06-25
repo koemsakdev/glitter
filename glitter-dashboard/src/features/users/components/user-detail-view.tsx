@@ -11,6 +11,7 @@ import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { Button } from '@/components/ui/button';
 import { AddressList } from '@/features/addresses/components/address-list';
+import { CustomerWishlistSection } from '@/features/wishlists/components/customer-wishlist-section';
 import { ConnectedAccounts } from '@/features/users/components/connected-accounts';
 import { UserAvatarUploader } from '@/features/users/components/user-avatar-uploader';
 import {
@@ -205,6 +206,11 @@ export function UserDetailView({
                         customerPhone={user.phoneNumber ?? undefined}
                     />
                 </div>
+            )}
+
+            {/* Wishlist — products this customer saved */}
+            {mode === 'customer' && (
+                <CustomerWishlistSection userId={user.id} />
             )}
 
             <UserFormDialog

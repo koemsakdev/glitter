@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { BrandEntity } from '../brands/entities/brand.entity';
 import { CategoryEntity } from '../category/entities/category.entity';
 import { ProductEntity } from '../products/entities/product.entity';
@@ -14,6 +14,7 @@ const TOP_BRANDS_LIMIT = 5;
 const TOP_CATEGORIES_LIMIT = 5;
 const RECENTLY_UPDATED_LIMIT = 5;
 const RECENT_UPDATE_WINDOW_DAYS = 7;
+const TOP_PRODUCTS_LIMIT = 5;
 
 @Injectable()
 export class DashboardService {
@@ -40,6 +41,8 @@ export class DashboardService {
       topBrands,
       topCategories,
       inventory,
+      bestSelling,
+      mostBought,
     ] = await Promise.all([
       this.getProductCounts(),
       this.getBrandCounts(),
@@ -51,6 +54,8 @@ export class DashboardService {
       this.getTopBrands(),
       this.getTopCategories(),
       this.getInventoryStats(),
+      this.getTopProducts('SUM(oi.quantity)'),
+      this.getTopProducts('COUNT(DISTINCT oi.order_id)'),
     ]);
 
     return {
@@ -64,7 +69,70 @@ export class DashboardService {
       topBrands,
       topCategories,
       inventory,
+      bestSelling,
+      mostBought,
     };
+  }
+
+  /**
+   * Top products ranked by an order_items aggregate. `metricSql` is a fixed,
+   * code-controlled expression (e.g. SUM(oi.quantity) for units sold, or
+   * COUNT(DISTINCT oi.order_id) for how many orders bought it).
+   */
+  private async getTopProducts(metricSql: string): Promise<
+    Array<{
+      id: string;
+      nameEn: string;
+      nameKm: string;
+      sku: string;
+      price: number;
+      primaryImageUrl: string | null;
+      count: number;
+    }>
+  > {
+    const rows: Array<{ product_id: string; metric: string }> =
+      await this.productRepo.query(
+        `SELECT oi.product_id, ${metricSql} AS metric
+         FROM order_items oi
+         GROUP BY oi.product_id
+         ORDER BY metric DESC
+         LIMIT $1`,
+        [TOP_PRODUCTS_LIMIT],
+      );
+    const ids = rows.map((r) => r.product_id);
+    if (ids.length === 0) return [];
+
+    const products = await this.productRepo.find({ where: { id: In(ids) } });
+    const byId = new Map(products.map((p) => [p.id, p]));
+
+    const primaryImages = await this.productRepo.manager
+      .createQueryBuilder()
+      .select('img.image_url', 'imageUrl')
+      .addSelect('img.product_id', 'productId')
+      .from('product_images', 'img')
+      .where('img.product_id IN (:...ids)', { ids })
+      .andWhere(`img.image_type = 'primary'`)
+      .getRawMany<{ imageUrl: string; productId: string }>();
+    const imageByProductId = new Map<string, string>();
+    primaryImages.forEach((row) =>
+      imageByProductId.set(row.productId, row.imageUrl),
+    );
+
+    return rows
+      .map((r) => {
+        const p = byId.get(r.product_id);
+        if (!p) return null;
+        return {
+          id: p.id,
+          nameEn: p.nameEn,
+          nameKm: p.nameKm,
+          sku: p.sku,
+          price: parseFloat(p.price),
+          primaryImageUrl: imageByProductId.get(p.id) ?? null,
+          count: Number(r.metric),
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
   }
 
   private async getProductCounts() {

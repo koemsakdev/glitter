@@ -73,3 +73,77 @@ export interface ProductAvailability {
     productId: string;
     branches: BranchAvailability[];
 }
+
+export interface Branch {
+    id: string;
+    branchCode: string;
+    branchNameEn: string;
+    branchNameKm: string;
+    streetAddress: string;
+    city: string;
+    phoneNumber: string;
+}
+
+export interface Advertisement {
+    id: string;
+    titleEn: string;
+    titleKm: string;
+    contentEn: string | null;
+    contentKm: string | null;
+    imageUrl: string | null;
+    linkUrl: string | null;
+}
+
+export interface Banner {
+    id: string;
+    titleEn: string;
+    titleKm: string;
+    imageUrl: string;
+    imageAltText: string | null;
+    linkUrl: string | null;
+    descriptionEn: string | null;
+    descriptionKm: string | null;
+    buttonLabelEn: string | null;
+    buttonLabelKm: string | null;
+}
+
+export interface Review {
+    id: string;
+    reviewerName: string;
+    rating: number;
+    titleEn: string | null;
+    titleKm: string | null;
+    commentEn: string | null;
+    commentKm: string | null;
+    verifiedPurchase: boolean;
+    createdAt: string;
+}
+
+export interface ReviewSummary {
+    average: number;
+    count: number;
+}
+
+export interface Page {
+    id: string;
+    slug: string;
+    titleEn: string;
+    titleKm: string;
+    bodyEn: string | null;
+    bodyKm: string | null;
+    isPublished: boolean;
+}
+
+export type MenuLocation = 'header' | 'footer';
+
+export interface MenuItem {
+    id: string;
+    labelEn: string;
+    labelKm: string;
+    url: string;
+    location: MenuLocation;
+    parentId: string | null;
+    displayOrder: number;
+    isActive: boolean;
+    openInNewTab: boolean;
+}

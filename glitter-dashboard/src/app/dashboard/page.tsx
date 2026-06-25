@@ -10,6 +10,7 @@ import { ErrorState } from '@/components/feedback/error-state';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { InventorySummaryCard } from '@/features/dashboard/components/inventory-summary-card';
 import { LowStockCard } from '@/features/dashboard/components/low-stock-card';
+import { MostWishlistedCard } from '@/features/dashboard/components/most-wishlisted-card';
 import { ProductStatusChart } from '@/features/dashboard/components/product-status-chart';
 import { QuickActionsCard } from '@/features/dashboard/components/quick-actions-card';
 import { RecentProductsCard } from '@/features/dashboard/components/recent-products-card';
@@ -17,6 +18,7 @@ import { RecentlyUpdatedCard } from '@/features/dashboard/components/recently-up
 import { StatCard } from '@/features/dashboard/components/stat-card';
 import { TopBrandsCard } from '@/features/dashboard/components/top-brands-card';
 import { TopCategoriesCard } from '@/features/dashboard/components/top-categories-card';
+import { TopProductsCard } from '@/features/dashboard/components/top-products-card';
 import { WelcomeHeader } from '@/features/dashboard/components/welcome-header';
 import { useDashboardStats } from '@/features/dashboard/use-dashboard';
 import { useI18n } from '@/lib/i18n';
@@ -87,6 +89,23 @@ export default function DashboardHomePage() {
                 <div>
                     <ProductStatusChart data={stats.products} />
                 </div>
+            </div>
+
+            {/* Best sellers + most bought */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <TopProductsCard
+                    title={t('dashboard.bestSelling.title')}
+                    subtitle={t('dashboard.bestSelling.subtitle')}
+                    countLabel={t('dashboard.sold')}
+                    products={stats.bestSelling}
+                />
+                <TopProductsCard
+                    title={t('dashboard.mostBought.title')}
+                    subtitle={t('dashboard.mostBought.subtitle')}
+                    countLabel={t('dashboard.orders')}
+                    products={stats.mostBought}
+                />
+                <MostWishlistedCard />
             </div>
 
             {/* Middle row 2 — top brands + top categories + inventory summary */}

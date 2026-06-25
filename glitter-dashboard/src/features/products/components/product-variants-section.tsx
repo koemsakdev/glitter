@@ -1,123 +1,163 @@
 'use client';
 
-import { Plus, Trash2 } from 'lucide-react';
-import * as React from 'react';
+import { Plus, Trash2, X } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ColorPickerInput } from '@/components/ui/color-picker-input';
 import { Input } from '@/components/ui/input';
+import { useColors } from '@/features/colors/use-colors';
+import { useBranches } from '@/features/branches/use-branches';
+import { useSelectedBranchId } from '@/stores/use-branch-context';
 import { useI18n } from '@/lib/i18n';
 import { generateVariantSku } from '@/lib/sku-generator';
+import { cn } from '@/lib/utils';
+import type { Color } from '@/types/color';
 import type { VariantEditorState, VariantRow } from '@/types/product';
-import { VariantStockButton } from '@/features/inventory-branch/components/variant-stock-button';
 import type { VariantStockEntry } from '@/features/inventory-branch/components/variant-stock-dialog';
 
 interface ProductVariantsSectionProps {
     productSku: string;
+    productPrice: number;
     state: VariantEditorState;
     onChange: (state: VariantEditorState) => void;
     hasVariants: boolean;
     onHasVariantsChange: (hasVariants: boolean) => void;
     singleStock: number;
     onSingleStockChange: (stock: number) => void;
-
     pendingStockChanges: Map<string, VariantStockEntry[]>;
     onStockChange: (variantId: string, entries: VariantStockEntry[]) => void;
 }
 
+const ROW_KEY = (size: string, hex: string) =>
+    `${size.trim().toLowerCase()}|||${hex.toLowerCase()}`;
+
 export function ProductVariantsSection({
-   productSku,
-   state,
-   onChange,
-   hasVariants,
-   onHasVariantsChange,
-   singleStock,
-   onSingleStockChange,
-   pendingStockChanges,
-   onStockChange,
+    productSku,
+    productPrice,
+    state,
+    onChange,
+    hasVariants,
+    onHasVariantsChange,
+    singleStock,
+    onSingleStockChange,
+    pendingStockChanges,
+    onStockChange,
 }: ProductVariantsSectionProps) {
-    const { t } = useI18n();
+    const { t, language } = useI18n();
+    const { data: colors = [] } = useColors();
+    const { data: branchData } = useBranches({ page: 1, limit: 100 });
+    const branches = branchData?.data ?? [];
+    const selectedBranchId = useSelectedBranchId(); // null = "All branches"
 
-    function applyFieldChange(
-        row: VariantRow,
-        field: keyof VariantRow,
-        value: string | number | null,
-    ): VariantRow {
-        const next = { ...row, [field]: value };
-        if (field === 'size' || field === 'color' || field === 'colorHex') {
-            next.variantSku = generateVariantSku(
-                productSku,
-                field === 'size' ? String(value) : row.size,
-                field === 'color' ? String(value) : row.color,
-                field === 'colorHex' ? String(value) : row.colorHex,
-            );
+    // Builder selections (for generating new variants)
+    const [sizeInput, setSizeInput] = useState('');
+    const [sizes, setSizes] = useState<string[]>([]);
+    const [pickedColorIds, setPickedColorIds] = useState<string[]>([]);
+
+    const branchName = (id: string) => {
+        const b = branches.find((x) => x.id === id);
+        return b ? (language === 'km' ? b.branchNameKm : b.branchNameEn) : id;
+    };
+
+    function addSize() {
+        const v = sizeInput.trim();
+        if (v && !sizes.includes(v)) setSizes((s) => [...s, v]);
+        setSizeInput('');
+    }
+    function togglePicked(id: string) {
+        setPickedColorIds((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+        );
+    }
+
+    function generate() {
+        const existing = new Set(
+            state.rows.map((r) => ROW_KEY(r.size, r.colorHex)),
+        );
+        const sizeList = sizes.length ? sizes : [''];
+        const colorList: Array<{ name: string; hex: string }> =
+            pickedColorIds.length
+                ? colors
+                      .filter((c) => pickedColorIds.includes(c.id))
+                      .map((c) => ({ name: c.nameEn, hex: c.hex }))
+                : [{ name: '', hex: '#000000' }];
+
+        const newRows: VariantRow[] = [];
+        let i = 0;
+        for (const size of sizeList) {
+            for (const color of colorList) {
+                const key = ROW_KEY(size, color.hex);
+                if (existing.has(key)) continue;
+                existing.add(key);
+                newRows.push({
+                    id: `new-${Date.now()}-${i++}`,
+                    isExisting: false,
+                    size,
+                    color: color.name,
+                    colorHex: color.hex,
+                    variantSku: generateVariantSku(
+                        productSku,
+                        size,
+                        color.name,
+                        color.hex,
+                    ),
+                    quantityInStock: 0,
+                    priceOverride: null,
+                });
+            }
         }
-        return next;
+        if (newRows.length > 0) {
+            onChange({ ...state, rows: [...state.rows, ...newRows] });
+        }
+        setSizes([]);
+        setPickedColorIds([]);
     }
 
-    function applyColorPick(
-        row: VariantRow,
-        hex: string,
-        autoFillName: boolean,
-    ): VariantRow {
-        const color = autoFillName ? hex : row.color;
-        return {
-            ...row,
-            colorHex: hex,
-            color,
-            variantSku: generateVariantSku(productSku, row.size, color, hex),
-        };
-    }
-
-    function handleFieldChange(
-        rowId: string,
-        field: keyof VariantRow,
-        value: string | number | null,
-    ) {
+    function updateRow(rowId: string, patch: Partial<VariantRow>) {
         onChange({
             ...state,
             rows: state.rows.map((r) =>
-                r.id === rowId ? applyFieldChange(r, field, value) : r,
+                r.id === rowId ? { ...r, ...patch } : r,
             ),
         });
     }
 
-    function handleColorPick(rowId: string, hex: string, autoFillName: boolean) {
+    function removeRow(row: VariantRow) {
         onChange({
-            ...state,
-            rows: state.rows.map((r) =>
-                r.id === rowId ? applyColorPick(r, hex, autoFillName) : r,
-            ),
+            rows: state.rows.filter((r) => r.id !== row.id),
+            deletedIds: row.isExisting
+                ? [...state.deletedIds, row.id]
+                : state.deletedIds,
         });
     }
 
-    function handleAddRow() {
-        const newRow: VariantRow = {
-            id: `new-${Date.now()}`,
-            isExisting: false,
-            variantSku: generateVariantSku(productSku, '', '', '#000000'),
-            size: '',
-            color: '',
-            colorHex: '#000000',
-            quantityInStock: 0,
-            priceOverride: null,
-        };
-        onChange({ ...state, rows: [...state.rows, newRow] });
+    /** Set stock for a single branch on a row (updates total + pending entries). */
+    function setBranchStock(row: VariantRow, branchId: string, qty: number) {
+        const prev = pendingStockChanges.get(row.id) ?? [];
+        const others = prev.filter((e) => e.branchId !== branchId);
+        const existing = prev.find((e) => e.branchId === branchId);
+        const next: VariantStockEntry[] = [
+            ...others,
+            {
+                branchId,
+                inventoryId: existing?.inventoryId ?? null,
+                quantityAvailable: qty,
+                quantityReserved: 0,
+                quantityDamaged: 0,
+            },
+        ];
+        onStockChange(row.id, next);
+        const total = next.reduce((s, e) => s + e.quantityAvailable, 0);
+        updateRow(row.id, { quantityInStock: total });
     }
 
-    function handleRemove(row: VariantRow) {
-        const rows = state.rows.filter((r) => r.id !== row.id);
-        const deletedIds = row.isExisting
-            ? [...state.deletedIds, row.id]
-            : state.deletedIds;
-        onChange({ rows, deletedIds });
-    }
-
-    function handleToggle(checked: boolean) {
-        onHasVariantsChange(checked);
-        if (checked && state.rows.length === 0) {
-            handleAddRow();
-        }
+    function branchQty(row: VariantRow, branchId: string): number {
+        const entry = pendingStockChanges
+            .get(row.id)
+            ?.find((e) => e.branchId === branchId);
+        if (entry) return entry.quantityAvailable;
+        // No pending edit yet: existing single-branch variants show their total.
+        return selectedBranchId ? row.quantityInStock : 0;
     }
 
     return (
@@ -125,11 +165,13 @@ export function ProductVariantsSection({
             <label className="flex cursor-pointer items-start gap-3">
                 <Checkbox
                     checked={hasVariants}
-                    onCheckedChange={(v) => handleToggle(v)}
+                    onCheckedChange={(v) => onHasVariantsChange(Boolean(v))}
                     className="mt-0.5"
                 />
                 <div className="flex-1">
-                    <div className="text-sm font-medium">{t('product.variant.toggle')}</div>
+                    <div className="text-sm font-medium">
+                        {t('product.variant.toggle')}
+                    </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                         {t('product.variant.toggleHelp')}
                     </p>
@@ -138,12 +180,17 @@ export function ProductVariantsSection({
 
             {!hasVariants && (
                 <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                         <label
                             htmlFor="single-stock"
-                            className="text-sm font-medium text-foreground"
+                            className="text-sm font-medium"
                         >
                             {t('product.variant.singleStock')}
+                            {selectedBranchId && (
+                                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                                    · {branchName(selectedBranchId)}
+                                </span>
+                            )}
                         </label>
                         <Input
                             id="single-stock"
@@ -152,191 +199,268 @@ export function ProductVariantsSection({
                             value={singleStock}
                             onChange={(e) =>
                                 onSingleStockChange(
-                                    e.target.value === '' ? 0 : Number(e.target.value),
+                                    e.target.value === ''
+                                        ? 0
+                                        : Number(e.target.value),
                                 )
                             }
-                            className="h-9 w-32 rounded-md shadow-none focus-visible:outline-none focus-visible:ring-0 focus-visible:border-pink-500 dark:focus-visible:border-pink-800"
+                            className="h-9 w-32"
                         />
-                        <span className="text-xs text-muted-foreground">
-              {t('product.variant.singleStockHelp')}
-            </span>
                     </div>
                 </div>
             )}
 
             {hasVariants && (
-                <div className="overflow-x-auto rounded-lg border border-border/60">
-                    <table className="w-full text-sm">
-                        <thead className="border-b bg-muted/30">
-                        <tr className="text-left">
-                            <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                {t('product.variant.col.size')}
-                            </th>
-                            <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                {t('product.variant.col.color')}
-                            </th>
-                            <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                {t('product.variant.col.sku')}
-                            </th>
-                            <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                {t('product.variant.col.totalStock')}
-                            </th>
-                            <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                {t('product.variant.col.priceOverride')}
-                            </th>
-                            <th className="w-12 px-3 py-2"></th>
-                        </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                            {state.rows.length === 0 ? (
-                                <tr>
-                                    <td
-                                        colSpan={6}
-                                        className="px-3 py-6 text-center text-sm text-muted-foreground"
+                <>
+                    {/* Builder: sizes + colors → generate matrix */}
+                    <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
+                        <div>
+                            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                                {t('product.variant.sizesLabel')}
+                            </label>
+                            <div className="flex w-full flex-wrap items-center gap-1.5 rounded-lg border border-input bg-background px-2 py-1.5 transition-colors focus-within:border-pink-500 dark:focus-within:border-pink-800">
+                                {sizes.map((s) => (
+                                    <span
+                                        key={s}
+                                        className="inline-flex items-center gap-1 rounded-full bg-pink-100 px-2.5 py-1 text-xs font-medium text-pink-700 dark:bg-pink-500/15 dark:text-pink-300"
                                     >
-                                        {t('product.variant.empty')}
-                                    </td>
-                                </tr>
-                            ) : (
-                                state.rows.map((row) => (
-                                    <VariantRowEditor
-                                        key={row.id}
-                                        row={row}
-                                        pendingStockEntries={pendingStockChanges.get(row.id) ?? null}
-                                        onFieldChange={(field, value) =>
-                                            handleFieldChange(row.id, field, value)
+                                        {s}
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setSizes((x) =>
+                                                    x.filter((v) => v !== s),
+                                                )
+                                            }
+                                            className="cursor-pointer"
+                                        >
+                                            <X className="size-3" />
+                                        </button>
+                                    </span>
+                                ))}
+                                <input
+                                    value={sizeInput}
+                                    onChange={(e) => setSizeInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            addSize();
                                         }
-                                        onColorPick={(hex, autoFill) =>
-                                            handleColorPick(row.id, hex, autoFill)
-                                        }
-                                        onPendingStockChange={(entries) =>
-                                            onStockChange(row.id, entries)
-                                        }
-                                        onRemove={() => void handleRemove(row)}
-                                    />
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                    }}
+                                    onBlur={addSize}
+                                    placeholder={
+                                        sizes.length === 0
+                                            ? t('product.variant.sizesPlaceholder')
+                                            : ''
+                                    }
+                                    className="h-7 min-w-25 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                                />
+                            </div>
+                        </div>
 
-            {hasVariants && (
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddRow}
-                    className="w-full border-dashed sm:w-auto"
-                >
-                    <Plus className="mr-1.5 size-4" />
-                    {t('product.variant.add')}
-                </Button>
+                        <div>
+                            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                                {t('product.variant.colorsLabel')}
+                            </label>
+                            {colors.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">
+                                    {t('product.variant.noColors')}
+                                </p>
+                            ) : (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {colors.map((c: Color) => {
+                                        const on = pickedColorIds.includes(c.id);
+                                        return (
+                                            <button
+                                                key={c.id}
+                                                type="button"
+                                                onClick={() => togglePicked(c.id)}
+                                                className={cn(
+                                                    'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors',
+                                                    on
+                                                        ? 'border-pink-400 bg-pink-50 text-pink-700 dark:border-pink-600 dark:bg-pink-500/15 dark:text-pink-300'
+                                                        : 'border-input hover:bg-accent',
+                                                )}
+                                            >
+                                                <span
+                                                    className="size-3.5 rounded-full border border-border/60"
+                                                    style={{
+                                                        backgroundColor: c.hex,
+                                                    }}
+                                                />
+                                                {language === 'km'
+                                                    ? c.nameKm
+                                                    : c.nameEn}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={generate}
+                            disabled={sizes.length === 0 && pickedColorIds.length === 0}
+                            className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
+                        >
+                            <Plus className="size-4" />
+                            {t('product.variant.generate')}
+                        </Button>
+                    </div>
+
+                    {/* Generated variant list */}
+                    {state.rows.length > 0 && (
+                        <div className="space-y-2">
+                            {state.rows.map((row) => (
+                                <div
+                                    key={row.id}
+                                    className={cn(
+                                        'rounded-xl border p-3',
+                                        row.isExisting
+                                            ? 'bg-card'
+                                            : 'bg-amber-50/30 dark:bg-amber-500/5',
+                                    )}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <span
+                                            className="size-5 shrink-0 rounded-full border border-border/60"
+                                            style={{
+                                                backgroundColor: row.colorHex,
+                                            }}
+                                        />
+                                        <span className="text-sm font-medium">
+                                            {[row.size, row.color]
+                                                .filter(Boolean)
+                                                .join(' · ') || '—'}
+                                        </span>
+                                        <span className="ml-1 truncate font-mono text-[11px] text-muted-foreground">
+                                            {row.variantSku}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeRow(row)}
+                                            className="ml-auto rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                        >
+                                            <Trash2 className="size-4" />
+                                        </button>
+                                    </div>
+
+                                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                        <div>
+                                            <label className="mb-1 block text-[11px] text-muted-foreground">
+                                                {t('product.variant.priceOverrideLabel')}
+                                            </label>
+                                            <div className="relative">
+                                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                                    $
+                                                </span>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min={0}
+                                                    value={row.priceOverride ?? ''}
+                                                    onChange={(e) =>
+                                                        updateRow(row.id, {
+                                                            priceOverride:
+                                                                e.target.value ===
+                                                                ''
+                                                                    ? null
+                                                                    : Number(
+                                                                          e.target
+                                                                              .value,
+                                                                      ),
+                                                        })
+                                                    }
+                                                    placeholder={productPrice.toFixed(
+                                                        2,
+                                                    )}
+                                                    className="h-9 pl-6"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {selectedBranchId ? (
+                                            <div>
+                                                <label className="mb-1 block text-[11px] text-muted-foreground">
+                                                    {t('product.variant.stockAt')}{' '}
+                                                    {branchName(selectedBranchId)}
+                                                </label>
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    value={branchQty(
+                                                        row,
+                                                        selectedBranchId,
+                                                    )}
+                                                    onChange={(e) =>
+                                                        setBranchStock(
+                                                            row,
+                                                            selectedBranchId,
+                                                            e.target.value === ''
+                                                                ? 0
+                                                                : Number(
+                                                                      e.target
+                                                                          .value,
+                                                                  ),
+                                                        )
+                                                    }
+                                                    className="h-9"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <label className="mb-1 block text-[11px] text-muted-foreground">
+                                                    {t('product.variant.stockPerBranch')}
+                                                </label>
+                                                <div className="space-y-1.5">
+                                                    {branches.map((b) => (
+                                                        <div
+                                                            key={b.id}
+                                                            className="flex items-center gap-2"
+                                                        >
+                                                            <span className="w-24 truncate text-xs text-muted-foreground">
+                                                                {language === 'km'
+                                                                    ? b.branchNameKm
+                                                                    : b.branchNameEn}
+                                                            </span>
+                                                            <Input
+                                                                type="number"
+                                                                min={0}
+                                                                value={branchQty(
+                                                                    row,
+                                                                    b.id,
+                                                                )}
+                                                                onChange={(e) =>
+                                                                    setBranchStock(
+                                                                        row,
+                                                                        b.id,
+                                                                        e.target
+                                                                            .value ===
+                                                                            ''
+                                                                            ? 0
+                                                                            : Number(
+                                                                                  e
+                                                                                      .target
+                                                                                      .value,
+                                                                              ),
+                                                                    )
+                                                                }
+                                                                className="h-8 flex-1"
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
 }
-
-const VariantRowEditor = React.memo(function VariantRowEditor({
-                                                                  row,
-                                                                  pendingStockEntries,
-                                                                  onFieldChange,
-                                                                  onColorPick,
-                                                                  onPendingStockChange,
-                                                                  onRemove,
-                                                              }: {
-    row: VariantRow;
-    pendingStockEntries: VariantStockEntry[] | null;
-    onFieldChange: (field: keyof VariantRow, value: string | number | null) => void;
-    onColorPick: (hex: string, autoFillName: boolean) => void;
-    onPendingStockChange: (entries: VariantStockEntry[]) => void;
-    onRemove: () => void;
-}) {
-    return (
-        <tr className={row.isExisting ? 'bg-card' : 'bg-amber-50/30 dark:bg-amber-500/5'}>
-            <td className="px-3 py-2">
-                <Input
-                    type="text"
-                    value={row.size}
-                    onChange={(e) => onFieldChange('size', e.target.value)}
-                    placeholder="S / M / L"
-                    className="h-9 w-24 rounded-md shadow-none focus-visible:outline-none focus-visible:ring-0 focus-visible:border-pink-500 dark:focus-visible:border-pink-800"
-                />
-            </td>
-            <td className="px-3 py-2">
-                <div className="min-w-45">
-                    <ColorPickerInput
-                        colorName={row.color}
-                        colorHex={row.colorHex}
-                        onColorNameChange={(v) => onFieldChange('color', v)}
-                        onColorPick={onColorPick}
-                    />
-                </div>
-            </td>
-            <td className="px-3 py-2">
-                <Input
-                    type="text"
-                    value={row.variantSku}
-                    onChange={(e) => onFieldChange('variantSku', e.target.value)}
-                    placeholder="GUC-BAG-001-SM-BLK"
-                    className="h-9 w-40 rounded-md font-mono text-xs shadow-none focus-visible:outline-none focus-visible:ring-0 focus-visible:border-pink-500 dark:focus-visible:border-pink-800"
-                />
-            </td>
-            <td className="px-3 py-2">
-                <VariantStockButton
-                    variantId={row.id}
-                    variantSku={row.variantSku}
-                    variantSize={row.size || null}
-                    variantColor={row.color || null}
-                    variantColorHex={row.colorHex}
-                    totalStock={row.quantityInStock}
-                    isSaved={row.isExisting}
-                    disabled={false}
-                    pendingEntries={pendingStockEntries}
-                    pendingTotal={
-                        pendingStockEntries
-                            ? pendingStockEntries.reduce(
-                                (sum, e) => sum + e.quantityAvailable,
-                                0,
-                            )
-                            : null
-                    }
-                    onApply={onPendingStockChange}
-                />
-            </td>
-            <td className="px-3 py-2">
-                <div className="relative w-28">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-            $
-          </span>
-                    <Input
-                        type="number"
-                        step="0.01"
-                        min={0}
-                        value={row.priceOverride ?? ''}
-                        onChange={(e) =>
-                            onFieldChange(
-                                'priceOverride',
-                                e.target.value === '' ? null : Number(e.target.value),
-                            )
-                        }
-                        placeholder="—"
-                        className="h-9 rounded-md pl-6 shadow-none focus-visible:outline-none focus-visible:ring-0 focus-visible:border-pink-500 dark:focus-visible:border-pink-800"
-                    />
-                </div>
-            </td>
-            <td className="px-3 py-2">
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={onRemove}
-                    className="size-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    title="Remove"
-                >
-                    <Trash2 className="size-4" />
-                </Button>
-            </td>
-        </tr>
-    );
-});

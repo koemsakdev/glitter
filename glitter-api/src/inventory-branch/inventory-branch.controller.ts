@@ -69,6 +69,20 @@ export class InventoryBranchController {
     return this.service.create(dto);
   }
 
+  @Post('set')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Set a variant’s stock at a branch (create or update)',
+  })
+  @ApiBody({ type: CreateInventoryBranchDto })
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'super_admin', 'manager')
+  async setStock(
+    @Body() dto: CreateInventoryBranchDto,
+  ): Promise<InventoryBranchDetailResponse> {
+    return this.service.setStock(dto);
+  }
+
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

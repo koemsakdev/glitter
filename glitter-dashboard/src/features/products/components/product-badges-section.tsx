@@ -1,13 +1,12 @@
 'use client';
 
-import {X} from 'lucide-react';
+import {Settings2, X} from 'lucide-react';
+import Link from 'next/link';
 import * as React from 'react';
 import {useI18n} from '@/lib/i18n';
-import {
-    ALL_BADGE_TYPES,
-    BADGE_DEFAULTS,
-    type BadgeType,
-} from '@/types/product-badge';
+import {badgeTintStyle, hexToRgba, type BadgeType} from '@/types/product-badge';
+import {useBadges} from '@/features/badges/use-badges';
+import type {Badge} from '@/types/badge';
 import type {BadgeEditorState, BadgeSlot} from '@/types/product';
 
 const MAX_BADGES = 2;
@@ -22,11 +21,15 @@ export function ProductBadgesSection({
                                          onChange,
                                      }: ProductBadgesSectionProps) {
     const {t, language} = useI18n();
+    const {data: badges = []} = useBadges();
+
+    const cfg = (slug: BadgeType): Badge | undefined =>
+        badges.find((b) => b.slug === slug);
 
     const selectedTypes = new Set(state.slots.map((s) => s.badgeType));
-    const availableTypes = ALL_BADGE_TYPES.filter(
-        (type) => !selectedTypes.has(type),
-    );
+    const availableTypes = badges
+        .filter((b) => b.active && !selectedTypes.has(b.slug))
+        .map((b) => b.slug);
     const atLimit = state.slots.length >= MAX_BADGES;
 
     function handleAdd(type: BadgeType) {
@@ -47,16 +50,30 @@ export function ProductBadgesSection({
         onChange({slots, deletedIds});
     }
 
-    function getLabel(type: BadgeType): string {
-        const defaults = BADGE_DEFAULTS[type];
-        return language === 'km' ? defaults.labelKm : defaults.labelEn;
+    function colorOf(slug: BadgeType): string {
+        return cfg(slug)?.color ?? '#64748b';
+    }
+
+    function getLabel(slug: BadgeType): string {
+        const c = cfg(slug);
+        if (!c) return slug;
+        return (language === 'km' ? c.nameKm : c.nameEn) || c.slug;
     }
 
     return (
         <div className="space-y-4">
-            <p className="text-xs text-muted-foreground">
-                {t('product.badges.help').replace('{max}', String(MAX_BADGES))}
-            </p>
+            <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                    {t('product.badges.help').replace('{max}', String(MAX_BADGES))}
+                </p>
+                <Link
+                    href="/dashboard/badges"
+                    className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-pink-600 hover:underline dark:text-pink-400"
+                >
+                    <Settings2 className="size-3.5" />
+                    {t('badge.manage')}
+                </Link>
+            </div>
 
             {/* Selected badges */}
             {state.slots.length > 0 && (
@@ -66,14 +83,14 @@ export function ProductBadgesSection({
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                         {state.slots.map((slot) => {
-                            const color = BADGE_DEFAULTS[slot.badgeType].color;
+                            const color = colorOf(slot.badgeType);
                             return (
                                 <button
                                     key={slot.id}
                                     type="button"
                                     onClick={() => handleRemove(slot)}
-                                    className="group flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium text-white shadow-sm transition-all hover:shadow-md"
-                                    style={{backgroundColor: color, borderColor: color}}
+                                    className="group flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-all hover:shadow-sm"
+                                    style={badgeTintStyle(color)}
                                     title={t('product.badges.removeTitle')}
                                 >
                                     <span>{getLabel(slot.badgeType)}</span>
@@ -97,7 +114,7 @@ export function ProductBadgesSection({
                 ) : (
                     <div className="flex flex-wrap gap-1.5">
                         {availableTypes.map((type) => {
-                            const color = BADGE_DEFAULTS[type].color;
+                            const color = colorOf(type);
                             return (
                                 <button
                                     key={type}
@@ -111,13 +128,12 @@ export function ProductBadgesSection({
                                     }}
                                     onMouseEnter={(e) => {
                                         if (!atLimit) {
-                                            e.currentTarget.style.backgroundColor = color;
-                                            e.currentTarget.style.color = '#fff';
+                                            e.currentTarget.style.backgroundColor =
+                                                hexToRgba(color, 0.15);
                                         }
                                     }}
                                     onMouseLeave={(e) => {
                                         e.currentTarget.style.backgroundColor = 'transparent';
-                                        e.currentTarget.style.color = color;
                                     }}
                                 >
                                     {getLabel(type)}

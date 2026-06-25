@@ -19,11 +19,13 @@ import type {
 } from "@/features/settings/store-config";
 import { getErrorMessage } from "@/lib/api-client";
 import { getFileUrl } from "@/lib/file-url";
+import { useI18n } from "@/lib/i18n";
 import { useToast } from "@/hooks/use-toast";
 
 const CONFIG_KEY = ["app-settings", "store-config"] as const;
 
 export default function ContactSettingsPage() {
+  const { t } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data, isLoading } = useStoreConfig();
@@ -40,6 +42,18 @@ export default function ContactSettingsPage() {
     id: string;
     label: string;
   } | null>(null);
+  const [formKey, setFormKey] = useState(0);
+
+  function openContactForm(field: ContactField | null) {
+    setEditingContact(field);
+    setFormKey((k) => k + 1);
+    setContactForm(true);
+  }
+  function openSocialForm(link: SocialLink | null) {
+    setEditingSocial(link);
+    setFormKey((k) => k + 1);
+    setSocialForm(true);
+  }
 
   const contacts = data?.config.contacts ?? [];
   const socials = data?.config.socials ?? [];
@@ -56,7 +70,7 @@ export default function ContactSettingsPage() {
             queryKey: ["app-settings"],
           });
           toast({
-            title: "Could not save",
+            title: t("settings.couldNotSave"),
             description: getErrorMessage(error),
             variant: "destructive",
           });
@@ -100,10 +114,11 @@ export default function ContactSettingsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <h2 className="text-lg font-semibold">Contact & social</h2>
+        <h2 className="text-lg font-semibold">{t("settings.contact.title")}</h2>
         {save.isPending && (
-          <span className="flex items-center gap-2 text-md text-muted-foreground mt-0.5">
-            <Loader className="size-4 animate-spin" /> Saving
+          <span className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+            <Loader className="size-4 animate-spin" />
+            <span className="mt-0.5">{t("common.saving")}</span>
           </span>
         )}
       </div>
@@ -111,23 +126,22 @@ export default function ContactSettingsPage() {
       {/* Contact information */}
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between border-b px-6 py-4">
-          <h3 className="text-base font-semibold">Contact information</h3>
+          <h3 className="text-base font-semibold">
+            {t("settings.contact.infoTitle")}
+          </h3>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => {
-              setEditingContact(null);
-              setContactForm(true);
-            }}
+            onClick={() => openContactForm(null)}
           >
             <Plus className="size-4" />
-            Add field
+            {t("settings.contact.addField")}
           </Button>
         </div>
         <div className="divide-y">
           {contacts.length === 0 ? (
             <p className="px-6 py-6 text-sm text-muted-foreground">
-              No contact fields yet.
+              {t("settings.contact.emptyFields")}
             </p>
           ) : (
             contacts.map((c) => (
@@ -146,10 +160,7 @@ export default function ContactSettingsPage() {
                     variant="ghost"
                     size="icon"
                     className="size-8 text-muted-foreground hover:text-foreground"
-                    onClick={() => {
-                      setEditingContact(c);
-                      setContactForm(true);
-                    }}
+                    onClick={() => openContactForm(c)}
                   >
                     <Pencil className="size-4" />
                   </Button>
@@ -177,23 +188,22 @@ export default function ContactSettingsPage() {
       {/* Social links */}
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between border-b px-6 py-4">
-          <h3 className="text-base font-semibold">Social links</h3>
+          <h3 className="text-base font-semibold">
+            {t("settings.contact.socialTitle")}
+          </h3>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => {
-              setEditingSocial(null);
-              setSocialForm(true);
-            }}
+            onClick={() => openSocialForm(null)}
           >
             <Plus className="size-4" />
-            Add link
+            {t("settings.contact.addLink")}
           </Button>
         </div>
         <div className="divide-y">
           {socials.length === 0 ? (
             <p className="px-6 py-6 text-sm text-muted-foreground">
-              No social links yet.
+              {t("settings.contact.emptySocials")}
             </p>
           ) : (
             socials.map((s) => {
@@ -229,8 +239,7 @@ export default function ContactSettingsPage() {
                       size="icon"
                       className="size-8 text-muted-foreground hover:text-foreground"
                       onClick={() => {
-                        setEditingSocial(s);
-                        setSocialForm(true);
+                        openSocialForm(s);
                       }}
                     >
                       <Pencil className="size-4" />
@@ -258,7 +267,7 @@ export default function ContactSettingsPage() {
       </div>
 
       <ContactFieldDialog
-        key={editingContact?.id ?? "new-contact"}
+        key={`contact-${formKey}`}
         open={contactForm}
         field={editingContact}
         onOpenChange={(o) => {
@@ -268,7 +277,7 @@ export default function ContactSettingsPage() {
         onSave={upsertContact}
       />
       <SocialLinkDialog
-        key={editingSocial?.id ?? "new-social"}
+        key={`social-${formKey}`}
         open={socialForm}
         social={editingSocial}
         onOpenChange={(o) => {
@@ -283,10 +292,13 @@ export default function ContactSettingsPage() {
         onOpenChange={(o) => {
           if (!o) setDeleting(null);
         }}
-        title="Delete?"
-        description={`"${deleting?.label}" will be removed.`}
-        confirmLabel="Yes, delete"
-        cancelLabel="Cancel"
+        title={t("settings.contact.deleteTitle")}
+        description={t("settings.willBeRemoved").replace(
+          "{name}",
+          deleting?.label ?? "",
+        )}
+        confirmLabel={t("settings.confirmDelete")}
+        cancelLabel={t("common.cancel")}
         variant="danger"
         isPending={save.isPending}
         onConfirm={handleDelete}

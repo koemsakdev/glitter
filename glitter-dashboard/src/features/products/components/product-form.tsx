@@ -32,6 +32,9 @@ import { ProductFormPricing } from './product-form-pricing';
 import { ProductFormStatus } from './product-form-status';
 import { ProductImageUploader } from './product-image-uploader';
 import { ProductVariantsSection } from './product-variants-section';
+import { RelatedProductsSection } from './related-products-section';
+import { relatedProductApi } from '@/features/related-products/related-product-api';
+import { useProductRelated } from '@/features/related-products/use-related-products';
 
 import { useProductBadges } from '@/features/product-badges/use-product-badges';
 import { productBadgeApi } from '@/features/product-badges/product-badge-api';
@@ -41,10 +44,7 @@ import type { BadgeEditorState, BadgeSlot } from '@/types/product';
 import { useQueryClient } from '@tanstack/react-query';
 
 import type { VariantStockEntry } from '@/features/inventory-branch/components/variant-stock-dialog';
-import {
-    useCreateInventoryBranch,
-    useUpdateInventoryBranch,
-} from '@/features/inventory-branch/use-inventory-branch';
+import { useSetInventoryStock } from '@/features/inventory-branch/use-inventory-branch';
 
 const formSchema = z.object({
     categoryId: z.string().uuid('product.validation.categoryRequired'),
@@ -106,8 +106,7 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
 
     const createMutation = useCreateProduct();
     const updateMutation = useUpdateProduct();
-    const createInventoryMutation = useCreateInventoryBranch();
-    const updateInventoryMutation = useUpdateInventoryBranch();
+    const setInventoryStock = useSetInventoryStock();
 
     // Load existing images/variants in edit mode
     const { data: serverImages } = useProductImages(product?.id);
@@ -133,6 +132,11 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
     const [hasVariants, setHasVariants] = useState(false);
     const [singleStock, setSingleStock] = useState(0);
 
+    // Related products (committed on submit)
+    const { data: serverRelated } = useProductRelated(product?.id);
+    const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+    const seededRelated = useRef(false);
+
     // Track whether we've seeded a local state from a server (so edits aren't clobbered)
     const seededImages = useRef(false);
     const seededVariants = useRef(false);
@@ -153,6 +157,14 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [serverImages]);
+
+    useEffect(() => {
+        if (isEditMode && serverRelated && !seededRelated.current) {
+            seededRelated.current = true;
+            setRelatedProducts(serverRelated);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [serverRelated]);
 
     useEffect(() => {
         if (isEditMode && serverBadges && !seededBadges.current) {
@@ -394,33 +406,14 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
             if (isLocalId && !localToRealId.has(variantId)) continue;
             const realVariantId = localToRealId.get(variantId) ?? variantId;
             for (const entry of entries) {
-                if (entry.inventoryId === null) {
-                    // New row — only create if there's any quantity
-                    if (
-                        entry.quantityAvailable === 0 &&
-                        entry.quantityReserved === 0 &&
-                        entry.quantityDamaged === 0
-                    ) {
-                        continue;
-                    }
-                    await createInventoryMutation.mutateAsync({
-                        productVariantId: realVariantId,
-                        branchId: entry.branchId,
-                        quantityAvailable: entry.quantityAvailable,
-                        quantityReserved: entry.quantityReserved,
-                        quantityDamaged: entry.quantityDamaged,
-                    });
-                } else {
-                    // Update the existing row
-                    await updateInventoryMutation.mutateAsync({
-                        id: entry.inventoryId,
-                        payload: {
-                            quantityAvailable: entry.quantityAvailable,
-                            quantityReserved: entry.quantityReserved,
-                            quantityDamaged: entry.quantityDamaged,
-                        },
-                    });
-                }
+                // Skip creating empty records for brand-new variants.
+                if (isLocalId && entry.quantityAvailable === 0) continue;
+                // Upsert: sets the variant's stock at this branch (create or update).
+                await setInventoryStock.mutateAsync({
+                    productVariantId: realVariantId,
+                    branchId: entry.branchId,
+                    quantityAvailable: entry.quantityAvailable,
+                });
             }
         }
     }
@@ -485,6 +478,14 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                 await commitBadges(saved.id);
             }
 
+            // STEP 4b — related products (replace set)
+            if (isEditMode || relatedProducts.length > 0) {
+                await relatedProductApi.set(
+                    saved.id,
+                    relatedProducts.map((p) => p.id),
+                );
+            }
+
             // STEP 5 — pending stock changes
             if (pendingStockChanges.size > 0) {
                 setStep('savingStock');
@@ -501,6 +502,7 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
             await queryClient.invalidateQueries({ queryKey: ['product-images', saved.id] });
             await queryClient.invalidateQueries({ queryKey: ['product-variants', saved.id] });
             await queryClient.invalidateQueries({ queryKey: ['product-badges', saved.id] });
+            await queryClient.invalidateQueries({ queryKey: ['related-products', saved.id] });
 
             toast({
                 title: product
@@ -605,6 +607,7 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                     >
                         <ProductVariantsSection
                             productSku={productSku}
+                            productPrice={form.watch('price') || 0}
                             state={variantState}
                             onChange={setVariantState}
                             hasVariants={hasVariants}
@@ -648,6 +651,17 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                         <ProductBadgesSection
                             state={badgeState}
                             onChange={setBadgeState}
+                        />
+                    </FormSection>
+
+                    <FormSection
+                        title={t('product.form.related')}
+                        description={t('product.form.relatedDescription')}
+                    >
+                        <RelatedProductsSection
+                            currentProductId={product?.id}
+                            selected={relatedProducts}
+                            onChange={setRelatedProducts}
                         />
                     </FormSection>
                 </div>

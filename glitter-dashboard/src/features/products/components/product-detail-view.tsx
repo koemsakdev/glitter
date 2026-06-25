@@ -4,6 +4,7 @@ import {
     ArrowLeft,
     BadgeCheck,
     Edit,
+    Heart,
     ImageIcon,
     MapPin,
     MessageSquare,
@@ -26,6 +27,7 @@ import { DeleteProductDialog } from '@/features/products/components/delete-produ
 import { useDeleteProductModal } from '@/features/products/hooks/use-delete-product-modal';
 import { useProductImages } from '@/features/product-images/use-product-images';
 import { useProduct } from '@/features/products/use-products';
+import { useProductWishlistCount } from '@/features/wishlists/use-wishlists';
 import { useBrandOptions } from '@/lib/hooks/use-brand-options';
 import { useCategoryOptions } from '@/lib/hooks/use-category-options';
 import { getFileUrl } from '@/lib/file-url';
@@ -42,7 +44,12 @@ import { useProductVariants } from '@/features/product-variants/use-product-vari
 import type { ProductVariant } from '@/types/product';
 import { useProductBadges } from '@/features/product-badges/use-product-badges';
 import { ProductBadgeDisplay } from './product-badge-display';
-import { resolveBadgeDisplay, type ProductBadge } from '@/types/product-badge';
+import {
+    badgeTintStyle,
+    resolveBadgeDisplay,
+    type ProductBadge,
+} from '@/types/product-badge';
+import { useBadges } from '@/features/badges/use-badges';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { ProductAvailabilitySection } from '@/features/inventory-branch/components/product-availability-section';
 import { useProductAvailability } from '@/features/inventory-branch/use-inventory-branch';
@@ -72,6 +79,7 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
 
     const { data: variants = [] } = useProductVariants(id);
     const { data: badges } = useProductBadges(id);
+    const { data: wishlistCount = 0 } = useProductWishlistCount(id);
 
     // Branch-scoped stock — when a branch is selected in the topbar, the detail
     // page reflects that branch's stock instead of the global totals.
@@ -475,6 +483,17 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                         )}
                     </DetailSection>
 
+                    {/* Wishlist demand */}
+                    <DetailSection title={t('product.detail.wishlist')}>
+                        <div className="flex items-center gap-2 text-sm">
+                            <Heart className="size-4 shrink-0 fill-pink-500 text-pink-500" />
+                            <span className="font-semibold">{wishlistCount}</span>
+                            <span className="text-muted-foreground">
+                                {t('product.detail.wishlistCount')}
+                            </span>
+                        </div>
+                    </DetailSection>
+
                     {/* Metadata */}
                     <DetailSection title={t('product.detail.metadata')}>
                         <div className="space-y-2.5">
@@ -811,6 +830,7 @@ function StarRating({ value }: { value: number }) {
  */
 function BadgesDetailList({ badges }: { badges: ProductBadge[] }) {
     const { t, language } = useI18n();
+    const { data: badgeCatalog } = useBadges();
 
     return (
         <div className="overflow-x-auto rounded-lg border border-border/60">
@@ -833,13 +853,17 @@ function BadgesDetailList({ badges }: { badges: ProductBadge[] }) {
                 </thead>
                 <tbody className="divide-y divide-border">
                 {badges.map((badge) => {
-                    const { label, color } = resolveBadgeDisplay(badge, language);
+                    const { label, color } = resolveBadgeDisplay(
+                        badge,
+                        language,
+                        badgeCatalog,
+                    );
                     return (
                         <tr key={badge.id} className="bg-card hover:bg-muted/20">
                             <td className="px-3 py-2.5">
                   <span
-                      className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-white shadow-sm"
-                      style={{ backgroundColor: color }}
+                      className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wider"
+                      style={badgeTintStyle(color)}
                   >
                     {label}
                   </span>

@@ -11,6 +11,7 @@ export type OrderStatus =
 
 export type PaymentMethod = 'cash' | 'khqr' | 'aba';
 export type PaymentStatus = 'pending' | 'paid' | 'refunded' | 'failed';
+export type OrderPaymentStatus = 'unpaid' | 'partial' | 'paid' | 'refunded';
 
 export interface OrderItem {
     id: string;
@@ -48,7 +49,10 @@ export interface Order {
     customerPhone: string | null;
     subtotal: number;
     discountTotal: number;
+    shippingCost: number;
+    taxAmount: number;
     grandTotal: number;
+    paymentStatus: OrderPaymentStatus;
     currency: string;
     note: string | null;
     itemCount: number;
@@ -102,6 +106,8 @@ export interface CreateOrderPayload {
     customerPhone?: string;
     note?: string;
     discountTotal?: number;
+    shippingCost?: number;
+    taxAmount?: number;
     items: OrderItemInput[];
     payments?: PaymentInput[];
 }

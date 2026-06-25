@@ -2,7 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsDate,
-  IsEnum,
   IsOptional,
   IsString,
   IsUUID,
@@ -20,29 +19,11 @@ export class CreateProductBadgeDto {
   productId!: string;
 
   @ApiProperty({
-    description: 'Badge type',
-    enum: [
-      'new',
-      'sale',
-      'bestseller',
-      'limited',
-      'exclusive',
-      'hot',
-      'featured',
-      'coming_soon',
-    ],
+    description: 'Badge slug (from the badges catalog)',
     example: 'new',
   })
-  @IsEnum([
-    'new',
-    'sale',
-    'bestseller',
-    'limited',
-    'exclusive',
-    'hot',
-    'featured',
-    'coming_soon',
-  ])
+  @IsString()
+  @MaxLength(50)
   badgeType!: BadgeType;
 
   @ApiPropertyOptional({

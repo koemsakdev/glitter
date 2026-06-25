@@ -22,6 +22,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
 import { OrdersService } from './orders.service';
 import {
   OrderDetailResponse,
@@ -109,5 +110,16 @@ export class OrdersController {
     @Body() dto: UpdateOrderStatusDto,
   ): Promise<OrderDetailResponse> {
     return this.service.updateStatus(id, dto.status);
+  }
+
+  @Patch(':id/payment-status')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Mark an order paid / unpaid / partial / refunded' })
+  @ApiParam({ name: 'id', type: String })
+  async updatePaymentStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdatePaymentStatusDto,
+  ): Promise<OrderDetailResponse> {
+    return this.service.updatePaymentStatus(id, dto.paymentStatus);
   }
 }

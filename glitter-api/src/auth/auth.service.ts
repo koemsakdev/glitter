@@ -5,13 +5,16 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { createHash, createHmac } from 'crypto';
 import { UsersService } from '../users/user.service';
 import { UserEntity } from '../users/entities/user.entity';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { FacebookLoginDto } from './dto/facebook-login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { TelegramLoginDto } from './dto/telegram-login.dto';
 import { verifyPassword } from './helpers/password.helper';
 import { AuthTokenResponse, JwtPayload } from './types/jwt-payload.type';
 
@@ -143,6 +146,164 @@ export class AuthService {
 
     const tokens = this.issueTokens(user);
     return { user, tokens, isNewUser };
+  }
+
+  // ==========================================================================
+  // TELEGRAM (Login Widget — verify the HMAC signature, then find-or-create)
+  // ==========================================================================
+
+  async loginWithTelegram(dto: TelegramLoginDto): Promise<{
+    user: UserEntity;
+    tokens: AuthTokenResponse;
+    isNewUser: boolean;
+  }> {
+    this.verifyTelegramAuth(dto);
+
+    const fullName =
+      [dto.first_name, dto.last_name].filter(Boolean).join(' ').trim() ||
+      dto.username ||
+      'Telegram User';
+
+    const { user, isNewUser } = await this.usersService.findOrCreateFromOAuth({
+      provider: 'telegram',
+      providerAccountId: String(dto.id),
+      email: null,
+      fullName,
+      profileImageUrl: dto.photo_url ?? null,
+      accessToken: null,
+      refreshToken: null,
+      tokenExpiresAt: null,
+      rawProfile: dto as unknown as Record<string, unknown>,
+    });
+
+    if (user.accountStatus !== 'active') {
+      throw new UnauthorizedException(
+        `Account is ${user.accountStatus}. Contact support.`,
+      );
+    }
+
+    const tokens = this.issueTokens(user);
+    return { user, tokens, isNewUser };
+  }
+
+  /**
+   * Verify the Telegram Login Widget payload: secret = SHA256(bot_token),
+   * then HMAC-SHA256 of the sorted "key=value" data-check-string must equal
+   * the provided hash. Also rejects payloads older than a day (replay).
+   */
+  private verifyTelegramAuth(dto: TelegramLoginDto): void {
+    const botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
+    if (!botToken) {
+      throw new Error(
+        'TELEGRAM_BOT_TOKEN is not configured. Set it in .env before using Telegram login.',
+      );
+    }
+
+    const data: Record<string, string | number> = {
+      id: dto.id,
+      first_name: dto.first_name,
+      auth_date: dto.auth_date,
+    };
+    if (dto.last_name) data.last_name = dto.last_name;
+    if (dto.username) data.username = dto.username;
+    if (dto.photo_url) data.photo_url = dto.photo_url;
+
+    const checkString = Object.keys(data)
+      .sort()
+      .map((key) => `${key}=${data[key]}`)
+      .join('\n');
+
+    const secretKey = createHash('sha256').update(botToken).digest();
+    const hmac = createHmac('sha256', secretKey)
+      .update(checkString)
+      .digest('hex');
+
+    if (hmac !== dto.hash) {
+      throw new UnauthorizedException('Invalid Telegram login signature');
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (now - dto.auth_date > 86400) {
+      throw new UnauthorizedException(
+        'Telegram login has expired. Please try again.',
+      );
+    }
+  }
+
+  // ==========================================================================
+  // FACEBOOK (JS SDK — verify the user token, fetch the profile)
+  // ==========================================================================
+
+  async loginWithFacebook(dto: FacebookLoginDto): Promise<{
+    user: UserEntity;
+    tokens: AuthTokenResponse;
+    isNewUser: boolean;
+  }> {
+    const profile = await this.verifyFacebookToken(dto.accessToken);
+
+    const { user, isNewUser } = await this.usersService.findOrCreateFromOAuth({
+      provider: 'facebook',
+      providerAccountId: profile.id,
+      email: profile.email ?? null,
+      fullName: profile.name ?? profile.email ?? 'Facebook User',
+      profileImageUrl: profile.picture?.data?.url ?? null,
+      accessToken: dto.accessToken,
+      refreshToken: null,
+      tokenExpiresAt: null,
+      rawProfile: profile as unknown as Record<string, unknown>,
+    });
+
+    if (user.accountStatus !== 'active') {
+      throw new UnauthorizedException(
+        `Account is ${user.accountStatus}. Contact support.`,
+      );
+    }
+
+    const tokens = this.issueTokens(user);
+    return { user, tokens, isNewUser };
+  }
+
+  /**
+   * Verify a Facebook user access token: confirm via debug_token that it was
+   * issued for our app and is valid, then read the profile from the Graph API.
+   */
+  private async verifyFacebookToken(
+    accessToken: string,
+  ): Promise<FacebookProfile> {
+    const appId = this.configService.get<string>('FACEBOOK_APP_ID');
+    const appSecret = this.configService.get<string>('FACEBOOK_APP_SECRET');
+    if (!appId || !appSecret) {
+      throw new Error(
+        'FACEBOOK_APP_ID / FACEBOOK_APP_SECRET are not configured. Set them in .env before using Facebook login.',
+      );
+    }
+
+    // 1. Validate the token belongs to our app and isn't expired/revoked.
+    const debugUrl = `https://graph.facebook.com/debug_token?input_token=${encodeURIComponent(
+      accessToken,
+    )}&access_token=${appId}|${appSecret}`;
+    const debugRes = await fetch(debugUrl);
+    if (!debugRes.ok) {
+      throw new UnauthorizedException('Invalid Facebook token');
+    }
+    const debug = (await debugRes.json()) as {
+      data?: { app_id?: string; is_valid?: boolean };
+    };
+    if (!debug.data?.is_valid || debug.data.app_id !== appId) {
+      throw new UnauthorizedException(
+        'Facebook token is not valid for this application',
+      );
+    }
+
+    // 2. Fetch the profile.
+    const meUrl = `https://graph.facebook.com/v21.0/me?fields=id,name,email,picture.type(large)&access_token=${encodeURIComponent(
+      accessToken,
+    )}`;
+    const meRes = await fetch(meUrl);
+    if (!meRes.ok) {
+      throw new UnauthorizedException('Could not fetch Facebook profile');
+    }
+    return (await meRes.json()) as FacebookProfile;
   }
 
   /**
@@ -308,4 +469,12 @@ interface GoogleProfile {
   given_name?: string;
   family_name?: string;
   exp?: string;
+}
+
+/** Shape of the Facebook Graph /me response (subset we care about). */
+interface FacebookProfile {
+  id: string;
+  name?: string;
+  email?: string;
+  picture?: { data?: { url?: string } };
 }

@@ -14,12 +14,14 @@ import {
   BranchListResponse,
   BranchDetailResponse,
 } from './types/branch-response.type';
+import { RealtimeService } from '../realtime/realtime.service';
 
 @Injectable()
 export class BranchesService {
   constructor(
     @InjectRepository(BranchEntity)
     private readonly branchRepository: Repository<BranchEntity>,
+    private readonly realtime: RealtimeService,
   ) {}
 
   async create(dto: CreateBranchDto): Promise<BranchDetailResponse> {
@@ -55,6 +57,7 @@ export class BranchesService {
     });
 
     const saved = await this.branchRepository.save(entity);
+    this.realtime.publish('branches');
     return { data: this.toResponse(saved) };
   }
 
@@ -159,6 +162,7 @@ export class BranchesService {
     });
 
     const updated = await this.branchRepository.save(branch);
+    this.realtime.publish('branches');
 
     return { data: this.toResponse(updated) };
   }
@@ -171,6 +175,7 @@ export class BranchesService {
     }
 
     await this.branchRepository.remove(branch);
+    this.realtime.publish('branches');
   }
 
   async findActive(): Promise<BranchListResponse> {

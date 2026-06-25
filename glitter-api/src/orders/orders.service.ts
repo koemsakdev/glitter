@@ -9,8 +9,13 @@ import { BranchEntity } from '../branch/entities/branch.entity';
 import { ProductVariantEntity } from '../product-variants/entities/product-variant.entity';
 import { UserEntity } from '../users/entities/user.entity';
 import { InventoryBranchService } from '../inventory-branch/inventory-branch.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { OrderEntity, OrderStatus } from './entities/order.entity';
+import {
+  OrderEntity,
+  OrderStatus,
+  type OrderPaymentStatus,
+} from './entities/order.entity';
 import { OrderItemEntity } from './entities/order-item.entity';
 import { PaymentEntity } from './entities/payment.entity';
 import {
@@ -25,7 +30,10 @@ const RESERVED_STATUSES: OrderStatus[] = ['pending', 'paid', 'processing'];
 const COMMITTED_STATUSES: OrderStatus[] = ['shipped', 'completed'];
 
 /** Allowed status transitions per source. */
-const TRANSITIONS: Record<string, Partial<Record<OrderStatus, OrderStatus[]>>> = {
+const TRANSITIONS: Record<
+  string,
+  Partial<Record<OrderStatus, OrderStatus[]>>
+> = {
   online: {
     pending: ['paid', 'processing', 'cancelled'],
     paid: ['processing', 'shipped', 'completed', 'cancelled'],
@@ -58,6 +66,7 @@ export class OrdersService {
     private readonly orderRepository: Repository<OrderEntity>,
     private readonly dataSource: DataSource,
     private readonly inventoryService: InventoryBranchService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -126,7 +135,11 @@ export class OrdersService {
 
       subtotal = round2(subtotal);
       const discountTotal = Math.min(round2(dto.discountTotal ?? 0), subtotal);
-      const grandTotal = round2(subtotal - discountTotal);
+      const shippingCost = round2(dto.shippingCost ?? 0);
+      const taxAmount = round2(dto.taxAmount ?? 0);
+      const grandTotal = round2(
+        subtotal - discountTotal + shippingCost + taxAmount,
+      );
 
       // Move stock: in-store sells now; online reserves a hold.
       const isInStore = dto.source === 'in_store';
@@ -164,6 +177,23 @@ export class OrdersService {
         customerPhone = customerPhone ?? customer.phoneNumber;
       }
 
+      // Payments taken now (in-store defaults to a single cash payment).
+      const payments: {
+        method: 'cash' | 'khqr' | 'aba';
+        amount: number;
+        reference?: string;
+      }[] =
+        isInStore && (dto.payments ?? []).length === 0
+          ? [{ method: 'cash', amount: grandTotal }]
+          : (dto.payments ?? []);
+      const totalPaid = round2(payments.reduce((sum, p) => sum + p.amount, 0));
+      const paymentStatus: OrderPaymentStatus =
+        totalPaid <= 0
+          ? 'unpaid'
+          : totalPaid >= grandTotal
+            ? 'paid'
+            : 'partial';
+
       const orderRepo = manager.getRepository(OrderEntity);
       const order = orderRepo.create({
         orderNumber: await this.generateOrderNumber(orderRepo),
@@ -176,7 +206,10 @@ export class OrdersService {
         customerPhone,
         subtotal,
         discountTotal,
+        shippingCost,
+        taxAmount,
         grandTotal,
+        paymentStatus,
         currency: 'USD',
         note: dto.note ?? null,
       });
@@ -187,11 +220,6 @@ export class OrdersService {
         itemsData.map((d) => itemRepo.create({ ...d, orderId: savedOrder.id })),
       );
 
-      // Payments taken now (in-store defaults to a single cash payment).
-      let payments = dto.payments ?? [];
-      if (isInStore && payments.length === 0) {
-        payments = [{ method: 'cash', amount: grandTotal }];
-      }
       if (payments.length > 0) {
         const paymentRepo = manager.getRepository(PaymentEntity);
         await paymentRepo.save(
@@ -208,6 +236,7 @@ export class OrdersService {
         );
       }
 
+      this.realtime.publish('orders');
       return { data: await this.buildDetail(manager, savedOrder.id) };
     });
   }
@@ -257,6 +286,49 @@ export class OrdersService {
 
   async findOne(id: string): Promise<OrderDetailResponse> {
     return { data: await this.buildDetail(this.dataSource.manager, id) };
+  }
+
+  /** A customer's own orders, most recent first. */
+  async updatePaymentStatus(
+    id: string,
+    paymentStatus: OrderPaymentStatus,
+  ): Promise<OrderDetailResponse> {
+    const order = await this.orderRepository.findOne({ where: { id } });
+    if (order === null) {
+      throw new NotFoundException(`Order ${id} not found`);
+    }
+    order.paymentStatus = paymentStatus;
+    await this.orderRepository.save(order);
+    this.realtime.publish('orders');
+    return this.findOne(id);
+  }
+
+  async findByCustomer(customerId: string): Promise<OrderListResponse> {
+    const orders = await this.orderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.branch', 'branch')
+      .loadRelationCountAndMap('order.itemCount', 'order.items')
+      .where('order.customerId = :customerId', { customerId })
+      .orderBy('order.createdAt', 'DESC')
+      .getMany();
+    return {
+      data: orders.map((o) => this.toListItem(o)),
+      total: orders.length,
+      page: 1,
+      limit: orders.length,
+    };
+  }
+
+  /** A single order, but only if it belongs to this customer. */
+  async findOneForCustomer(
+    id: string,
+    customerId: string,
+  ): Promise<OrderDetailResponse> {
+    const data = await this.buildDetail(this.dataSource.manager, id);
+    if (data.customerId !== customerId) {
+      throw new NotFoundException(`Order ${id} not found`);
+    }
+    return { data };
   }
 
   async getStats(branchId?: string): Promise<OrderStatsResponse> {
@@ -347,6 +419,7 @@ export class OrdersService {
       order.status = newStatus;
       await orderRepo.save(order);
 
+      this.realtime.publish('orders');
       return { data: await this.buildDetail(manager, id) };
     });
   }
@@ -433,7 +506,10 @@ export class OrdersService {
       customerPhone: order.customerPhone,
       subtotal: order.subtotal,
       discountTotal: order.discountTotal,
+      shippingCost: order.shippingCost,
+      taxAmount: order.taxAmount,
       grandTotal: order.grandTotal,
+      paymentStatus: order.paymentStatus,
       currency: order.currency,
       note: order.note,
       itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
@@ -463,7 +539,9 @@ export class OrdersService {
     };
   }
 
-  private toListItem(order: OrderEntity & { itemCount?: number }): OrderListItem {
+  private toListItem(
+    order: OrderEntity & { itemCount?: number },
+  ): OrderListItem {
     return {
       id: order.id,
       orderNumber: order.orderNumber,
@@ -477,7 +555,10 @@ export class OrdersService {
       customerPhone: order.customerPhone,
       subtotal: order.subtotal,
       discountTotal: order.discountTotal,
+      shippingCost: order.shippingCost,
+      taxAmount: order.taxAmount,
       grandTotal: order.grandTotal,
+      paymentStatus: order.paymentStatus,
       currency: order.currency,
       note: order.note,
       itemCount: order.itemCount ?? 0,

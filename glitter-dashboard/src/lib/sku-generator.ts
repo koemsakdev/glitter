@@ -45,16 +45,16 @@ export function generateVariantSku(
         const sizePart = size
             .trim()
             .replace(/[^a-z0-9]/gi, '')
-            .slice(0, 2)
             .toUpperCase();
         if (sizePart) parts.push(sizePart);
     }
 
     if (color.trim()) {
+        // Use the FULL color (not just the first 3 chars) so two different
+        // colors never produce the same SKU (e.g. BLUE vs BLACK).
         const colorPart = color
             .trim()
             .replace(/[^a-z0-9]/gi, '')
-            .slice(0, 3)
             .toUpperCase();
         if (colorPart) parts.push(colorPart);
     }

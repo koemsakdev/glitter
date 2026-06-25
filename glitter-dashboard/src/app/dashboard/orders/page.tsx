@@ -19,6 +19,7 @@ import { OrderStatsCards } from '@/features/orders/components/order-stats-cards'
 import {
     OrderSourceBadge,
     OrderStatusBadge,
+    PaymentStatusBadge,
 } from '@/features/orders/components/order-status-badge';
 import { useOrders } from '@/features/orders/use-orders';
 import { formatPrice } from '@/lib/formatters';
@@ -122,6 +123,13 @@ export default function OrdersPage() {
                 accessorKey: 'status',
                 header: t('order.col.status'),
                 cell: ({ row }) => <OrderStatusBadge status={row.original.status} />,
+            },
+            {
+                accessorKey: 'paymentStatus',
+                header: t('order.col.payment'),
+                cell: ({ row }) => (
+                    <PaymentStatusBadge status={row.original.paymentStatus} />
+                ),
             },
             {
                 accessorKey: 'customerName',

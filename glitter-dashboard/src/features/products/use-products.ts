@@ -8,10 +8,16 @@ import type { ProductFormValues, ProductQuery } from '@/types/product';
 
 const PRODUCTS_KEY = ['products'] as const;
 
-export function useProducts(query: ProductQuery) {
+export function useProducts(
+    query: ProductQuery,
+    options?: { enabled?: boolean },
+) {
     return useQuery({
         queryKey: [...PRODUCTS_KEY, query],
         queryFn: () => productApi.list(query),
+        enabled: options?.enabled ?? true,
+        // Keep showing the previous results while the next search loads.
+        placeholderData: (prev) => prev,
     });
 }
 

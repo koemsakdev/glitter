@@ -3,7 +3,11 @@
 import { Monitor, Store } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
-import type { OrderSource, OrderStatus } from '@/types/order';
+import type {
+    OrderPaymentStatus,
+    OrderSource,
+    OrderStatus,
+} from '@/types/order';
 
 const STATUS_STYLES: Record<OrderStatus, { bg: string; dot: string }> = {
     // Awaiting action — amber, the universal "pending" colour.
@@ -60,6 +64,32 @@ export function OrderStatusBadge({ status }: { status: OrderStatus }) {
         <Badge className={style.bg}>
             <span className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`} />
             {t(STATUS_LABELS[status])}
+        </Badge>
+    );
+}
+
+const PAYMENT_STATUS_STYLES: Record<OrderPaymentStatus, string> = {
+    paid: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300',
+    partial: 'bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-500/15 dark:text-amber-300',
+    unpaid: 'bg-zinc-100 text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-500/15 dark:text-zinc-300',
+    refunded: 'bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-500/15 dark:text-red-300',
+};
+const PAYMENT_STATUS_LABELS: Record<OrderPaymentStatus, TranslationKey> = {
+    paid: 'order.payment.paid',
+    partial: 'order.payment.partial',
+    unpaid: 'order.payment.unpaid',
+    refunded: 'order.payment.refunded',
+};
+
+export function PaymentStatusBadge({
+    status,
+}: {
+    status: OrderPaymentStatus;
+}) {
+    const { t } = useI18n();
+    return (
+        <Badge className={PAYMENT_STATUS_STYLES[status]}>
+            {t(PAYMENT_STATUS_LABELS[status])}
         </Badge>
     );
 }

@@ -27,6 +27,18 @@ export interface DashboardStats {
     topBrands: TopBrand[];
     topCategories: TopCategory[];
     inventory: InventorySummary;
+    bestSelling: TopProduct[];
+    mostBought: TopProduct[];
+}
+
+export interface TopProduct {
+    id: string;
+    nameEn: string;
+    nameKm: string;
+    sku: string;
+    price: number;
+    primaryImageUrl: string | null;
+    count: number;
 }
 
 export interface RecentProduct {

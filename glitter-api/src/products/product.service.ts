@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { CategoryEntity } from '../category/entities/category.entity';
 import { BrandEntity } from '../brands/entities/brand.entity';
 import { ProductVariantEntity } from '../product-variants/entities/product-variant.entity';
@@ -22,6 +22,7 @@ import {
   ProductListResponse,
   ProductResponse,
 } from './types/product-response.type';
+import { RealtimeService } from '../realtime/realtime.service';
 
 @Injectable()
 export class ProductsService {
@@ -34,6 +35,7 @@ export class ProductsService {
     private readonly brandRepository: Repository<BrandEntity>,
     @InjectRepository(ProductVariantEntity)
     private readonly variantRepository: Repository<ProductVariantEntity>,
+    private readonly realtime: RealtimeService,
   ) {}
 
   async create(dto: CreateProductDto): Promise<ProductDetailResponse> {
@@ -118,6 +120,7 @@ export class ProductsService {
     });
 
     const saved = await this.productRepository.save(entity);
+    this.realtime.publish('products');
 
     // Auto-create the default variant with 0 stock.
     // Admins update stock via variant endpoints, which auto-recompute product.totalStock.
@@ -153,12 +156,10 @@ export class ProductsService {
 
     const skip = (page - 1) * limit;
 
-    const qb = this.productRepository
-      .createQueryBuilder('product')
-      .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('product.brand', 'brand')
-      .leftJoinAndSelect('product.images', 'images')
-      .leftJoinAndSelect('product.variants', 'variants');
+    // Lightweight filter/sort/paginate query — no collection joins here, which
+    // avoids a cartesian row explosion between images and variants. All filters
+    // and sorts below reference product columns only, so no joins are needed.
+    const qb = this.productRepository.createQueryBuilder('product');
 
     if (query.categoryId) {
       qb.andWhere('product.categoryId = :categoryId', {
@@ -218,10 +219,31 @@ export class ProductsService {
       averageRating: 'product.averageRating',
     };
     qb.orderBy(sortFieldMap[sortBy], sortOrder);
-
     qb.skip(skip).take(limit);
 
-    const [products, total] = await qb.getManyAndCount();
+    const [pageRows, total] = await qb.getManyAndCount();
+    const ids = pageRows.map((p) => p.id);
+
+    // Hydrate relations for just this page. relationLoadStrategy 'query' loads
+    // each relation in its own query (one IN-query per relation) instead of a
+    // single multi-join, so there is no row multiplication to de-duplicate.
+    const hydrated =
+      ids.length > 0
+        ? await this.productRepository.find({
+            where: { id: In(ids) },
+            relations: {
+              category: true,
+              brand: true,
+              images: true,
+              variants: true,
+            },
+            relationLoadStrategy: 'query',
+          })
+        : [];
+    const byId = new Map(hydrated.map((p) => [p.id, p]));
+    const products = ids
+      .map((id) => byId.get(id))
+      .filter((p): p is ProductEntity => p !== undefined);
 
     let branchStockByProduct: Map<string, number> | null = null;
 
@@ -259,6 +281,75 @@ export class ProductsService {
       page,
       limit,
     };
+  }
+
+  /**
+   * Best-selling active products by total units sold (from order_items).
+   * Falls back to recent products to fill the list when there are few sales.
+   */
+  async findBestSelling(limit = 8): Promise<ProductListResponse> {
+    const rows: Array<{ product_id: string }> =
+      await this.productRepository.query(
+        `SELECT oi.product_id, SUM(oi.quantity) AS sold
+         FROM order_items oi
+         GROUP BY oi.product_id
+         ORDER BY sold DESC
+         LIMIT $1`,
+        [limit],
+      );
+    const ids = rows.map((r) => r.product_id);
+
+    if (ids.length < limit) {
+      const recent = await this.productRepository.find({
+        where: { status: 'active' },
+        order: { createdAt: 'DESC' },
+        take: limit,
+      });
+      for (const p of recent) {
+        if (!ids.includes(p.id) && ids.length < limit) ids.push(p.id);
+      }
+    }
+
+    if (ids.length === 0) {
+      return { data: [], total: 0, page: 1, limit };
+    }
+
+    const products = await this.productRepository.find({
+      where: { id: In(ids), status: 'active' },
+      relations: ['category', 'brand', 'images', 'variants'],
+      order: { images: { displayOrder: 'ASC' } },
+    });
+    const byId = new Map(products.map((p) => [p.id, p]));
+    const ordered = ids
+      .map((id) => byId.get(id))
+      .filter((p): p is ProductEntity => Boolean(p));
+
+    return {
+      data: ordered.map((p) => this.toResponseWithRelations(p)),
+      total: ordered.length,
+      page: 1,
+      limit,
+    };
+  }
+
+  /** Map a set of product IDs to full responses, preserving the given order. */
+  async findManyByIds(
+    ids: string[],
+    activeOnly = false,
+  ): Promise<ProductResponse[]> {
+    if (ids.length === 0) return [];
+    const products = await this.productRepository.find({
+      where: activeOnly
+        ? { id: In(ids), status: 'active' }
+        : { id: In(ids) },
+      relations: ['category', 'brand', 'images', 'variants'],
+      order: { images: { displayOrder: 'ASC' } },
+    });
+    const byId = new Map(products.map((p) => [p.id, p]));
+    return ids
+      .map((id) => byId.get(id))
+      .filter((p): p is ProductEntity => Boolean(p))
+      .map((p) => this.toResponseWithRelations(p));
   }
 
   async findOne(id: string): Promise<ProductDetailResponse> {
@@ -399,6 +490,7 @@ export class ProductsService {
     // NOTE: dto.totalStock is intentionally ignored — totalStock is derived.
 
     const updated = await this.productRepository.save(product);
+    this.realtime.publish('products');
 
     const withRelations = await this.productRepository.findOne({
       where: { id: updated.id },
@@ -419,6 +511,7 @@ export class ProductsService {
     }
 
     await this.productRepository.remove(product);
+    this.realtime.publish('products');
   }
 
   async archive(id: string): Promise<ProductDetailResponse> {
@@ -430,6 +523,7 @@ export class ProductsService {
 
     product.status = 'archived';
     const updated = await this.productRepository.save(product);
+    this.realtime.publish('products');
 
     return {
       data: this.toResponse(updated),
