@@ -12,6 +12,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { MarqueeText } from '@/components/ui/marquee-text';
 import { useActiveBranches } from '@/features/branches/use-branches';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -34,6 +35,13 @@ export function BranchSwitcher() {
     const { data: branches, isLoading } = useActiveBranches();
 
     const isAllBranches = selectedBranchId === ALL_BRANCHES;
+
+    const selectedName = selectedBranchSnapshot
+        ? language === 'km'
+            ? selectedBranchSnapshot.branchNameKm ||
+              selectedBranchSnapshot.branchNameEn
+            : selectedBranchSnapshot.branchNameEn
+        : '';
 
     /**
      * Rehydrate the cached snapshot after page reload.
@@ -106,11 +114,20 @@ export function BranchSwitcher() {
               </span>
                         )}
 
-                        <span className="whitespace-nowrap font-mono text-xs">
-              {isAllBranches
-                  ? t('branchSwitcher.allShort')
-                  : selectedBranchSnapshot?.branchCode ?? '...'}
-            </span>
+                        {isAllBranches ? (
+                            <span className="whitespace-nowrap text-xs font-semibold">
+                                {t('branchSwitcher.allBranches')}
+                            </span>
+                        ) : selectedBranchSnapshot ? (
+                            <span className="w-24 overflow-hidden sm:w-32">
+                                <MarqueeText
+                                    text={selectedName}
+                                    className="text-xs font-semibold"
+                                />
+                            </span>
+                        ) : (
+                            <span className="font-mono text-xs">...</span>
+                        )}
 
                         <ChevronDown className="size-3.5 shrink-0 opacity-70 transition-transform group-data-popup-open:rotate-180" />
                     </button>
@@ -195,7 +212,7 @@ function BranchMenuItem({
         <DropdownMenuItem onClick={onSelect} className="cursor-pointer">
             <MapPin className="size-4 shrink-0" />
             <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-sm">{name}</span>
+                <MarqueeText text={name} className="text-sm" />
                 <span className="truncate font-mono text-[10px] text-muted-foreground">
           {branch.branchCode}
         </span>

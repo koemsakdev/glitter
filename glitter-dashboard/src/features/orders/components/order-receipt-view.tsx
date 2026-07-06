@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/feedback/error-state';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { useOrder } from '@/features/orders/use-orders';
+import { printElement } from '@/lib/print';
 import { formatPrice } from '@/lib/formatters';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
 import type { PaymentMethod } from '@/types/order';
@@ -59,7 +60,9 @@ export function OrderReceiptView({ id }: { id: string }) {
                 />
                 <Button
                     size="sm"
-                    onClick={() => window.print()}
+                    onClick={() =>
+                        printElement('print-receipt', order.orderNumber)
+                    }
                     className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
                 >
                     <Printer className="mr-1.5 size-4" />

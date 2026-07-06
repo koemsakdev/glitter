@@ -1,6 +1,5 @@
 'use client';
 
-import { Bell } from 'lucide-react';
 import { AnimatedMenuIcon } from '@/components/animated-menu-icon';
 import { LanguageToggle } from '@/components/language-toggle';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -8,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useSidebar } from '@/components/ui/sidebar';
 import { UserMenu } from '@/components/layout/user-menu';
+import { NotificationBell } from '@/components/layout/notification-bell';
 import {BranchSwitcher} from "@/components/layout/branch-switcher";
 
 function CustomSidebarTrigger() {
@@ -38,14 +38,7 @@ export function DashboardTopbar() {
             <div className="flex h-6 items-center gap-1">
                 <BranchSwitcher />
                 <Separator orientation="vertical" />
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative h-9 w-9 rounded-full border border-neutral-200 dark:border-neutral-800"
-                    aria-label="Notifications"
-                >
-                    <Bell className="size-4" />
-                </Button>
+                <NotificationBell />
 
                 <Separator orientation="vertical" />
 

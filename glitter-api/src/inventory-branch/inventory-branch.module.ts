@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BranchEntity } from 'src/branch/entities/branch.entity';
 import { ProductVariantEntity } from 'src/product-variants/entities/product-variant.entity';
 import { ProductEntity } from 'src/products/entities/product.entity';
+import { NotificationsModule } from '../notifications/notification.module';
 import { InventoryBranchEntity } from './entities/inventory-branch.entity';
 
 @Module({
@@ -15,6 +16,7 @@ import { InventoryBranchEntity } from './entities/inventory-branch.entity';
       BranchEntity,
       ProductEntity,
     ]),
+    NotificationsModule,
   ],
   controllers: [InventoryBranchController],
   providers: [InventoryBranchService],

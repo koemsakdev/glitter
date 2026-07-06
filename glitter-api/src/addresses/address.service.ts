@@ -62,6 +62,8 @@ export class AddressesService {
         isDefaultBilling: dto.isDefaultBilling ?? false,
         latitude: dto.latitude !== undefined ? String(dto.latitude) : null,
         longitude: dto.longitude !== undefined ? String(dto.longitude) : null,
+        imageUrl: dto.imageUrl ?? null,
+        imageUrls: dto.imageUrls ?? [],
       });
 
       const saved = await repo.save(entity);
@@ -198,6 +200,8 @@ export class AddressesService {
       if (dto.latitude !== undefined) address.latitude = String(dto.latitude);
       if (dto.longitude !== undefined)
         address.longitude = String(dto.longitude);
+      if (dto.imageUrl !== undefined) address.imageUrl = dto.imageUrl;
+      if (dto.imageUrls !== undefined) address.imageUrls = dto.imageUrls;
 
       const updated = await repo.save(address);
       return { data: this.toResponse(updated) };
@@ -319,6 +323,8 @@ export class AddressesService {
       isDefaultBilling: entity.isDefaultBilling,
       latitude: entity.latitude,
       longitude: entity.longitude,
+      imageUrl: entity.imageUrl,
+      imageUrls: entity.imageUrls ?? [],
       formattedAddress: this.formatAddress(entity),
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,

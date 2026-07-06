@@ -4,9 +4,11 @@ import {
     createContext,
     useContext,
     useEffect,
+    useRef,
     useState,
     type ReactNode,
 } from 'react';
+import { useAuth } from '@/lib/auth';
 
 export interface CartItem {
     variantId: string;
@@ -26,6 +28,8 @@ interface CartContextValue {
     hydrated: boolean;
     itemCount: number;
     subtotal: number;
+    /** The most recently added item (with a nonce so repeats re-trigger UI). */
+    lastAdded: { item: CartItem; nonce: number } | null;
     addItem: (item: Omit<CartItem, 'quantity'>, qty?: number) => void;
     updateQty: (variantId: string, qty: number) => void;
     removeItem: (variantId: string) => void;
@@ -33,31 +37,51 @@ interface CartContextValue {
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
-const STORAGE_KEY = 'glitter_cart';
+const KEY_PREFIX = 'glitter_cart';
 
 export function CartProvider({ children }: { children: ReactNode }) {
+    const { user } = useAuth();
+    // Each account (and the guest session) gets its own cart, so logging in or
+    // out swaps to that identity's cart instead of sharing one global basket.
+    const storageKey = user ? `${KEY_PREFIX}_${user.id}` : `${KEY_PREFIX}_guest`;
+
     const [items, setItems] = useState<CartItem[]>([]);
     const [hydrated, setHydrated] = useState(false);
+    const [lastAdded, setLastAdded] = useState<
+        { item: CartItem; nonce: number } | null
+    >(null);
+    // Skip exactly one save right after the active cart key changes, so the
+    // previous cart's items are never written into the new identity's slot.
+    const savedKey = useRef<string | null>(null);
 
+    // Load the cart whenever the identity (storage key) changes.
     useEffect(() => {
+        let next: CartItem[] = [];
         try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            if (raw) setItems(JSON.parse(raw) as CartItem[]);
+            const raw = localStorage.getItem(storageKey);
+            if (raw) next = JSON.parse(raw) as CartItem[];
         } catch {
             // ignore malformed storage
         }
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setItems(next);
         setHydrated(true);
-    }, []);
+    }, [storageKey]);
 
     useEffect(() => {
         if (!hydrated) return;
+        if (savedKey.current !== storageKey) {
+            // Identity just switched — don't persist the old items into the new
+            // key; the load effect above is refreshing them for this key.
+            savedKey.current = storageKey;
+            return;
+        }
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+            localStorage.setItem(storageKey, JSON.stringify(items));
         } catch {
             // storage may be unavailable
         }
-    }, [items, hydrated]);
+    }, [items, hydrated, storageKey]);
 
     function addItem(item: Omit<CartItem, 'quantity'>, qty = 1) {
         setItems((prev) => {
@@ -69,6 +93,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             }
             return [...prev, { ...item, quantity: qty }];
         });
+        setLastAdded({ item: { ...item, quantity: qty }, nonce: Date.now() });
     }
 
     function updateQty(variantId: string, qty: number) {
@@ -99,6 +124,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 hydrated,
                 itemCount,
                 subtotal,
+                lastAdded,
                 addItem,
                 updateQty,
                 removeItem,

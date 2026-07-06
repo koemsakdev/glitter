@@ -1,4 +1,7 @@
 import type {
+  DeliveryMethod,
+  DeliveryRegion,
+  OrderPaymentMethod,
   OrderPaymentStatus,
   OrderSource,
   OrderStatus,
@@ -10,6 +13,7 @@ export interface OrderItemResponse {
   productId: string;
   productVariantId: string;
   productName: string;
+  productImageUrl: string | null;
   variantSku: string;
   size: string | null;
   color: string | null;
@@ -46,6 +50,17 @@ export interface OrderResponse {
   grandTotal: number;
   paymentStatus: OrderPaymentStatus;
   currency: string;
+  deliveryRegion: DeliveryRegion | null;
+  deliveryRegionName: string | null;
+  deliveryMethod: DeliveryMethod | null;
+  deliveryMethodName: string | null;
+  deliveryAddress: string | null;
+  deliveryLat: number | null;
+  deliveryLng: number | null;
+  paymentMethod: OrderPaymentMethod | null;
+  paymentMethodName: string | null;
+  paymentProofUrl: string | null;
+  voucherCode: string | null;
   note: string | null;
   itemCount: number;
   items: OrderItemResponse[];

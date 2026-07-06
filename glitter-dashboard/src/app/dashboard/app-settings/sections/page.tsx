@@ -192,7 +192,6 @@ export default function SectionsSettingsPage() {
                                 <Switch
                                     checked={section.enabled}
                                     onCheckedChange={() => toggle(section)}
-                                    className="data-checked:bg-pink-500 dark:data-checked:bg-pink-600"
                                 />
                                 <span className="hidden text-sm font-medium text-muted-foreground sm:inline">
                                     {section.enabled

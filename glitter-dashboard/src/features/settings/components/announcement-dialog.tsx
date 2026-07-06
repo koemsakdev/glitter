@@ -4,13 +4,19 @@ import { Plus, Save } from 'lucide-react';
 import { useState } from 'react';
 import { ResponsiveModal } from '@/components/responsive-modal';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
-    BilingualField,
-    inputClass,
-} from '@/features/settings/components/settings-shared';
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { BilingualField } from '@/features/settings/components/settings-shared';
 import type { Announcement } from '@/features/settings/store-config';
+import { useVouchers } from '@/features/vouchers/use-vouchers';
+import type { Voucher } from '@/types/voucher';
 import { useI18n } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 
@@ -18,6 +24,30 @@ function newId(): string {
     return typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
         : String(Date.now());
+}
+
+/** Build a bilingual announcement message from a promotion. */
+function promoText(v: Voucher): { en: string; km: string } {
+    const amount =
+        v.discountType === 'percent'
+            ? `${v.discountValue}%`
+            : `$${v.discountValue}`;
+    const minEn = v.minSpend > 0 ? ` on orders over $${v.minSpend}` : '';
+    const minKm = v.minSpend > 0 ? ` សម្រាប់ការទិញលើសពី $${v.minSpend}` : '';
+    const codeEn = v.code ? ` — use code ${v.code}` : '';
+    const codeKm = v.code ? ` — ប្រើកូដ ${v.code}` : '';
+    const freeDelivery = v.discountType === 'percent' && v.discountValue >= 100;
+    if (v.appliesTo === 'delivery') {
+        const baseEn = freeDelivery ? 'Free delivery' : `${amount} off delivery`;
+        const baseKm = freeDelivery
+            ? 'ដឹកជញ្ជូនឥតគិតថ្លៃ'
+            : `បញ្ចុះថ្លៃដឹក ${amount}`;
+        return { en: `${baseEn}${minEn}${codeEn}`, km: `${baseKm}${minKm}${codeKm}` };
+    }
+    return {
+        en: `Get ${amount} off${minEn}${codeEn}`,
+        km: `បញ្ចុះតម្លៃ ${amount}${minKm}${codeKm}`,
+    };
 }
 
 interface AnnouncementDialogProps {
@@ -37,11 +67,25 @@ export function AnnouncementDialog({
     const { toast } = useToast();
     const isEdit = Boolean(item);
 
+    const { data: vouchers = [] } = useVouchers();
+
     const [textEn, setTextEn] = useState(item?.textEn ?? '');
     const [textKm, setTextKm] = useState(item?.textKm ?? '');
     const [enabled, setEnabled] = useState(item?.enabled ?? true);
     const [startAt, setStartAt] = useState(item?.startAt ?? '');
     const [endAt, setEndAt] = useState(item?.endAt ?? '');
+    const [fromPromo, setFromPromo] = useState(item?.voucherId ?? '');
+
+    function applyPromo(id: string) {
+        setFromPromo(id);
+        const v = vouchers.find((x) => x.id === id);
+        if (!v) return;
+        const text = promoText(v);
+        setTextEn(text.en);
+        setTextKm(text.km);
+        if (v.startAt) setStartAt(v.startAt);
+        if (v.endAt) setEndAt(v.endAt);
+    }
 
     function handleSave() {
         if (!textEn.trim() && !textKm.trim()) {
@@ -58,6 +102,7 @@ export function AnnouncementDialog({
             enabled,
             startAt: startAt || null,
             endAt: endAt || null,
+            voucherId: fromPromo || null,
         });
     }
 
@@ -77,6 +122,53 @@ export function AnnouncementDialog({
                 </div>
 
                 <div className="space-y-4 px-6 pb-2">
+                    {vouchers.length > 0 && (
+                        <div className="space-y-1.5 rounded-lg border border-dashed p-3">
+                            <label className="text-sm font-medium">
+                                {t('settings.announce.fromPromo')}
+                            </label>
+                            <Select
+                                value={fromPromo || '__none__'}
+                                onValueChange={(v) => {
+                                    if (v === '__none__') setFromPromo('');
+                                    else if (v) applyPromo(v);
+                                }}
+                            >
+                                <SelectTrigger className="h-11 w-full">
+                                    <SelectValue>
+                                        {(val: string) => {
+                                            const v = vouchers.find(
+                                                (x) => x.id === val,
+                                            );
+                                            return v
+                                                ? `${v.nameEn}${v.code ? ` · ${v.code}` : ''}`
+                                                : t(
+                                                      'settings.announce.fromPromoNone',
+                                                  );
+                                        }}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">
+                                        {t('settings.announce.fromPromoNone')}
+                                    </SelectItem>
+                                    {vouchers.map((v) => (
+                                        <SelectItem key={v.id} value={v.id}>
+                                            {v.nameEn}
+                                            {v.code
+                                                ? ` · ${v.code}`
+                                                : ` · ${t('voucher.automatic')}`}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                                {fromPromo
+                                    ? t('settings.announce.fromPromoSynced')
+                                    : t('settings.announce.fromPromoDesc')}
+                            </p>
+                        </div>
+                    )}
                     <BilingualField
                         label={t('settings.announce.text')}
                         en={textEn}
@@ -90,30 +182,22 @@ export function AnnouncementDialog({
                             <label className="text-sm font-medium">
                                 {t('settings.announce.start')}
                             </label>
-                            <Input
-                                type="date"
+                            <DatePicker
                                 value={startAt}
-                                onChange={(e) => setStartAt(e.target.value)}
-                                className={inputClass}
+                                onChange={setStartAt}
                             />
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium">
                                 {t('settings.announce.end')}
                             </label>
-                            <Input
-                                type="date"
-                                value={endAt}
-                                onChange={(e) => setEndAt(e.target.value)}
-                                className={inputClass}
-                            />
+                            <DatePicker value={endAt} onChange={setEndAt} />
                         </div>
                     </div>
                     <label className="flex cursor-pointer items-center gap-2">
                         <Switch
                             checked={enabled}
                             onCheckedChange={(v) => setEnabled(Boolean(v))}
-                            className="data-checked:bg-pink-500 dark:data-checked:bg-pink-600"
                         />
                         <span className="text-sm font-medium">
                             {t('settings.sections.visible')}

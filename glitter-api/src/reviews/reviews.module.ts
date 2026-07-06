@@ -7,6 +7,8 @@ import { ReviewEntity } from './entities/review.entity';
 import { ProductEntity } from '../products/entities/product.entity';
 import { OrderItemEntity } from '../orders/entities/order-item.entity';
 import { UserEntity } from '../users/entities/user.entity';
+import { CommonModule } from '../common/common.module';
+import { NotificationsModule } from '../notifications/notification.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { UserEntity } from '../users/entities/user.entity';
       OrderItemEntity,
       UserEntity,
     ]),
+    CommonModule,
+    NotificationsModule,
   ],
   controllers: [ReviewsController, ReviewsCustomerController],
   providers: [ReviewsService],

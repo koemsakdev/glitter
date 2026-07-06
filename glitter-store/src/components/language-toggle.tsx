@@ -2,13 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
+import Flag from 'react-world-flags';
 import type { Lang } from '@/lib/locale';
 import { cn } from '@/lib/utils';
 
-const OPTIONS: Array<{ code: Lang; native: string; sub: string }> = [
-    { code: 'en', native: 'English', sub: 'English' },
-    { code: 'km', native: 'ខ្មែរ', sub: 'Khmer' },
-];
+const OPTIONS: Array<{ code: Lang; country: string; native: string; sub: string }> =
+    [
+        { code: 'en', country: 'US', native: 'English', sub: 'English' },
+        { code: 'km', country: 'KH', native: 'ខ្មែរ', sub: 'Khmer' },
+    ];
 
 export function LanguageToggle({ lang }: { lang: Lang }) {
     const router = useRouter();
@@ -30,9 +32,10 @@ export function LanguageToggle({ lang }: { lang: Lang }) {
         setOpen(false);
         if (next === lang) return;
         document.cookie = `lang=${next};path=/;max-age=31536000`;
-        // Keep the page visible while it updates (no full reload).
         startTransition(() => router.refresh());
     }
+
+    const current = OPTIONS.find((o) => o.code === lang) ?? OPTIONS[0];
 
     return (
         <div ref={ref} className="relative">
@@ -43,22 +46,16 @@ export function LanguageToggle({ lang }: { lang: Lang }) {
                 aria-haspopup="menu"
                 aria-expanded={open}
                 className={cn(
-                    'relative flex size-9 items-center justify-center rounded-full border border-zinc-200 text-zinc-600 transition-colors hover:text-(--brand) dark:border-zinc-700 dark:text-zinc-300',
+                    'relative flex size-9 items-center justify-center rounded-full border border-zinc-200 transition-colors hover:border-(--brand) dark:border-zinc-700',
                     isPending && 'opacity-60',
                 )}
             >
-                <svg
-                    className="size-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                >
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" />
-                </svg>
+                <span className="size-6 overflow-hidden rounded-full">
+                    <Flag
+                        code={current.country}
+                        className="size-full object-cover"
+                    />
+                </span>
                 <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-pink-400 px-1 text-[8px] font-bold leading-tight text-white dark:bg-pink-300 dark:text-pink-950">
                     {lang === 'en' ? 'EN' : 'KH'}
                 </span>
@@ -76,12 +73,20 @@ export function LanguageToggle({ lang }: { lang: Lang }) {
                                 lang === opt.code && 'font-semibold',
                             )}
                         >
-                            <span className="flex flex-col">
-                                <span className="text-sm text-zinc-900 dark:text-zinc-100">
-                                    {opt.native}
+                            <span className="flex items-center gap-3">
+                                <span className="size-8 shrink-0 overflow-hidden rounded-full border border-zinc-100 dark:border-zinc-800">
+                                    <Flag
+                                        code={opt.country}
+                                        className="size-full object-cover"
+                                    />
                                 </span>
-                                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                                    {opt.sub}
+                                <span className="flex flex-col">
+                                    <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                                        {opt.native}
+                                    </span>
+                                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                                        {opt.sub}
+                                    </span>
                                 </span>
                             </span>
                             {lang === opt.code && (

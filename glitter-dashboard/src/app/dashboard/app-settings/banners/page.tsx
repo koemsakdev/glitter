@@ -250,7 +250,6 @@ export default function BannersSettingsPage() {
                                                 onCheckedChange={() =>
                                                     toggleStatus(b)
                                                 }
-                                                className="data-checked:bg-pink-500 dark:data-checked:bg-pink-600"
                                             />
                                         </label>
                                         {b.placements.map((p) => (

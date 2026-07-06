@@ -139,6 +139,14 @@ export class AddressEntity {
   })
   longitude!: string | null;
 
+  /** Optional reference photo of the location (served path, legacy single). */
+  @Column({ type: 'text', nullable: true, name: 'image_url' })
+  imageUrl!: string | null;
+
+  /** Up to 5 reference photos of the location (served paths). */
+  @Column({ type: 'jsonb', name: 'image_urls', default: () => "'[]'" })
+  imageUrls!: string[];
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

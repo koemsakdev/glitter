@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -51,4 +53,14 @@ export class CreateReviewDto {
   @IsOptional()
   @IsString()
   commentKm?: string;
+
+  @ApiPropertyOptional({
+    description: 'Customer-uploaded photo URLs',
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @IsString({ each: true })
+  imageUrls?: string[];
 }

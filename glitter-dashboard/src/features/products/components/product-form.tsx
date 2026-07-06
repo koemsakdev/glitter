@@ -237,6 +237,32 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
     });
 
     const productSku = form.watch('sku');
+    const categoryId = form.watch('categoryId');
+
+    // Related products are scoped to the product's category. Keep the latest
+    // selection in a ref so the category-change effect can cache it without
+    // re-running on every selection change.
+    const relatedRef = useRef<Product[]>(relatedProducts);
+    relatedRef.current = relatedProducts;
+    // Remember each category's selection so switching back restores it.
+    const relatedByCategory = useRef<Map<string, Product[]>>(new Map());
+    const prevCategoryRef = useRef<string | undefined>(undefined);
+
+    useEffect(() => {
+        const prev = prevCategoryRef.current;
+        // First run: just record the initial category (don't wipe the seeded
+        // related products in edit mode).
+        if (prev === undefined) {
+            prevCategoryRef.current = categoryId;
+            return;
+        }
+        if (prev === categoryId) return;
+        // Category changed: stash the old category's picks, restore the new
+        // category's previously-chosen picks (empty if none yet).
+        relatedByCategory.current.set(prev, relatedRef.current);
+        setRelatedProducts(relatedByCategory.current.get(categoryId) ?? []);
+        prevCategoryRef.current = categoryId;
+    }, [categoryId]);
 
     /** Validate variants locally before any network call. */
     function validateVariants(): string | null {
@@ -311,18 +337,12 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
     }
 
     async function commitBadges(productId: string) {
-        // Delete removed badges
-        for (const id of badgeState.deletedIds) {
-            await productBadgeApi.delete(id);
-        }
-        // Create new badges
-        const newSlots = badgeState.slots.filter((s) => !s.isExisting);
-        for (const slot of newSlots) {
-            await productBadgeApi.create({
-                productId,
-                badgeType: slot.badgeType,
-            });
-        }
+        // Atomic replace — the stored badge set ends up exactly matching the
+        // current slots (no stale leftovers from add/remove).
+        await productBadgeApi.set(
+            productId,
+            badgeState.slots.map((s) => s.badgeType),
+        );
     }
 
     /** Commit variant changes for a given product id. Returns a map of local temp IDs → real server IDs for new variants. */
@@ -418,6 +438,52 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
         }
     }
 
+    // ---- change detection (so a small edit doesn't re-save everything) ----
+    function badgesChanged(): boolean {
+        const current = badgeState.slots.map((s) => s.badgeType).sort();
+        const original = (serverBadges ?? []).map((b) => b.badgeType).sort();
+        return (
+            current.length !== original.length ||
+            current.some((typeSlug, i) => typeSlug !== original[i])
+        );
+    }
+
+    function relatedChanged(): boolean {
+        const current = relatedProducts.map((p) => p.id).sort();
+        const original = (serverRelated ?? []).map((p) => p.id).sort();
+        return (
+            current.length !== original.length ||
+            current.some((id, i) => id !== original[i])
+        );
+    }
+
+    function variantsChanged(): boolean {
+        if (!isEditMode) return true; // brand-new product — always commit
+        const sv = serverVariants ?? [];
+        const isOnlyDefault =
+            sv.length === 1 && !sv[0].size && !sv[0].color;
+        const initialHasVariants = sv.length > 0 && !isOnlyDefault;
+        if (hasVariants !== initialHasVariants) return true;
+        if (!hasVariants) {
+            const initialStock = isOnlyDefault ? sv[0].quantityInStock : 0;
+            return singleStock !== initialStock;
+        }
+        if (variantState.deletedIds.length > 0) return true;
+        if (variantState.rows.some((r) => !r.isExisting)) return true;
+        return variantState.rows.some((r) => {
+            const o = sv.find((v) => v.id === r.id);
+            if (!o) return false;
+            return (
+                r.variantSku !== o.variantSku ||
+                r.size !== (o.size ?? '') ||
+                r.color !== (o.color ?? '') ||
+                r.colorHex !== (o.colorHex ?? '#000000') ||
+                r.quantityInStock !== o.quantityInStock ||
+                r.priceOverride !== o.priceOverride
+            );
+        });
+    }
+
     async function onSubmit(values: FormValues) {
         // Local validation first
         const variantError = validateVariants();
@@ -449,11 +515,23 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
         };
 
         try {
-            // STEP 1 — product
-            setStep('savingProduct');
-            const saved = product
-                ? await updateMutation.mutateAsync({ id: product.id, values: payload })
-                : await createMutation.mutateAsync(payload);
+            // STEP 1 — product. Only PATCH when a product field actually
+            // changed (a badge/related-only edit leaves the form pristine), so
+            // we don't re-save the whole product for nothing.
+            const productDirty = form.formState.isDirty;
+            let saved: { id: string };
+            if (!product) {
+                setStep('savingProduct');
+                saved = await createMutation.mutateAsync(payload);
+            } else if (productDirty) {
+                setStep('savingProduct');
+                saved = await updateMutation.mutateAsync({
+                    id: product.id,
+                    values: payload,
+                });
+            } else {
+                saved = { id: product.id };
+            }
 
             // STEP 2 — images
             const hasImageWork =
@@ -465,21 +543,21 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                 await commitImages(saved.id);
             }
 
-            // STEP 3 — variants
-            setStep('savingVariants');
-            const localToRealId = await commitVariants(saved.id);
+            // STEP 3 — variants (only when something about them changed)
+            let localToRealId = new Map<string, string>();
+            if (variantsChanged()) {
+                setStep('savingVariants');
+                localToRealId = await commitVariants(saved.id);
+            }
 
-            // STEP 4 — badges
-            const hasBadgeWork =
-                badgeState.deletedIds.length > 0 ||
-                badgeState.slots.some((s) => !s.isExisting);
-            if (hasBadgeWork) {
+            // STEP 4 — badges (atomic replace; only when the set changed)
+            if (badgesChanged()) {
                 setStep('savingBadges');
                 await commitBadges(saved.id);
             }
 
-            // STEP 4b — related products (replace set)
-            if (isEditMode || relatedProducts.length > 0) {
+            // STEP 4b — related products (replace set; only when it changed)
+            if (relatedChanged()) {
                 await relatedProductApi.set(
                     saved.id,
                     relatedProducts.map((p) => p.id),
@@ -497,12 +575,13 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                 if (i.kind === 'new') URL.revokeObjectURL(i.previewUrl);
             });
 
-            // Invalidate everything related to this product so the detail page shows fresh data
-            await queryClient.invalidateQueries({ queryKey: ['products'] });
-            await queryClient.invalidateQueries({ queryKey: ['product-images', saved.id] });
-            await queryClient.invalidateQueries({ queryKey: ['product-variants', saved.id] });
-            await queryClient.invalidateQueries({ queryKey: ['product-badges', saved.id] });
-            await queryClient.invalidateQueries({ queryKey: ['related-products', saved.id] });
+            // Mark caches stale (fire-and-forget — the detail page we redirect
+            // to refetches on mount, so there's no need to block the save on it).
+            void queryClient.invalidateQueries({ queryKey: ['products'] });
+            void queryClient.invalidateQueries({ queryKey: ['product-images', saved.id] });
+            void queryClient.invalidateQueries({ queryKey: ['product-variants', saved.id] });
+            void queryClient.invalidateQueries({ queryKey: ['product-badges', saved.id] });
+            void queryClient.invalidateQueries({ queryKey: ['related-products', saved.id] });
 
             toast({
                 title: product
@@ -660,6 +739,7 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                     >
                         <RelatedProductsSection
                             currentProductId={product?.id}
+                            categoryId={categoryId || undefined}
                             selected={relatedProducts}
                             onChange={setRelatedProducts}
                         />

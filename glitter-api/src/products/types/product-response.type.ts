@@ -58,6 +58,12 @@ export interface ProductResponse {
   };
   images?: ProductImageSummary[];
   variants?: ProductVariantSummary[];
+  badges?: {
+    badgeType: string;
+    badgeLabelEn: string | null;
+    badgeLabelKm: string | null;
+    badgeIconColor: string | null;
+  }[];
   branchStock?: number | null;
 }
 

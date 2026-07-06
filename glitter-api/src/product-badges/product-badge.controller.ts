@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -18,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { CreateProductBadgeDto } from './dto/create-product-badge.dto';
 import { UpdateProductBadgeDto } from './dto/update-product-badge.dto';
+import { SetProductBadgesDto } from './dto/set-product-badges.dto';
 import { ProductBadgesService } from './product-badge.service';
 import {
   ProductBadgeDetailResponseDto,
@@ -77,6 +79,25 @@ export class ProductBadgesController {
     @Body() dto: CreateProductBadgeDto,
   ): Promise<ProductBadgeDetailResponse> {
     return this.badgesService.create(dto);
+  }
+
+  @Put('product/:productId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Replace a product’s badge set (atomic)',
+    description:
+      'Replaces all of a product’s badges with the given list of badge type slugs. Used by the product editor so the stored set matches exactly.',
+  })
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'super_admin', 'manager')
+  @ApiParam({ name: 'productId', type: String })
+  @ApiBody({ type: SetProductBadgesDto })
+  @ApiResponse({ status: 200, type: ProductBadgeListResponseDto })
+  async setForProduct(
+    @Param('productId') productId: string,
+    @Body() dto: SetProductBadgesDto,
+  ): Promise<ProductBadgeListResponse> {
+    return this.badgesService.setForProduct(productId, dto.badgeTypes);
   }
 
   @Get('product/:productId')

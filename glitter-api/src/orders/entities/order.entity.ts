@@ -36,6 +36,25 @@ export type OrderStatus =
 /** Whether the order has been paid for. */
 export type OrderPaymentStatus = 'unpaid' | 'partial' | 'paid' | 'refunded';
 
+/**
+ * Storefront shipping region id. The set of regions is admin-configurable in
+ * the store settings, so this is a free-form id (the two built-in ids are
+ * `phnom_penh` and `province`).
+ */
+export type DeliveryRegion = string;
+
+/**
+ * Storefront delivery method id. The set of methods is admin-configurable, so
+ * this is a free-form id (built-in ids: cod, grab, pickup, vet_express).
+ */
+export type DeliveryMethod = string;
+
+/**
+ * How the customer pays — the chosen payment option's id (admin-configurable;
+ * built-in ids include aba_khqr, cash). Legacy orders may hold khqr/cod/on_pickup.
+ */
+export type OrderPaymentMethod = string;
+
 @Entity('orders')
 @Index(['branchId'])
 @Index(['status'])
@@ -165,6 +184,89 @@ export class OrderEntity {
 
   @Column({ type: 'varchar', length: 8, default: 'USD' })
   currency!: string;
+
+  // ----- Storefront delivery / payment details (null for in-store) -----
+
+  @Column({
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+    name: 'delivery_region',
+  })
+  deliveryRegion!: DeliveryRegion | null;
+
+  // Snapshot of the region's display name at order time (region config can be
+  // renamed/removed later, so we keep the label that was shown to the customer).
+  @Column({
+    type: 'varchar',
+    length: 120,
+    nullable: true,
+    name: 'delivery_region_name',
+  })
+  deliveryRegionName!: string | null;
+
+  @Column({
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+    name: 'delivery_method',
+  })
+  deliveryMethod!: DeliveryMethod | null;
+
+  // Snapshot of the method's display name at order time.
+  @Column({
+    type: 'varchar',
+    length: 120,
+    nullable: true,
+    name: 'delivery_method_name',
+  })
+  deliveryMethodName!: string | null;
+
+  @Column({ type: 'text', nullable: true, name: 'delivery_address' })
+  deliveryAddress!: string | null;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 7,
+    nullable: true,
+    name: 'delivery_lat',
+    transformer: numericTransformer,
+  })
+  deliveryLat!: number | null;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 7,
+    nullable: true,
+    name: 'delivery_lng',
+    transformer: numericTransformer,
+  })
+  deliveryLng!: number | null;
+
+  @Column({
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+    name: 'payment_method',
+  })
+  paymentMethod!: OrderPaymentMethod | null;
+
+  // Snapshot of the payment option's display name at order time.
+  @Column({
+    type: 'varchar',
+    length: 120,
+    nullable: true,
+    name: 'payment_method_name',
+  })
+  paymentMethodName!: string | null;
+
+  @Column({ type: 'text', nullable: true, name: 'payment_proof_url' })
+  paymentProofUrl!: string | null;
+
+  @Column({ type: 'varchar', length: 40, nullable: true, name: 'voucher_code' })
+  voucherCode!: string | null;
 
   @Column({ type: 'text', nullable: true })
   note!: string | null;

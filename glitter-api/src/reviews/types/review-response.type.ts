@@ -5,11 +5,13 @@ export interface ReviewResponse {
   productId: string;
   productNameEn: string | null;
   reviewerName: string;
+  reviewerImageUrl: string | null;
   rating: number;
   titleEn: string | null;
   titleKm: string | null;
   commentEn: string | null;
   commentKm: string | null;
+  imageUrls: string[];
   verifiedPurchase: boolean;
   helpfulCount: number;
   status: ReviewStatus;

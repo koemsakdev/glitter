@@ -38,6 +38,18 @@ body {
   border-radius: 9999px;
 }
 
+/* Product badge — a theme-aware tint of its colour (var --badge):
+   light pastel + dark text in light mode, dark tint + light text in dark mode.
+   Opaque so it stays readable over any product image. */
+.product-badge {
+  background-color: color-mix(in srgb, var(--badge) 16%, #ffffff);
+  color: color-mix(in srgb, var(--badge) 82%, #000000);
+}
+.dark .product-badge {
+  background-color: color-mix(in srgb, var(--badge) 32%, #0b0b0e);
+  color: color-mix(in srgb, var(--badge) 72%, #ffffff);
+}
+
 /* Every interactive control gets a pointer cursor (disabled ones don't). */
 button:not(:disabled),
 [role="button"]:not([aria-disabled="true"]),
@@ -98,9 +110,53 @@ button:disabled,
 .stagger > *:nth-child(8) { animation-delay: 350ms; }
 .stagger > *:nth-child(n + 9) { animation-delay: 400ms; }
 
+/* iOS-style sheet / drawer animations, driven by Radix `data-state`.
+   The easing curve matches iOS/vaul drawers. */
+@keyframes sheet-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheet-overlay-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes sheet-in-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes sheet-out-right { from { transform: translateX(0); } to { transform: translateX(100%); } }
+@keyframes sheet-in-bottom { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes sheet-out-bottom { from { transform: translateY(0); } to { transform: translateY(100%); } }
+
+[data-slot="sheet-overlay"][data-state="open"] {
+  animation: sheet-overlay-in 0.25s ease both;
+}
+[data-slot="sheet-overlay"][data-state="closed"] {
+  animation: sheet-overlay-out 0.2s ease both;
+}
+
+/* Default: a side drawer that slides in from the right. */
+[data-slot="sheet-content"][data-state="open"] {
+  animation: sheet-in-right 0.35s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+[data-slot="sheet-content"][data-state="closed"] {
+  animation: sheet-out-right 0.25s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* Adaptive: slide up from the bottom on mobile (full-screen iOS sheet),
+   slide in from the right on desktop. Declared last so it wins. */
+.sheet-adaptive[data-state="open"] {
+  animation: sheet-in-bottom 0.4s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.sheet-adaptive[data-state="closed"] {
+  animation: sheet-out-bottom 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@media (min-width: 640px) {
+  .sheet-adaptive[data-state="open"] {
+    animation: sheet-in-right 0.35s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  .sheet-adaptive[data-state="closed"] {
+    animation: sheet-out-right 0.25s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in-up,
-  .stagger > * {
+  .stagger > *,
+  [data-slot="sheet-overlay"],
+  [data-slot="sheet-content"],
+  .sheet-adaptive {
     animation: none;
   }
 }

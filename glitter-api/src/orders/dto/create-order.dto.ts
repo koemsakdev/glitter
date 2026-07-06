@@ -13,7 +13,12 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import type { OrderSource } from '../entities/order.entity';
+import type {
+  DeliveryMethod,
+  DeliveryRegion,
+  OrderPaymentMethod,
+  OrderSource,
+} from '../entities/order.entity';
 import type { PaymentMethod } from '../entities/payment.entity';
 
 export class OrderItemInputDto {
@@ -51,9 +56,13 @@ export class CreateOrderDto {
   @IsEnum(['in_store', 'online'])
   source!: OrderSource;
 
-  @ApiProperty({ description: 'Branch the order sells/fulfils from' })
+  @ApiPropertyOptional({
+    description:
+      'Branch the order sells/fulfils from. Required in-store; for online it is only needed for store pickup (otherwise the server picks the primary branch).',
+  })
+  @IsOptional()
   @IsUUID()
-  branchId!: string;
+  branchId?: string;
 
   @ApiPropertyOptional({ description: 'Customer user UUID (omit for walk-in)' })
   @IsOptional()
@@ -76,6 +85,11 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @ApiPropertyOptional({ description: 'Voucher / promo code to apply' })
+  @IsOptional()
+  @IsString()
+  voucherCode?: string;
 
   @ApiPropertyOptional({
     description: 'Manual discount on the order total',
@@ -100,6 +114,76 @@ export class CreateOrderDto {
   @IsNumber()
   @Min(0)
   taxAmount?: number;
+
+  // ----- Storefront delivery / payment (online only) -----
+
+  @ApiPropertyOptional({
+    description: 'Shipping region id (admin-configurable; default ids: phnom_penh, province)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  deliveryRegion?: DeliveryRegion;
+
+  @ApiPropertyOptional({ description: "Snapshot of the region's display name" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  deliveryRegionName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Delivery method id (admin-configurable)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  deliveryMethod?: DeliveryMethod;
+
+  @ApiPropertyOptional({ description: "Snapshot of the method's display name" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  deliveryMethodName?: string;
+
+  @ApiPropertyOptional({ description: 'Written delivery address' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  deliveryAddress?: string;
+
+  @ApiPropertyOptional({ description: 'Delivery location latitude' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  deliveryLat?: number;
+
+  @ApiPropertyOptional({ description: 'Delivery location longitude' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  deliveryLng?: number;
+
+  @ApiPropertyOptional({
+    description: 'Payment option id (admin-configurable)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  paymentMethod?: OrderPaymentMethod;
+
+  @ApiPropertyOptional({
+    description: "Snapshot of the payment option's display name",
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  paymentMethodName?: string;
+
+  @ApiPropertyOptional({ description: 'Uploaded KHQR payment proof URL' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  paymentProofUrl?: string;
 
   @ApiProperty({ type: [OrderItemInputDto] })
   @IsArray()

@@ -1,5 +1,6 @@
 import { AdSlot } from '@/components/ad-slot';
 import { BannerCarousel } from '@/components/banner-carousel';
+import { FeaturesStrip } from '@/components/features-strip';
 import { SectionBlock, resolveSectionProducts } from '@/components/home-section';
 import {
     getBanners,
@@ -35,6 +36,9 @@ export default async function HomePage() {
             {banners.length > 0 && (
                 <BannerCarousel banners={banners} lang={lang} />
             )}
+
+            {/* Trust / features strip */}
+            <FeaturesStrip lang={lang} freeOver={config.delivery.freeOver} />
 
             {/* Ad slot — top of home */}
             <AdSlot

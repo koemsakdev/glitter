@@ -5,6 +5,7 @@ import {
     useCallback,
     useContext,
     useEffect,
+    useRef,
     useState,
     type ReactNode,
 } from 'react';
@@ -27,6 +28,16 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     const [products, setProducts] = useState<Product[]>([]);
     const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
+    // Synchronous mirror of savedIds so rapid clicks read the latest value.
+    const savedRef = useRef<Set<string>>(new Set());
+    const refreshTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+        undefined,
+    );
+
+    function commitSaved(next: Set<string>) {
+        savedRef.current = next;
+        setSavedIds(next);
+    }
 
     const refresh = useCallback(async () => {
         if (!user) {
@@ -40,11 +51,12 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
                 const d = (await res.json()) as { data?: Product[] };
                 const list = d.data ?? [];
                 setProducts(list);
-                setSavedIds(new Set(list.map((p) => p.id)));
+                commitSaved(new Set(list.map((p) => p.id)));
             }
         } catch {
             // ignore
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, authFetch]);
 
     useEffect(() => {
@@ -60,14 +72,19 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     const toggle = useCallback(
         async (productId: string): Promise<'guest' | 'ok'> => {
             if (!user) return 'guest';
-            const saved = savedIds.has(productId);
-            // optimistic
-            setSavedIds((prev) => {
-                const next = new Set(prev);
-                if (saved) next.delete(productId);
-                else next.add(productId);
-                return next;
-            });
+            // Read the latest value from the ref (not a stale render closure),
+            // so rapid add→remove clicks always flip the correct direction.
+            const saved = savedRef.current.has(productId);
+            const next = new Set(savedRef.current);
+            if (saved) next.delete(productId);
+            else next.add(productId);
+            commitSaved(next); // instant, optimistic
+
+            // Reflect removals in the wishlist list immediately too.
+            if (saved) {
+                setProducts((prev) => prev.filter((p) => p.id !== productId));
+            }
+
             try {
                 if (saved) {
                     await authFetch(`/api/account/wishlist/${productId}`, {
@@ -79,19 +96,21 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
                         body: JSON.stringify({ productId }),
                     });
                 }
-                void refresh();
+                // Debounced resync — fires once after the clicks settle, so it
+                // never races (and reverts) a rapid sequence of toggles.
+                clearTimeout(refreshTimer.current);
+                refreshTimer.current = setTimeout(() => void refresh(), 600);
             } catch {
-                // revert
-                setSavedIds((prev) => {
-                    const next = new Set(prev);
-                    if (saved) next.add(productId);
-                    else next.delete(productId);
-                    return next;
-                });
+                // revert this one operation
+                const back = new Set(savedRef.current);
+                if (saved) back.add(productId);
+                else back.delete(productId);
+                commitSaved(back);
             }
             return 'ok';
         },
-        [user, savedIds, authFetch, refresh],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [user, authFetch, refresh],
     );
 
     return (

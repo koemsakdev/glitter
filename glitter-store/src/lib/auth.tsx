@@ -13,6 +13,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 const ACCESS_KEY = 'glitter_access';
 const REFRESH_KEY = 'glitter_refresh';
 
+export type AuthProvider = 'email' | 'google' | 'facebook' | 'telegram';
+
 export interface AuthUser {
     id: string;
     email: string | null;
@@ -20,6 +22,11 @@ export interface AuthUser {
     phoneNumber: string | null;
     profileImageUrl: string | null;
     role: string;
+    emailVerifiedAt: string | null;
+    phoneVerifiedAt: string | null;
+    /** Providers linked to this account (from /api/auth/me). */
+    linkedProviders?: AuthProvider[];
+    createdAt?: string;
 }
 
 export interface RegisterValues {
@@ -100,7 +107,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const run = (token: string | null) => {
                 const headers = new Headers(init.headers);
                 if (token) headers.set('Authorization', `Bearer ${token}`);
-                if (init.body && !headers.has('Content-Type'))
+                // Let the browser set the multipart boundary for FormData;
+                // only default to JSON for plain bodies.
+                if (
+                    init.body &&
+                    !(init.body instanceof FormData) &&
+                    !headers.has('Content-Type')
+                )
                     headers.set('Content-Type', 'application/json');
                 return fetch(`${API_URL}${path}`, { ...init, headers });
             };

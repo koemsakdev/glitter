@@ -51,6 +51,24 @@ export interface SocialLink {
     iconUrl: string;
 }
 
+/** A stat shown on the About page, e.g. "5" / "Branches". */
+export interface AboutStat {
+    id: string;
+    value: string;
+    labelEn: string;
+    labelKm: string;
+}
+
+/** A highlight/value card on the About page (icon + title + text). */
+export interface AboutHighlight {
+    id: string;
+    icon: string;
+    titleEn: string;
+    titleKm: string;
+    textEn: string;
+    textKm: string;
+}
+
 export interface Announcement {
     id: string;
     textEn: string;
@@ -58,6 +76,8 @@ export interface Announcement {
     enabled: boolean;
     startAt: string | null;
     endAt: string | null;
+    /** When set, this announcement mirrors a live promotion (id). */
+    voucherId?: string | null;
 }
 
 export type FontScale = 'sm' | 'md' | 'lg';
@@ -75,12 +95,147 @@ export interface StoreAppearance {
     productSort: ProductSort;
 }
 
-export interface StoreDelivery {
-    /** Flat delivery fee charged at checkout. */
-    fee: number;
-    /** Order subtotal at/above which delivery is free (0 = never free). */
-    freeOver: number;
+/** prepay = pay first (QR) · on_pickup = pay on receipt · either = customer chooses. */
+export type PaymentRule = 'prepay' | 'on_pickup' | 'either';
+
+/** Whether a method delivers to an address or is collected at a branch. */
+export type DeliveryMethodType = 'delivery' | 'pickup';
+
+/** qr = static QR + proof · on_delivery = cash on receipt · external = provider API. */
+export type PaymentOptionType = 'qr' | 'on_delivery' | 'external';
+
+/** A shipping region (admin-configurable). */
+export interface DeliveryRegion {
+    id: string;
+    nameEn: string;
+    nameKm: string;
+    iconUrl: string;
 }
+
+/** A delivery option (admin-configurable list). */
+export interface DeliveryMethod {
+    id: string;
+    nameEn: string;
+    nameKm: string;
+    iconUrl: string;
+    type: DeliveryMethodType;
+    regionId: string;
+    fee: number;
+    payment: PaymentRule;
+    enabled: boolean;
+}
+
+/** A payment option (admin-configurable list). */
+export interface PaymentOption {
+    id: string;
+    nameEn: string;
+    nameKm: string;
+    iconUrl: string;
+    type: PaymentOptionType;
+    enabled: boolean;
+    qrImageUrl: string;
+    accountName: string;
+    note: string;
+    provider: string;
+}
+
+/** @deprecated legacy single static KHQR config — migrated into `payments`. */
+export interface KhqrConfig {
+    imageUrl: string;
+    accountName: string;
+    note: string;
+}
+
+export interface StoreDelivery {
+    /** Legacy flat fee (kept for back-compat). */
+    fee: number;
+    /** Legacy free-over threshold (kept for back-compat). */
+    freeOver: number;
+    /** @deprecated legacy KHQR — migrated into `payments`. */
+    khqr: KhqrConfig;
+    regions: DeliveryRegion[];
+    methods: DeliveryMethod[];
+    payments: PaymentOption[];
+}
+
+export const DEFAULT_REGIONS: DeliveryRegion[] = [
+    { id: 'phnom_penh', nameEn: 'Phnom Penh', nameKm: 'ភ្នំពេញ', iconUrl: '' },
+    { id: 'province', nameEn: 'Province', nameKm: 'ខេត្ត', iconUrl: '' },
+];
+
+export const DEFAULT_METHODS: DeliveryMethod[] = [
+    {
+        id: 'cod',
+        nameEn: 'Cash on Delivery',
+        nameKm: 'បង់ប្រាក់ពេលដឹក',
+        iconUrl: '',
+        type: 'delivery',
+        regionId: 'phnom_penh',
+        fee: 1.5,
+        payment: 'either',
+        enabled: true,
+    },
+    {
+        id: 'grab',
+        nameEn: 'Grab Delivery',
+        nameKm: 'ដឹកដោយ Grab',
+        iconUrl: '',
+        type: 'delivery',
+        regionId: 'phnom_penh',
+        fee: 0,
+        payment: 'prepay',
+        enabled: true,
+    },
+    {
+        id: 'pickup',
+        nameEn: 'Pick Up at Store',
+        nameKm: 'ទទួលនៅហាង',
+        iconUrl: '',
+        type: 'pickup',
+        regionId: 'phnom_penh',
+        fee: 0,
+        payment: 'prepay',
+        enabled: true,
+    },
+    {
+        id: 'vet_express',
+        nameEn: 'VET Express',
+        nameKm: 'VET Express',
+        iconUrl: '',
+        type: 'delivery',
+        regionId: 'province',
+        fee: 1.5,
+        payment: 'prepay',
+        enabled: true,
+    },
+];
+
+export const DEFAULT_PAYMENTS: PaymentOption[] = [
+    {
+        id: 'aba_khqr',
+        nameEn: 'ABA KHQR',
+        nameKm: 'ABA KHQR',
+        iconUrl: '',
+        type: 'qr',
+        enabled: true,
+        qrImageUrl: '',
+        accountName: '',
+        note: '',
+        provider: '',
+    },
+    {
+        id: 'cash',
+        nameEn: 'Cash on delivery / at store',
+        nameKm: 'បង់ប្រាក់ពេលដឹក / នៅហាង',
+        iconUrl: '',
+        type: 'on_delivery',
+        enabled: true,
+        qrImageUrl: '',
+        accountName: '',
+        note: '',
+        provider: '',
+    },
+];
 
 export interface StoreConfig {
     brandNameEn: string;
@@ -116,10 +271,30 @@ export interface StoreConfig {
     socials: SocialLink[];
     footerDescriptionEn: string;
     footerDescriptionKm: string;
+    // About page content (all editable from the dashboard).
+    aboutHeadlineEn: string;
+    aboutHeadlineKm: string;
+    aboutStoryEn: string;
+    aboutStoryKm: string;
+    aboutImageUrl: string;
+    aboutStats: AboutStat[];
+    aboutHighlights: AboutHighlight[];
     banners: StoreBanner[];
     sections: HomeSection[];
     delivery: StoreDelivery;
+    /** Display order of the fixed header nav items (by id). */
+    navOrder: string[];
 }
+
+/** The fixed storefront nav ids, in their default order. */
+export const DEFAULT_NAV_ORDER = [
+    'home',
+    'promotion',
+    'product',
+    'brand',
+    'location',
+    'social',
+];
 
 export const DEFAULT_STORE_CONFIG: StoreConfig = {
     logos: [],
@@ -144,6 +319,7 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
     announcementEn: '',
     announcementKm: '',
     announcements: [],
+    navOrder: DEFAULT_NAV_ORDER,
     heroTitleEn: 'Sparkle in every shade.',
     heroTitleKm: 'ភ្លឺចែងចាំងគ្រប់ពណ៌។',
     heroSubtitleEn:
@@ -163,8 +339,22 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
     socials: [],
     footerDescriptionEn: '',
     footerDescriptionKm: '',
+    aboutHeadlineEn: '',
+    aboutHeadlineKm: '',
+    aboutStoryEn: '',
+    aboutStoryKm: '',
+    aboutImageUrl: '',
+    aboutStats: [],
+    aboutHighlights: [],
     banners: [],
-    delivery: { fee: 1.5, freeOver: 15 },
+    delivery: {
+        fee: 1.5,
+        freeOver: 15,
+        khqr: { imageUrl: '', accountName: '', note: '' },
+        regions: DEFAULT_REGIONS,
+        methods: DEFAULT_METHODS,
+        payments: DEFAULT_PAYMENTS,
+    },
     sections: [
         {
             id: 'categories',
@@ -185,6 +375,107 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
         },
     ],
 };
+
+/** Old keyed-object method shape (pre-dynamic). Used only for migration. */
+interface LegacyMethod {
+    enabled?: boolean;
+    fee?: number;
+    payment?: PaymentRule;
+    regionId?: string;
+}
+
+/**
+ * Deep-merge the delivery config, migrating older shapes: a keyed `methods`
+ * object → an array, and the legacy single `khqr` → a `qr` payment option.
+ */
+function mergeDelivery(partial: unknown): StoreDelivery {
+    const base = DEFAULT_STORE_CONFIG.delivery;
+    const d = (partial ?? {}) as Partial<StoreDelivery> & {
+        methods?: unknown;
+        khqr?: KhqrConfig;
+    };
+
+    const regions =
+        Array.isArray(d.regions) && d.regions.length > 0
+            ? d.regions.map((r) => ({ ...r, iconUrl: r.iconUrl ?? '' }))
+            : DEFAULT_REGIONS;
+    const regionExists = (id: string) => regions.some((r) => r.id === id);
+
+    let methods: DeliveryMethod[];
+    if (Array.isArray(d.methods)) {
+        methods = (d.methods as Partial<DeliveryMethod>[]).map((m, i) => {
+            const def = DEFAULT_METHODS[i] ?? DEFAULT_METHODS[0];
+            const merged = { ...def, ...m } as DeliveryMethod;
+            return {
+                ...merged,
+                id: m.id ?? def.id,
+                regionId: regionExists(merged.regionId)
+                    ? merged.regionId
+                    : regions[0].id,
+            };
+        });
+    } else if (d.methods && typeof d.methods === 'object') {
+        const legacy = d.methods as Record<string, LegacyMethod>;
+        methods = DEFAULT_METHODS.map((def) => {
+            const saved = legacy[def.id] ?? {};
+            return {
+                ...def,
+                enabled: saved.enabled ?? def.enabled,
+                fee: typeof saved.fee === 'number' ? saved.fee : def.fee,
+                payment: saved.payment ?? def.payment,
+                regionId:
+                    saved.regionId && regionExists(saved.regionId)
+                        ? saved.regionId
+                        : def.regionId,
+            };
+        });
+    } else {
+        methods = DEFAULT_METHODS;
+    }
+
+    let payments: PaymentOption[];
+    if (Array.isArray(d.payments) && d.payments.length > 0) {
+        payments = (d.payments as Partial<PaymentOption>[]).map((p, i) => ({
+            ...(DEFAULT_PAYMENTS[i] ?? DEFAULT_PAYMENTS[0]),
+            ...p,
+        })) as PaymentOption[];
+    } else {
+        payments = DEFAULT_PAYMENTS.map((p) => ({ ...p }));
+        const legacyKhqr = d.khqr;
+        if (legacyKhqr?.imageUrl || legacyKhqr?.accountName) {
+            const qr = payments.find((p) => p.type === 'qr');
+            if (qr) {
+                qr.qrImageUrl = legacyKhqr.imageUrl ?? '';
+                qr.accountName = legacyKhqr.accountName ?? '';
+                qr.note = legacyKhqr.note ?? '';
+            }
+        }
+    }
+
+    return {
+        fee: typeof d.fee === 'number' ? d.fee : base.fee,
+        freeOver: typeof d.freeOver === 'number' ? d.freeOver : base.freeOver,
+        khqr: { ...base.khqr, ...(d.khqr ?? {}) },
+        regions,
+        methods,
+        payments,
+    };
+}
+
+/** Keep only known nav ids, in the saved order, then append any missing. */
+function mergeNavOrder(value: unknown): string[] {
+    const saved = Array.isArray(value)
+        ? value.filter(
+              (v): v is string =>
+                  typeof v === 'string' && DEFAULT_NAV_ORDER.includes(v),
+          )
+        : [];
+    const ordered = [...new Set(saved)];
+    for (const id of DEFAULT_NAV_ORDER) {
+        if (!ordered.includes(id)) ordered.push(id);
+    }
+    return ordered;
+}
 
 export function mergeStoreConfig(partial: unknown): StoreConfig {
     const p = (partial ?? {}) as Partial<StoreConfig>;
@@ -289,10 +580,12 @@ export function mergeStoreConfig(partial: unknown): StoreConfig {
             ...DEFAULT_STORE_CONFIG.appearance,
             ...(p.appearance ?? {}),
         },
-        delivery: {
-            ...DEFAULT_STORE_CONFIG.delivery,
-            ...(p.delivery ?? {}),
-        },
+        delivery: mergeDelivery(p.delivery),
+        navOrder: mergeNavOrder(p.navOrder),
+        aboutStats: Array.isArray(p.aboutStats) ? p.aboutStats : [],
+        aboutHighlights: Array.isArray(p.aboutHighlights)
+            ? p.aboutHighlights
+            : [],
         banners: Array.isArray(p.banners) ? p.banners : [],
         sections:
             Array.isArray(p.sections) && p.sections.length > 0

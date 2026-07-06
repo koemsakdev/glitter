@@ -318,7 +318,8 @@ export class UsersService {
     }
 
     user.profileImageUrl = null;
-    user.profileImageSource = 'none';
+    // 'removed' (not 'none') so a later OAuth login won't re-fill it from Google.
+    user.profileImageSource = 'removed';
 
     const updated = await this.userRepository.save(user);
     return { data: await this.toResponseWithRelations(updated) };

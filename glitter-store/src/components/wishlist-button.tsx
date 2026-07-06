@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 import { useWishlist } from '@/lib/wishlist';
 
 export function WishlistButton({
@@ -16,15 +15,12 @@ export function WishlistButton({
     const router = useRouter();
     const { has, toggle } = useWishlist();
     const saved = has(productId);
-    const [busy, setBusy] = useState(false);
 
     async function onClick(e: React.MouseEvent) {
         e.preventDefault();
         e.stopPropagation();
-        if (busy) return;
-        setBusy(true);
+        // Optimistic + ref-based — safe to fire on every click (no lock).
         const result = await toggle(productId);
-        setBusy(false);
         if (result === 'guest') router.push('/account/login');
     }
 

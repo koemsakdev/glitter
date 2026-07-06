@@ -133,7 +133,6 @@ export default function BadgesPage() {
                                 checked={b.active}
                                 onCheckedChange={() => toggleActive(b)}
                                 title={b.active ? t('badge.hide') : t('badge.show')}
-                                className="data-checked:bg-pink-500 dark:data-checked:bg-pink-600"
                             />
                             <Button
                                 variant="ghost"

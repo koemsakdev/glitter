@@ -6,6 +6,7 @@ import { BrandEntity } from 'src/brands/entities/brand.entity';
 import { CategoryEntity } from 'src/category/entities/category.entity';
 import { ProductEntity } from './entities/product.entity';
 import { ProductVariantEntity } from 'src/product-variants/entities/product-variant.entity';
+import { BadgeEntity } from 'src/badges/entities/badge.entity';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ProductVariantEntity } from 'src/product-variants/entities/product-vari
       CategoryEntity,
       BrandEntity,
       ProductVariantEntity,
+      BadgeEntity,
     ]),
   ],
   controllers: [ProductsController],

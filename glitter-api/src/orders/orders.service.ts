@@ -6,14 +6,20 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { BranchEntity } from '../branch/entities/branch.entity';
+import { ProductImageEntity } from '../product-images/entities/product-image.entity';
 import { ProductVariantEntity } from '../product-variants/entities/product-variant.entity';
 import { UserEntity } from '../users/entities/user.entity';
+import { AppSettingEntity } from '../app-settings/entities/app-setting.entity';
 import { InventoryBranchService } from '../inventory-branch/inventory-branch.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { NotificationsService } from '../notifications/notification.service';
+import { VouchersService } from '../vouchers/vouchers.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import {
   OrderEntity,
   OrderStatus,
+  type DeliveryMethod,
+  type DeliveryRegion,
   type OrderPaymentStatus,
 } from './entities/order.entity';
 import { OrderItemEntity } from './entities/order-item.entity';
@@ -50,6 +56,28 @@ function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+/** Shape of a configured delivery method read from the store config JSON. */
+interface ConfiguredMethod {
+  id: string;
+  enabled?: boolean;
+  fee?: number;
+  regionId?: string;
+}
+
+/** Shape of a configured payment option read from the store config JSON. */
+interface ConfiguredPayment {
+  id: string;
+  type?: 'qr' | 'on_delivery' | 'external';
+}
+
+/** Built-in method config used when the store config row is missing. */
+const DEFAULT_METHOD_CONFIG: ConfiguredMethod[] = [
+  { id: 'cod', enabled: true, fee: 1.5, regionId: 'phnom_penh' },
+  { id: 'grab', enabled: true, fee: 0, regionId: 'phnom_penh' },
+  { id: 'pickup', enabled: true, fee: 0, regionId: 'phnom_penh' },
+  { id: 'vet_express', enabled: true, fee: 1.5, regionId: 'province' },
+];
+
 export interface OrderListParams {
   page?: number;
   limit?: number;
@@ -64,10 +92,98 @@ export class OrdersService {
   constructor(
     @InjectRepository(OrderEntity)
     private readonly orderRepository: Repository<OrderEntity>,
+    @InjectRepository(AppSettingEntity)
+    private readonly appSettingRepository: Repository<AppSettingEntity>,
     private readonly dataSource: DataSource,
     private readonly inventoryService: InventoryBranchService,
     private readonly realtime: RealtimeService,
+    private readonly notifications: NotificationsService,
+    private readonly vouchers: VouchersService,
   ) {}
+
+  /**
+   * Resolve a region + delivery method into a server-trusted fee (and validate
+   * it's enabled) by reading the storefront delivery config. Never trust a
+   * client-supplied shipping cost.
+   */
+  /**
+   * Read the admin-configured delivery methods + payment options from the
+   * store config JSON (best-effort). Falls back to built-in defaults so an
+   * order can still be placed if the config row is missing.
+   */
+  private async loadDeliveryConfig(): Promise<{
+    methods: ConfiguredMethod[];
+    payments: ConfiguredPayment[];
+  }> {
+    try {
+      const row = await this.appSettingRepository.findOne({
+        where: { settingGroup: 'storefront', settingKey: 'home_config' },
+      });
+      if (row?.settingValue) {
+        const cfg = JSON.parse(row.settingValue) as {
+          delivery?: {
+            methods?: ConfiguredMethod[];
+            payments?: ConfiguredPayment[];
+          };
+        };
+        const methods = Array.isArray(cfg.delivery?.methods)
+          ? cfg.delivery!.methods!
+          : DEFAULT_METHOD_CONFIG;
+        const payments = Array.isArray(cfg.delivery?.payments)
+          ? cfg.delivery!.payments!
+          : [];
+        return { methods, payments };
+      }
+    } catch {
+      // fall through to defaults
+    }
+    return { methods: DEFAULT_METHOD_CONFIG, payments: [] };
+  }
+
+  /**
+   * Resolve a region + method into a server-trusted fee, validating that the
+   * method is enabled and offered in the submitted region. Never trust a
+   * client-supplied shipping cost or region.
+   */
+  private resolveOnlineDelivery(
+    methods: ConfiguredMethod[],
+    region: DeliveryRegion | undefined,
+    method: DeliveryMethod | undefined,
+  ): number {
+    if (!region || !method) {
+      throw new BadRequestException(
+        'deliveryRegion and deliveryMethod are required for online orders',
+      );
+    }
+
+    const conf = methods.find((m) => m.id === method);
+    if (!conf) {
+      throw new BadRequestException(`Unknown delivery method "${method}"`);
+    }
+    if (conf.enabled === false) {
+      throw new BadRequestException(
+        `Delivery method "${method}" is currently disabled`,
+      );
+    }
+    if (conf.regionId && conf.regionId !== region) {
+      throw new BadRequestException(
+        `Delivery method "${method}" is not available for the selected region`,
+      );
+    }
+    return round2(typeof conf.fee === 'number' ? conf.fee : 0);
+  }
+
+  /** First active branch — used to fulfil delivery (non-pickup) online orders. */
+  private async primaryBranchId(manager: EntityManager): Promise<string> {
+    const branch = await manager.getRepository(BranchEntity).findOne({
+      where: { branchStatus: 'active' },
+      order: { createdAt: 'ASC' },
+    });
+    if (!branch) {
+      throw new BadRequestException('No active branch is configured');
+    }
+    return branch.id;
+  }
 
   // ---------------------------------------------------------------------------
   // Create
@@ -81,12 +197,45 @@ export class OrdersService {
       throw new BadRequestException('An order must have at least one item');
     }
 
-    return this.dataSource.transaction(async (manager) => {
+    const isOnline = dto.source === 'online';
+
+    // Online: validate the delivery choice + compute the fee server-side, and
+    // enforce that KHQR pay-first orders include a payment proof.
+    let onlineShipping = 0;
+    if (isOnline) {
+      const { methods, payments } = await this.loadDeliveryConfig();
+      onlineShipping = this.resolveOnlineDelivery(
+        methods,
+        dto.deliveryRegion,
+        dto.deliveryMethod,
+      );
+      // QR-type payment options must include an uploaded proof. (Legacy orders
+      // used the literal 'khqr' id.)
+      const option = payments.find((p) => p.id === dto.paymentMethod);
+      const requiresProof = option
+        ? option.type === 'qr'
+        : dto.paymentMethod === 'khqr';
+      if (requiresProof && !dto.paymentProofUrl) {
+        throw new BadRequestException(
+          'A payment proof is required for this payment option',
+        );
+      }
+    }
+
+    const result = await this.dataSource.transaction(async (manager) => {
+      // Pickup uses the chosen branch; delivery (and in-store) resolve a branch.
+      let branchId = dto.branchId ?? null;
+      if (isOnline && dto.deliveryMethod !== 'pickup') {
+        branchId = await this.primaryBranchId(manager);
+      }
+      if (!branchId) {
+        throw new BadRequestException('A branch is required for this order');
+      }
       const branch = await manager
         .getRepository(BranchEntity)
-        .findOne({ where: { id: dto.branchId } });
+        .findOne({ where: { id: branchId } });
       if (branch === null) {
-        throw new BadRequestException(`Branch ${dto.branchId} not found`);
+        throw new BadRequestException(`Branch ${branchId} not found`);
       }
 
       // Merge duplicate variant lines so stock is locked/moved once per variant.
@@ -134,8 +283,25 @@ export class OrdersService {
       });
 
       subtotal = round2(subtotal);
-      const discountTotal = Math.min(round2(dto.discountTotal ?? 0), subtotal);
-      const shippingCost = round2(dto.shippingCost ?? 0);
+      // Online delivery fee is computed from config; in-store trusts the POS.
+      const shippingCost = isOnline
+        ? round2(onlineShipping)
+        : round2(dto.shippingCost ?? 0);
+      // Discount is computed server-side from a voucher/promo (never trusted
+      // from the client). A code must be valid; otherwise the best automatic
+      // promo (if any) applies. Delivery promos discount the shipping fee.
+      const { discountTotal: voucherDiscount, voucher } =
+        await this.vouchers.resolveDiscount(
+          manager,
+          subtotal,
+          shippingCost,
+          dto.voucherCode,
+          dto.customerId ?? null,
+        );
+      const discountTotal = Math.min(
+        round2(voucherDiscount),
+        subtotal + shippingCost,
+      );
       const taxAmount = round2(dto.taxAmount ?? 0);
       const grandTotal = round2(
         subtotal - discountTotal + shippingCost + taxAmount,
@@ -149,14 +315,14 @@ export class OrdersService {
           await this.inventoryService.sellStockTx(
             manager,
             vid,
-            dto.branchId,
+            branchId,
             quantity,
           );
         } else {
           await this.inventoryService.reserveStockTx(
             manager,
             vid,
-            dto.branchId,
+            branchId,
             quantity,
           );
         }
@@ -199,7 +365,7 @@ export class OrdersService {
         orderNumber: await this.generateOrderNumber(orderRepo),
         source: dto.source,
         status: isInStore ? 'completed' : 'pending',
-        branchId: dto.branchId,
+        branchId,
         customerId,
         cashierId: isInStore ? currentUserId : null,
         customerName,
@@ -211,9 +377,25 @@ export class OrdersService {
         grandTotal,
         paymentStatus,
         currency: 'USD',
+        deliveryRegion: dto.deliveryRegion ?? null,
+        deliveryRegionName: dto.deliveryRegionName ?? null,
+        deliveryMethod: dto.deliveryMethod ?? null,
+        deliveryMethodName: dto.deliveryMethodName ?? null,
+        deliveryAddress: dto.deliveryAddress ?? null,
+        deliveryLat: dto.deliveryLat ?? null,
+        deliveryLng: dto.deliveryLng ?? null,
+        paymentMethod: dto.paymentMethod ?? null,
+        paymentMethodName: dto.paymentMethodName ?? null,
+        paymentProofUrl: dto.paymentProofUrl ?? null,
+        voucherCode: voucher?.code ?? null,
         note: dto.note ?? null,
       });
       const savedOrder = await orderRepo.save(order);
+
+      // Count the redemption once the order is persisted.
+      if (voucher) {
+        await this.vouchers.markUsedTx(manager, voucher.id);
+      }
 
       const itemRepo = manager.getRepository(OrderItemEntity);
       await itemRepo.save(
@@ -239,6 +421,22 @@ export class OrdersService {
       this.realtime.publish('orders');
       return { data: await this.buildDetail(manager, savedOrder.id) };
     });
+
+    // Notify staff of a new online order (after the transaction commits).
+    if (isOnline) {
+      const o = result.data;
+      await this.notifications.notifyStaff(
+        'order_new',
+        {
+          orderNumber: o.orderNumber,
+          orderId: o.id,
+          hasProof: Boolean(o.paymentProofUrl),
+        },
+        '/dashboard/orders',
+      );
+    }
+
+    return result;
   }
 
   // ---------------------------------------------------------------------------
@@ -300,6 +498,17 @@ export class OrdersService {
     order.paymentStatus = paymentStatus;
     await this.orderRepository.save(order);
     this.realtime.publish('orders');
+
+    // Notify the customer when their payment is confirmed.
+    if (paymentStatus === 'paid' && order.customerId) {
+      await this.notifications.notifyUser(
+        order.customerId,
+        'payment_confirmed',
+        { orderNumber: order.orderNumber, orderId: order.id },
+        `/account/orders/${order.id}`,
+      );
+    }
+
     return this.findOne(id);
   }
 
@@ -392,7 +601,9 @@ export class OrdersService {
     id: string,
     newStatus: OrderStatus,
   ): Promise<OrderDetailResponse> {
-    return this.dataSource.transaction(async (manager) => {
+    // Set only when the status actually changes, so we notify once (post-commit).
+    let notify: { customerId: string; orderNumber: string } | null = null;
+    const result = await this.dataSource.transaction(async (manager) => {
       const orderRepo = manager.getRepository(OrderEntity);
       const order = await orderRepo.findOne({
         where: { id },
@@ -419,9 +630,29 @@ export class OrdersService {
       order.status = newStatus;
       await orderRepo.save(order);
 
+      if (order.customerId) {
+        notify = {
+          customerId: order.customerId,
+          orderNumber: order.orderNumber,
+        };
+      }
+
       this.realtime.publish('orders');
       return { data: await this.buildDetail(manager, id) };
     });
+
+    // Notify the customer of the status change (after the transaction commits).
+    if (notify) {
+      const n: { customerId: string; orderNumber: string } = notify;
+      await this.notifications.notifyUser(
+        n.customerId,
+        'order_status',
+        { orderNumber: n.orderNumber, status: newStatus, orderId: id },
+        `/account/orders/${id}`,
+      );
+    }
+
+    return result;
   }
 
   private async applyStatusStock(
@@ -487,10 +718,29 @@ export class OrdersService {
     if (order === null) {
       throw new NotFoundException(`Order ${id} not found`);
     }
-    return this.toResponse(order);
+
+    // Attach each line item's product image (first by display order) so the
+    // storefront order detail can show a thumbnail. Works for old orders too.
+    const productIds = [...new Set((order.items ?? []).map((i) => i.productId))];
+    const imageByProduct = new Map<string, string>();
+    if (productIds.length > 0) {
+      const images = await manager.getRepository(ProductImageEntity).find({
+        where: { productId: In(productIds) },
+        order: { displayOrder: 'ASC' },
+      });
+      for (const img of images) {
+        if (!imageByProduct.has(img.productId)) {
+          imageByProduct.set(img.productId, img.imageUrl);
+        }
+      }
+    }
+    return this.toResponse(order, imageByProduct);
   }
 
-  private toResponse(order: OrderEntity): OrderResponse {
+  private toResponse(
+    order: OrderEntity,
+    imageByProduct?: Map<string, string>,
+  ): OrderResponse {
     const items = order.items ?? [];
     const payments = order.payments ?? [];
     return {
@@ -511,6 +761,17 @@ export class OrdersService {
       grandTotal: order.grandTotal,
       paymentStatus: order.paymentStatus,
       currency: order.currency,
+      deliveryRegion: order.deliveryRegion,
+      deliveryRegionName: order.deliveryRegionName,
+      deliveryMethod: order.deliveryMethod,
+      deliveryMethodName: order.deliveryMethodName,
+      deliveryAddress: order.deliveryAddress,
+      deliveryLat: order.deliveryLat,
+      deliveryLng: order.deliveryLng,
+      paymentMethod: order.paymentMethod,
+      paymentMethodName: order.paymentMethodName,
+      paymentProofUrl: order.paymentProofUrl,
+      voucherCode: order.voucherCode,
       note: order.note,
       itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
       items: items.map((i) => ({
@@ -518,6 +779,7 @@ export class OrdersService {
         productId: i.productId,
         productVariantId: i.productVariantId,
         productName: i.productName,
+        productImageUrl: imageByProduct?.get(i.productId) ?? null,
         variantSku: i.variantSku,
         size: i.size,
         color: i.color,
@@ -560,6 +822,17 @@ export class OrdersService {
       grandTotal: order.grandTotal,
       paymentStatus: order.paymentStatus,
       currency: order.currency,
+      deliveryRegion: order.deliveryRegion,
+      deliveryRegionName: order.deliveryRegionName,
+      deliveryMethod: order.deliveryMethod,
+      deliveryMethodName: order.deliveryMethodName,
+      deliveryAddress: order.deliveryAddress,
+      deliveryLat: order.deliveryLat,
+      deliveryLng: order.deliveryLng,
+      paymentMethod: order.paymentMethod,
+      paymentMethodName: order.paymentMethodName,
+      paymentProofUrl: order.paymentProofUrl,
+      voucherCode: order.voucherCode,
       note: order.note,
       itemCount: order.itemCount ?? 0,
       createdAt: order.createdAt,

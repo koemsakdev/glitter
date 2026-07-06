@@ -5,13 +5,19 @@ import './globals.css';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { MobileBottomNav } from '@/components/mobile-bottom-nav';
-import { themeInitScript } from '@/components/theme-toggle';
+import { CartToast } from '@/components/cart-toast';
 import { LiveUpdates } from '@/components/live-updates';
 import { PageTransition } from '@/components/page-transition';
 import { CartProvider } from '@/lib/cart';
 import { AuthProvider } from '@/lib/auth';
 import { WishlistProvider } from '@/lib/wishlist';
-import { getMenu, getStoreConfig } from '@/lib/api';
+import {
+    fileUrl,
+    getActivePromotions,
+    getBestSellers,
+    getMenu,
+    getStoreConfig,
+} from '@/lib/api';
 import { appearanceVars, resolveFont } from '@/lib/store-config';
 import { getLang } from '@/lib/lang';
 
@@ -27,12 +33,18 @@ const googleSans = localFont({
 export async function generateMetadata(): Promise<Metadata> {
     const config = await getStoreConfig();
     const name = config.brandNameEn || 'Glitter';
+    const logo = fileUrl(config.logoUrl);
     return {
         title: {
             default: `${name} — Beauty & Glitter Shop`,
             template: `%s · ${name}`,
         },
         description: config.taglineEn || 'Beauty & glitter, Phnom Penh.',
+        // Use the brand logo (set in the dashboard) as the favicon / app icon.
+        // Falls back to the static /favicon.ico when no logo is configured.
+        icons: logo
+            ? { icon: logo, shortcut: logo, apple: logo }
+            : undefined,
     };
 }
 
@@ -41,10 +53,12 @@ export default async function RootLayout({
 }: Readonly<{
     children: React.ReactNode;
 }>) {
-    const [config, lang, menu] = await Promise.all([
+    const [config, lang, menu, promos, popular] = await Promise.all([
         getStoreConfig(),
         getLang(),
         getMenu(),
+        getActivePromotions(),
+        getBestSellers(20),
     ]);
     const headerMenu = menu.filter((m) => m.location === 'header');
     const footerMenu = menu.filter((m) => m.location === 'footer');
@@ -64,7 +78,9 @@ export default async function RootLayout({
             style={rootStyle}
         >
             <head>
-                <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+                {/* Applies the saved/system theme early. `async src` makes it a
+                    React-hoistable script (no inline-script dev warning). */}
+                <script async src="/theme-init.js" />
                 {font.href && (
                     <>
                         <link
@@ -94,6 +110,8 @@ export default async function RootLayout({
                             config={config}
                             lang={lang}
                             menu={headerMenu}
+                            promos={promos}
+                            popular={popular}
                         />
                         <main className="flex-1 pb-16 sm:pb-0">
                             <PageTransition>{children}</PageTransition>
@@ -104,6 +122,7 @@ export default async function RootLayout({
                             menu={footerMenu}
                         />
                         <MobileBottomNav lang={lang} />
+                        <CartToast lang={lang} />
                         </CartProvider>
                     </WishlistProvider>
                 </AuthProvider>

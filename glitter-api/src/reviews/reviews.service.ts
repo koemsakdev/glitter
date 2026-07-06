@@ -8,6 +8,7 @@ import { ProductEntity } from '../products/entities/product.entity';
 import { OrderItemEntity } from '../orders/entities/order-item.entity';
 import { UserEntity } from '../users/entities/user.entity';
 import { RealtimeService } from '../realtime/realtime.service';
+import { NotificationsService } from '../notifications/notification.service';
 import {
   ProductReviewsResponse,
   ReviewDetailResponse,
@@ -27,6 +28,7 @@ export class ReviewsService {
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
     private readonly realtime: RealtimeService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(dto: CreateReviewDto): Promise<ReviewDetailResponse> {
@@ -45,6 +47,7 @@ export class ReviewsService {
       titleKm: dto.titleKm ?? null,
       commentEn: dto.commentEn ?? null,
       commentKm: dto.commentKm ?? null,
+      imageUrls: dto.imageUrls ?? [],
       status: 'pending',
     });
     const saved = await this.reviewRepo.save(entity);
@@ -75,11 +78,17 @@ export class ReviewsService {
       titleKm: dto.titleKm ?? null,
       commentEn: dto.commentEn ?? null,
       commentKm: dto.commentKm ?? null,
+      imageUrls: dto.imageUrls ?? [],
       verifiedPurchase,
       status: 'pending',
     });
     const saved = await this.reviewRepo.save(entity);
     this.realtime.publish('reviews');
+    await this.notifications.notifyStaff(
+      'review_new',
+      { productName: product.nameEn, productId: product.id },
+      '/dashboard/reviews',
+    );
     return { data: this.toResponse(saved) };
   }
 
@@ -109,7 +118,7 @@ export class ReviewsService {
 
     const [reviews, total] = await this.reviewRepo.findAndCount({
       where,
-      relations: ['product'],
+      relations: ['product', 'user'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -123,6 +132,7 @@ export class ReviewsService {
   async findByProduct(productId: string): Promise<ProductReviewsResponse> {
     const reviews = await this.reviewRepo.find({
       where: { productId, status: 'approved' },
+      relations: ['user'],
       order: { createdAt: 'DESC' },
     });
     const count = reviews.length;
@@ -155,6 +165,28 @@ export class ReviewsService {
     this.realtime.publish('reviews');
     this.realtime.publish('products');
     return { data: this.toResponse(saved) };
+  }
+
+  /** Increment a review's helpful counter (public "was this helpful" tap). */
+  async markHelpful(id: string): Promise<{ helpfulCount: number }> {
+    const review = await this.reviewRepo.findOne({ where: { id } });
+    if (review === null) {
+      throw new NotFoundException(`Review ${id} not found`);
+    }
+    review.helpfulCount += 1;
+    const saved = await this.reviewRepo.save(review);
+    return { helpfulCount: saved.helpfulCount };
+  }
+
+  /** Decrement a review's helpful counter (un-tap), never below zero. */
+  async unmarkHelpful(id: string): Promise<{ helpfulCount: number }> {
+    const review = await this.reviewRepo.findOne({ where: { id } });
+    if (review === null) {
+      throw new NotFoundException(`Review ${id} not found`);
+    }
+    review.helpfulCount = Math.max(0, review.helpfulCount - 1);
+    const saved = await this.reviewRepo.save(review);
+    return { helpfulCount: saved.helpfulCount };
   }
 
   async delete(id: string): Promise<void> {
@@ -195,11 +227,13 @@ export class ReviewsService {
       productId: entity.productId,
       productNameEn: entity.product?.nameEn ?? null,
       reviewerName: entity.reviewerName,
+      reviewerImageUrl: entity.user?.profileImageUrl ?? null,
       rating: entity.rating,
       titleEn: entity.titleEn,
       titleKm: entity.titleKm,
       commentEn: entity.commentEn,
       commentKm: entity.commentKm,
+      imageUrls: entity.imageUrls ?? [],
       verifiedPurchase: entity.verifiedPurchase,
       helpfulCount: entity.helpfulCount,
       status: entity.status,

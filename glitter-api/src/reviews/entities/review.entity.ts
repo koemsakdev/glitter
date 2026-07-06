@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { ProductEntity } from '../../products/entities/product.entity';
+import { UserEntity } from '../../users/entities/user.entity';
 
 export type ReviewStatus = 'pending' | 'approved' | 'hidden';
 
@@ -29,6 +30,10 @@ export class ReviewEntity {
   @Column({ type: 'uuid', nullable: true, name: 'user_id' })
   userId!: string | null;
 
+  @ManyToOne(() => UserEntity, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'user_id' })
+  user!: UserEntity | null;
+
   @Column({ type: 'varchar', length: 120, name: 'reviewer_name' })
   reviewerName!: string;
 
@@ -46,6 +51,10 @@ export class ReviewEntity {
 
   @Column({ type: 'text', nullable: true, name: 'comment_km' })
   commentKm!: string | null;
+
+  /** Customer-uploaded photo URLs (served paths). */
+  @Column({ type: 'jsonb', name: 'image_urls', default: () => "'[]'" })
+  imageUrls!: string[];
 
   @Column({ type: 'boolean', default: false, name: 'verified_purchase' })
   verifiedPurchase!: boolean;

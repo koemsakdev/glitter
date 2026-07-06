@@ -54,7 +54,7 @@ export function MobileBottomNav({ lang }: { lang: Lang }) {
     const { itemCount, hydrated } = useCart();
 
     return (
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95 sm:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95 lg:hidden">
             <div className="mx-auto flex max-w-md items-stretch justify-around px-2 pb-[env(safe-area-inset-bottom)]">
                 {TABS.map((tab) => {
                     const active =

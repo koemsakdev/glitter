@@ -1,135 +1,192 @@
 import Link from 'next/link';
+import { Mail, MapPin, Phone, type LucideIcon } from 'lucide-react';
 import { fileUrl } from '@/lib/api';
+import { SocialButtons } from '@/components/social-buttons';
 import { pick, tr, type Lang } from '@/lib/locale';
 import type { StoreConfig } from '@/lib/store-config';
-import type { MenuItem } from '@/lib/types';
+
+/** Footer link columns — defined in code so they always point at real pages. */
+const LINK_COLUMNS: {
+    heading: string;
+    links: { href: string; label: string }[];
+}[] = [
+    {
+        heading: 'footerShop',
+        links: [
+            { href: '/products', label: 'allProducts' },
+            { href: '/promotion', label: 'navPromotion' },
+            { href: '/brands', label: 'navBrand' },
+            { href: '/products?sort=newest', label: 'footerNewArrivals' },
+        ],
+    },
+    {
+        heading: 'footerCompany',
+        links: [
+            { href: '/about', label: 'footerAbout' },
+            { href: '/stores', label: 'navLocation' },
+            { href: '/about', label: 'contact' },
+        ],
+    },
+    {
+        heading: 'footerAccount',
+        links: [
+            { href: '/account', label: 'footerMyAccount' },
+            { href: '/account/orders', label: 'myOrders' },
+            { href: '/account/wishlist', label: 'footerWishlist' },
+            { href: '/cart', label: 'cart' },
+        ],
+    },
+];
+
+function contactIcon(id: string): LucideIcon {
+    if (id === 'phone') return Phone;
+    if (id === 'email') return Mail;
+    return MapPin;
+}
+
+function contactHref(id: string, value: string): string | undefined {
+    if (id === 'phone') return `tel:${value.replace(/\s+/g, '')}`;
+    if (id === 'email') return `mailto:${value}`;
+    return undefined;
+}
 
 export function SiteFooter({
     config,
     lang,
-    menu = [],
 }: {
     config: StoreConfig;
     lang: Lang;
-    menu?: MenuItem[];
+    // menu kept for API compatibility; footer links are code-defined now.
+    menu?: unknown;
 }) {
-    const shopName = pick(lang, config.brandNameEn, config.brandNameKm) || 'Glitter';
+    const shopName =
+        pick(lang, config.brandNameEn, config.brandNameKm) || 'Glitter';
     const tagline = pick(lang, config.taglineEn, config.taglineKm);
     const description =
         pick(lang, config.footerDescriptionEn, config.footerDescriptionKm) ||
         tagline;
 
     const logo = fileUrl(config.logoUrl);
-    const contacts = config.contacts.filter((c) => c.value?.trim());
     const socials = config.socials.filter((s) => s.url?.trim());
+
+    // Prefer the structured contacts; fall back to the flat fields.
+    const structured = config.contacts.filter((c) => c.value?.trim());
+    const fallback: { id: string; value: string }[] = [];
+    if (structured.length === 0) {
+        if (config.contactPhone)
+            fallback.push({ id: 'phone', value: config.contactPhone });
+        if (config.contactEmail)
+            fallback.push({ id: 'email', value: config.contactEmail });
+        const addr = pick(lang, config.contactAddressEn, config.contactAddressKm);
+        if (addr) fallback.push({ id: 'address', value: addr });
+    }
+    const contacts: { id: string; value: string }[] =
+        structured.length > 0
+            ? structured.map((c) => ({ id: c.id, value: c.value }))
+            : fallback;
 
     return (
         <footer className="mt-16 border-t border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:grid-cols-3">
-                <div>
-                    <div className="flex items-center gap-2">
+
+            {/* Main */}
+            <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:grid-cols-2 lg:grid-cols-5">
+                {/* Brand + contact */}
+                <div className="lg:col-span-2">
+                    <Link href="/" className="flex items-center gap-2.5">
                         {logo ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                                 src={logo}
                                 alt={shopName}
-                                className="h-8 w-auto object-contain"
+                                className="size-10 rounded-xl object-cover ring-1 ring-zinc-200 dark:ring-zinc-700"
                             />
                         ) : (
-                            <span className="flex size-7 items-center justify-center rounded-lg bg-(--brand) text-xs font-bold text-white">
-                                GS
+                            <span className="flex size-10 items-center justify-center rounded-xl bg-(--brand) text-sm font-bold text-white">
+                                {shopName.charAt(0).toUpperCase()}
                             </span>
                         )}
-                        <span className="font-semibold text-zinc-900 dark:text-zinc-100">{shopName}</span>
-                    </div>
+                        <span className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                            {shopName}
+                        </span>
+                    </Link>
+
                     {description && (
-                        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                        <p className="mt-3 max-w-xs text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
                             {description}
                         </p>
                     )}
-                </div>
 
-                <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                        {tr(lang, 'shop')}
-                    </h3>
-                    <nav className="mt-2 flex flex-col gap-1.5 text-sm text-zinc-600 dark:text-zinc-300">
-                        {menu.filter((m) => !m.parentId).length > 0 ? (
-                            menu
-                                .filter((m) => !m.parentId)
-                                .map((item) => (
-                                    <Link
-                                        key={item.id}
-                                        href={item.url}
-                                    target={
-                                        item.openInNewTab ? '_blank' : undefined
-                                    }
-                                    rel={
-                                        item.openInNewTab
-                                            ? 'noopener noreferrer'
-                                            : undefined
-                                    }
-                                    className="hover:text-(--brand)"
-                                >
-                                    {pick(lang, item.labelEn, item.labelKm)}
-                                </Link>
-                            ))
-                        ) : (
-                            <>
-                                <Link href="/" className="hover:text-(--brand)">
-                                    {tr(lang, 'home')}
-                                </Link>
-                                <Link
-                                    href="/products"
-                                    className="hover:text-(--brand)"
-                                >
-                                    {tr(lang, 'allProducts')}
-                                </Link>
-                            </>
-                        )}
-                    </nav>
-                </div>
-
-                <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                        {tr(lang, 'contact')}
-                    </h3>
-                    <ul className="mt-2 space-y-1.5 text-sm text-zinc-600 dark:text-zinc-300">
-                        {contacts.map((c) => (
-                            <li key={c.id}>{c.value}</li>
-                        ))}
-                    </ul>
-                    {socials.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-3 text-sm">
-                            {socials.map((s) => {
-                                const icon = fileUrl(s.iconUrl);
+                    {contacts.length > 0 && (
+                        <ul className="mt-5 space-y-2.5 text-sm">
+                            {contacts.map((c) => {
+                                const Icon = contactIcon(c.id);
+                                const href = contactHref(c.id, c.value);
+                                const body = (
+                                    <span className="flex items-start gap-2.5 text-zinc-600 transition-colors group-hover:text-(--brand) dark:text-zinc-300">
+                                        <Icon className="mt-0.5 size-4 shrink-0 text-(--brand)" />
+                                        {c.value}
+                                    </span>
+                                );
                                 return (
-                                    <a
-                                        key={s.id}
-                                        href={s.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-(--brand) dark:text-zinc-400"
-                                    >
-                                        {icon ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img
-                                                src={icon}
-                                                alt={s.name}
-                                                className="size-4 object-contain"
-                                            />
-                                        ) : null}
-                                        {s.name}
-                                    </a>
+                                    <li key={`${c.id}-${c.value}`}>
+                                        {href ? (
+                                            <a href={href} className="group">
+                                                {body}
+                                            </a>
+                                        ) : (
+                                            <span className="group">{body}</span>
+                                        )}
+                                    </li>
                                 );
                             })}
-                        </div>
+                        </ul>
                     )}
+
+                    <SocialButtons socials={socials} className="mt-5" />
                 </div>
+
+                {/* Link columns */}
+                {LINK_COLUMNS.map((col) => (
+                    <div key={col.heading}>
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                            {tr(lang, col.heading)}
+                        </h3>
+                        <nav className="mt-3 flex flex-col gap-2.5 text-sm text-zinc-600 dark:text-zinc-300">
+                            {col.links.map((l) => (
+                                <Link
+                                    key={`${col.heading}-${l.href}-${l.label}`}
+                                    href={l.href}
+                                    className="w-fit transition-colors hover:text-(--brand)"
+                                >
+                                    {tr(lang, l.label)}
+                                </Link>
+                            ))}
+                        </nav>
+                    </div>
+                ))}
             </div>
 
-            <div className="border-t border-zinc-200 px-4 py-4 text-center text-xs text-zinc-400 dark:border-zinc-800">
-                © {new Date().getFullYear()} {shopName}. All rights reserved.
+            {/* Bottom bar */}
+            <div className="border-t border-zinc-200 dark:border-zinc-800">
+                <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-5 text-xs text-zinc-400 sm:flex-row">
+                    <p>
+                        © {new Date().getFullYear()} {shopName}.{' '}
+                        {tr(lang, 'footerRights')}
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <span className="hidden text-zinc-400 sm:inline">
+                            {tr(lang, 'footerPayments')}
+                        </span>
+                        {['KHQR', 'ABA', 'Cash'].map((p) => (
+                            <span
+                                key={p}
+                                className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
+                            >
+                                {p}
+                            </span>
+                        ))}
+                    </div>
+                </div>
             </div>
         </footer>
     );

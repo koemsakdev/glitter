@@ -18,6 +18,7 @@ const KEY_MAP: Record<string, string[]> = {
     colors: ['colors'],
     badges: ['badges'],
     orders: ['orders'],
+    notifications: ['notifications'],
     products: ['products'],
     categories: ['categories'],
     brands: ['brands'],

@@ -1,4 +1,5 @@
 import {
+    keepPreviousData,
     useMutation,
     useQuery,
     useQueryClient,
@@ -22,6 +23,9 @@ export function useReviews(status?: ReviewStatus) {
             );
             return data;
         },
+        // Keep showing the current list while switching tabs, so the page
+        // doesn't blank out to a full-page loader on every filter click.
+        placeholderData: keepPreviousData,
     });
 }
 

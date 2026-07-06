@@ -14,12 +14,12 @@ export function SocialAuth({ lang }: { lang: Lang }) {
 
     return (
         <div className="mt-6 space-y-3">
-            <div className="flex items-center gap-3 text-xs text-zinc-400">
-                <span className="h-px flex-1 bg-zinc-200" />
+            <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-zinc-400">
+                <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
                 {tr(lang, 'orContinueWith')}
-                <span className="h-px flex-1 bg-zinc-200" />
+                <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
             </div>
-            <GoogleSignInButton />
+            <GoogleSignInButton lang={lang} />
             <FacebookLoginButton lang={lang} />
             <TelegramLoginButton />
         </div>

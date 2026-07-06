@@ -333,6 +333,22 @@
   }
 }
 
+/* Marquee: continuously scroll overflowing text one direction (like the old
+   <marquee> tag). Two identical copies + translateX(-50%) makes it seamless. */
+@keyframes marquee-loop {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none !important;
+  }
+}
+
 /* View Transitions — Theme switch animation */
 ::view-transition-old(root),
 ::view-transition-new(root) {

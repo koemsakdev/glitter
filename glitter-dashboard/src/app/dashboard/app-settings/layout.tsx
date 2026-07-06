@@ -12,11 +12,11 @@ const TABS: { href: string; key: TranslationKey }[] = [
   { href: `${BASE}/theme`, key: "settings.tab.theme" },
   { href: `${BASE}/appearance`, key: "settings.tab.appearance" },
   { href: `${BASE}/contact`, key: "settings.tab.contact" },
+  { href: `${BASE}/about`, key: "settings.tab.about" },
   { href: `${BASE}/home`, key: "settings.tab.home" },
   { href: `${BASE}/banners`, key: "settings.tab.banners" },
   { href: `${BASE}/sections`, key: "settings.tab.sections" },
-  { href: `${BASE}/menu`, key: "settings.tab.menu" },
-  { href: `${BASE}/pages`, key: "settings.tab.pages" },
+  { href: `${BASE}/navigation`, key: "settings.tab.navigation" },
 ];
 
 export default function AppSettingsLayout({

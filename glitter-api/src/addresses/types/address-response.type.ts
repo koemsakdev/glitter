@@ -18,6 +18,8 @@ export interface AddressResponse {
   isDefaultBilling: boolean;
   latitude: string | null;
   longitude: string | null;
+  imageUrl: string | null;
+  imageUrls: string[];
   formattedAddress: string;
   createdAt: Date;
   updatedAt: Date;

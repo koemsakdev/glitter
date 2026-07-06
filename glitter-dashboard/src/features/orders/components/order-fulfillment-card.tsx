@@ -59,6 +59,9 @@ export function OrderFulfillmentCard({ orderId }: { orderId: string }) {
 
     return (
         <DetailSection title={t('order.detail.fulfillment')}>
+            <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+                {t('order.detail.fulfillmentDesc')}
+            </p>
             {isLoading ? (
                 <div className="flex justify-center py-4">
                     <Loader2 className="size-4 animate-spin text-muted-foreground" />

@@ -5,6 +5,28 @@ import { fileUrl, formatPrice } from '@/lib/api';
 import { pick, tr, type Lang } from '@/lib/locale';
 import type { Product } from '@/lib/types';
 
+function Stars({ rating }: { rating: number }) {
+    const rounded = Math.round(rating);
+    return (
+        <div className="flex items-center gap-0.5">
+            {[1, 2, 3, 4, 5].map((i) => (
+                <svg
+                    key={i}
+                    className={
+                        i <= rounded
+                            ? 'size-3.5 text-amber-400'
+                            : 'size-3.5 text-zinc-300 dark:text-zinc-600'
+                    }
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                >
+                    <path d="M12 2.5l2.9 5.9 6.6 1-4.7 4.6 1.1 6.5L12 17.8 6.1 20.5l1.1-6.5L2.5 9.4l6.6-1z" />
+                </svg>
+            ))}
+        </div>
+    );
+}
+
 export function ProductCard({
     product,
     lang,
@@ -24,19 +46,62 @@ export function ProductCard({
         : 0;
     const outOfStock = product.totalStock <= 0;
 
+    // Show a single, clean badge: the product's first badge (admin-ordered).
+    const firstBadge = product.badges?.[0];
+    const firstBadgeLabel = firstBadge
+        ? pick(lang, firstBadge.badgeLabelEn ?? '', firstBadge.badgeLabelKm ?? '')
+        : '';
+    const primaryBadge =
+        firstBadge && firstBadgeLabel
+            ? {
+                  label: firstBadgeLabel,
+                  color: firstBadge.badgeIconColor ?? '#64748b',
+              }
+            : null;
+
+    // Colour options from the variants, each with its available sizes (shown on
+    // hover) so shoppers can see choices without opening the product.
+    const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+    const colorMap = new Map<
+        string,
+        { hex: string | null; name: string | null; sizes: string[] }
+    >();
+    for (const v of product.variants ?? []) {
+        const key = v.colorHex ?? v.color;
+        if (!key) continue;
+        const entry = colorMap.get(key) ?? {
+            hex: v.colorHex,
+            name: v.color,
+            sizes: [],
+        };
+        if (v.size && !entry.sizes.includes(v.size)) entry.sizes.push(v.size);
+        colorMap.set(key, entry);
+    }
+    const colors = [...colorMap.values()].map((c) => ({
+        ...c,
+        sizes: [...c.sizes].sort((a, b) => {
+            const ia = SIZE_ORDER.indexOf(a.toUpperCase());
+            const ib = SIZE_ORDER.indexOf(b.toUpperCase());
+            if (ia !== -1 && ib !== -1) return ia - ib;
+            if (ia !== -1) return -1;
+            if (ib !== -1) return 1;
+            return a.localeCompare(b);
+        }),
+    }));
+    const MAX_SWATCHES = 5;
+    const shownColors = colors.slice(0, MAX_SWATCHES);
+    const extraColors = colors.length - shownColors.length;
+
     return (
-        <div className="group relative flex flex-col overflow-hidden rounded-(--ui-radius) border border-zinc-200 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:border-(--brand)/40 hover:shadow-lg dark:border-zinc-800 dark:bg-zinc-900 dark:hover:shadow-black/40">
-            <Link
-                href={`/products/${product.slug}`}
-                className="flex flex-1 flex-col"
-            >
-                <div className="relative aspect-square overflow-hidden bg-zinc-50 dark:bg-zinc-800">
+        <div className="group relative flex flex-col transition-transform duration-300 hover:-translate-y-1">
+            {/* Image block — radius synced from the dashboard appearance config */}
+            <div className="relative aspect-square overflow-hidden rounded-(--ui-radius) bg-zinc-100 shadow-sm ring-1 ring-transparent transition-all duration-300 group-hover:shadow-xl group-hover:ring-(--brand)/25 dark:bg-zinc-800 dark:group-hover:shadow-black/40">
                     {img ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                             src={img}
                             alt={name}
-                            className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            className="size-full object-cover transition-transform duration-500 group-hover:scale-110"
                         />
                     ) : (
                         <div className="flex size-full items-center justify-center text-zinc-300">
@@ -54,23 +119,77 @@ export function ProductCard({
                         </div>
                     )}
 
-                    {hasDiscount && (
-                        <span className="absolute left-2 top-2 rounded-full bg-(--brand) px-2 py-0.5 text-[11px] font-bold text-white shadow-sm">
-                            -{discountPct}%
-                        </span>
-                    )}
+                    {/* Up to two badges — discount + the primary product badge.
+                        Tinted via .product-badge so they adapt to light/dark. */}
+                    <div className="absolute left-2.5 top-2.5 flex flex-col items-start gap-1.5">
+                        {hasDiscount && (
+                            <span
+                                style={
+                                    {
+                                        '--badge': 'var(--brand)',
+                                    } as React.CSSProperties
+                                }
+                                className="product-badge rounded-full px-2.5 py-1 text-[10px] font-extrabold shadow-sm backdrop-blur-sm"
+                            >
+                                -{discountPct}%
+                            </span>
+                        )}
+                        {primaryBadge && (
+                            <span
+                                style={
+                                    {
+                                        '--badge': primaryBadge.color,
+                                    } as React.CSSProperties
+                                }
+                                className="product-badge rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide shadow-sm backdrop-blur-sm"
+                            >
+                                {primaryBadge.label}
+                            </span>
+                        )}
+                    </div>
                     {outOfStock && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white/55 backdrop-blur-[1px]">
+                        <div className="absolute inset-0 flex items-center justify-center bg-white/55 backdrop-blur-[1px] dark:bg-black/55">
                             <span className="rounded-full bg-zinc-900/85 px-3 py-1 text-[11px] font-medium text-white">
                                 {tr(lang, 'soldOut')}
                             </span>
                         </div>
                     )}
+
+                    {/* Click overlay for navigation */}
+                    <Link
+                        href={`/products/${product.slug}`}
+                        aria-label={name}
+                        className="absolute inset-0"
+                    />
+
+                    {/* Add-to-cart button (sits above the overlay) */}
+                    {!outOfStock && (
+                        <QuickAddButton
+                            product={product}
+                            lang={lang}
+                            className="absolute bottom-2.5 right-2.5 z-10"
+                        />
+                    )}
                 </div>
 
-                <div className="flex flex-1 flex-col p-3">
-                    <div className="flex items-baseline gap-1.5">
-                        <span className="text-base font-bold text-zinc-900 dark:text-zinc-50">
+                {/* Name · rating · price */}
+                <Link
+                    href={`/products/${product.slug}`}
+                    className="block px-1 pt-(--ui-pad)"
+                >
+                    <h3 className="line-clamp-1 text-sm font-semibold text-zinc-900 transition-colors group-hover:text-(--brand) dark:text-zinc-100">
+                        {name}
+                    </h3>
+                    <div className="mt-1 flex items-center gap-1.5">
+                        <Stars rating={product.averageRating} />
+                        {product.reviewCount > 0 && (
+                            <span className="text-[11px] text-zinc-400">
+                                ({product.reviewCount})
+                            </span>
+                        )}
+                    </div>
+                    <div className="mt-1 flex items-baseline gap-1.5">
+                        <span className="text-sm font-bold text-(--brand)">
                             {formatPrice(product.price)}
                         </span>
                         {hasDiscount && (
@@ -79,23 +198,42 @@ export function ProductCard({
                             </span>
                         )}
                     </div>
-                    <h3 className="mt-1 line-clamp-2 pr-9 text-[13px] leading-snug text-zinc-600 transition-colors group-hover:text-(--brand) dark:text-zinc-400">
-                        {name}
-                    </h3>
-                </div>
-            </Link>
 
-            <WishlistButton
-                productId={product.id}
-                className="absolute right-2 top-2"
-            />
-            {!outOfStock && (
-                <QuickAddButton
-                    product={product}
-                    lang={lang}
-                    className="absolute bottom-2.5 right-2.5"
+                    {/* Colour options — hover a swatch to see that colour's sizes */}
+                    {colors.length > 0 && (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            {shownColors.map((c, i) => (
+                                <span
+                                    key={i}
+                                    className="group/sw relative inline-flex"
+                                >
+                                    <span
+                                        className="block size-4 rounded-full border border-zinc-200 shadow-sm dark:border-zinc-600"
+                                        style={{
+                                            backgroundColor: c.hex ?? '#e4e4e7',
+                                        }}
+                                    />
+                                    {c.sizes.length > 0 && (
+                                        <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-zinc-900 px-2 py-1 text-[10px] font-medium text-white shadow-lg group-hover/sw:block dark:bg-zinc-700">
+                                            {tr(lang, 'sizeAvailable')}:{' '}
+                                            {c.sizes.join(', ')}
+                                        </span>
+                                    )}
+                                </span>
+                            ))}
+                            {extraColors > 0 && (
+                                <span className="text-[10px] font-medium text-zinc-400">
+                                    +{extraColors}
+                                </span>
+                            )}
+                        </div>
+                    )}
+                </Link>
+
+                <WishlistButton
+                    productId={product.id}
+                    className="absolute right-2 top-2 z-10"
                 />
-            )}
-        </div>
+            </div>
     );
 }

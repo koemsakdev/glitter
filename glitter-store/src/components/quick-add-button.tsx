@@ -5,6 +5,7 @@ import { useCart } from '@/lib/cart';
 import { tr, type Lang } from '@/lib/locale';
 import { cn } from '@/lib/utils';
 import type { Product } from '@/lib/types';
+import { Handbag } from 'lucide-react';
 
 /**
  * Circular "+" quick-add on a product card. Adds the first in-stock variant
@@ -21,12 +22,17 @@ export function QuickAddButton({
     lang: Lang;
     className?: string;
 }) {
-    const { addItem } = useCart();
+    const { addItem, items } = useCart();
     const [added, setAdded] = useState(false);
 
     const variants = product.variants ?? [];
     const firstInStock = variants.find((v) => v.quantityInStock > 0) ?? null;
     const disabled = !firstInStock;
+
+    // How many of this product are currently in the cart (across its variants).
+    const cartQty = items
+        .filter((x) => x.productId === product.id)
+        .reduce((sum, x) => sum + x.quantity, 0);
 
     const primary =
         product.images?.find((i) => i.imageType === 'primary') ??
@@ -64,11 +70,16 @@ export function QuickAddButton({
             disabled={disabled}
             aria-label={tr(lang, 'addToCart')}
             className={cn(
-                'flex size-9 items-center justify-center rounded-full text-white shadow-md transition-all active:scale-90 disabled:cursor-not-allowed disabled:opacity-40',
-                added ? 'bg-emerald-500' : 'bg-(--brand) hover:opacity-90',
+                'relative flex size-9 items-center justify-center rounded-full text-white shadow-md transition-all active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 backdrop-blur-2xl',
+                added ? 'bg-emerald-500/75' : 'bg-(--brand)/75 hover:opacity-90',
                 className,
             )}
         >
+            {cartQty > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-(--brand) shadow ring-1 ring-(--brand)/20 dark:bg-zinc-900 dark:ring-(--brand)/40">
+                    {cartQty}
+                </span>
+            )}
             {added ? (
                 <svg
                     className="size-5"
@@ -82,17 +93,19 @@ export function QuickAddButton({
                     <path d="M20 6 9 17l-5-5" />
                 </svg>
             ) : (
-                <svg
-                    className="size-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                >
-                    <path d="M12 5v14M5 12h14" />
-                </svg>
+                // <svg
+                //     className="size-5"
+                //     viewBox="0 0 24 24"
+                //     fill="none"
+                //     stroke="currentColor"
+                //     strokeWidth="2.5"
+                //     strokeLinecap="round"
+                //     strokeLinejoin="round"
+                // >
+                //     <path d="M12 5v14M5 12h14" />
+                // </svg>
+
+                <Handbag className='size-5' />
             )}
         </button>
     );

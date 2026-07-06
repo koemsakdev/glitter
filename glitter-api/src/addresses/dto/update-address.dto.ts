@@ -1,6 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsEnum,
   IsLatitude,
@@ -101,4 +103,20 @@ export class UpdateAddressDto {
   @Type(() => Number)
   @IsLongitude()
   longitude?: number;
+
+  @ApiPropertyOptional({ description: 'Reference photo URL (served path)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  imageUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'Up to 5 reference photo URLs',
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @IsString({ each: true })
+  imageUrls?: string[];
 }

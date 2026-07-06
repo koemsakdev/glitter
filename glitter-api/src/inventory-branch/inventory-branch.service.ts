@@ -9,6 +9,7 @@ import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { ProductVariantEntity } from '../product-variants/entities/product-variant.entity';
 import { BranchEntity } from '../branch/entities/branch.entity';
 import { ProductEntity } from '../products/entities/product.entity';
+import { NotificationsService } from '../notifications/notification.service';
 import { CreateInventoryBranchDto } from './dto/create-inventory-branch.dto';
 import { UpdateInventoryBranchDto } from './dto/update-inventory-branch.dto';
 import { ReserveStockDto } from './dto/reserve-stock.dto';
@@ -37,7 +38,47 @@ export class InventoryBranchService {
     @InjectRepository(ProductEntity)
     private readonly productRepository: Repository<ProductEntity>,
     private readonly dataSource: DataSource,
+    private readonly notifications: NotificationsService,
   ) {}
+
+  /** Available units at/below this flag a "low stock" alert to staff. */
+  private static readonly LOW_STOCK = 5;
+
+  /**
+   * Notify staff once when a variant's available stock crosses down to the
+   * low threshold, so they know to restock. Best-effort — never blocks the sale.
+   */
+  private async maybeNotifyLowStock(
+    manager: EntityManager,
+    productVariantId: string,
+    branchId: string,
+    before: number,
+    after: number,
+  ): Promise<void> {
+    const T = InventoryBranchService.LOW_STOCK;
+    if (!(before > T && after <= T)) return;
+    try {
+      const variant = await manager.getRepository(ProductVariantEntity).findOne({
+        where: { id: productVariantId },
+        relations: ['product'],
+      });
+      const branch = await manager
+        .getRepository(BranchEntity)
+        .findOne({ where: { id: branchId } });
+      await this.notifications.notifyStaff(
+        'low_stock',
+        {
+          productName: variant?.product?.nameEn ?? 'Product',
+          variantSku: variant?.variantSku ?? '',
+          branchName: branch?.branchNameEn ?? '',
+          remaining: after,
+        },
+        '/dashboard/inventory',
+      );
+    } catch {
+      // best-effort: don't fail the order if the notification errors
+    }
+  }
 
   /** Set a variant's available stock at a branch — create or update (upsert). */
   async setStock(
@@ -323,9 +364,17 @@ export class InventoryBranchService {
         `Insufficient stock for ${record.productVariantId}: have ${record.quantityAvailable}, need ${quantity}`,
       );
     }
+    const before = record.quantityAvailable;
     record.quantityAvailable -= quantity;
     await repo.save(record);
     await this.syncVariantGlobalStockViaManager(manager, productVariantId);
+    await this.maybeNotifyLowStock(
+      manager,
+      productVariantId,
+      branchId,
+      before,
+      record.quantityAvailable,
+    );
   }
 
   /** Online order placed: hold stock (available -= qty, reserved += qty). */
@@ -342,10 +391,18 @@ export class InventoryBranchService {
         `Insufficient stock for ${record.productVariantId}: have ${record.quantityAvailable}, need ${quantity}`,
       );
     }
+    const before = record.quantityAvailable;
     record.quantityAvailable -= quantity;
     record.quantityReserved += quantity;
     await repo.save(record);
     await this.syncVariantGlobalStockViaManager(manager, productVariantId);
+    await this.maybeNotifyLowStock(
+      manager,
+      productVariantId,
+      branchId,
+      before,
+      record.quantityAvailable,
+    );
   }
 
   /** Online order fulfilled: reserved stock is sold (reserved -= qty). */

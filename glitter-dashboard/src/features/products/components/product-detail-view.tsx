@@ -43,6 +43,7 @@ import type {
 import { useProductVariants } from '@/features/product-variants/use-product-variants';
 import type { ProductVariant } from '@/types/product';
 import { useProductBadges } from '@/features/product-badges/use-product-badges';
+import { useProductRelated } from '@/features/related-products/use-related-products';
 import { ProductBadgeDisplay } from './product-badge-display';
 import {
     badgeTintStyle,
@@ -79,6 +80,7 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
 
     const { data: variants = [] } = useProductVariants(id);
     const { data: badges } = useProductBadges(id);
+    const { data: related = [] } = useProductRelated(id);
     const { data: wishlistCount = 0 } = useProductWishlistCount(id);
 
     // Branch-scoped stock — when a branch is selected in the topbar, the detail
@@ -391,6 +393,72 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                             </div>
                         ) : (
                             <BadgesDetailList badges={badges} />
+                        )}
+                    </DetailSection>
+
+                    {/* Related products */}
+                    <DetailSection
+                        title={t('product.detail.related')}
+                        description={
+                            related.length > 0
+                                ? t('product.detail.relatedCount').replace(
+                                      '{count}',
+                                      String(related.length),
+                                  )
+                                : undefined
+                        }
+                    >
+                        {related.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/20 py-8">
+                                <Package className="size-7 text-muted-foreground/40" />
+                                <p className="text-sm italic text-muted-foreground">
+                                    {t('product.related.empty')}
+                                </p>
+                            </div>
+                        ) : (
+                            <ul className="space-y-2">
+                                {related.map((p) => {
+                                    const primary =
+                                        p.images?.find(
+                                            (i) => i.imageType === 'primary',
+                                        ) ?? p.images?.[0];
+                                    const url = getFileUrl(
+                                        primary?.imageUrl ?? null,
+                                    );
+                                    return (
+                                        <li key={p.id}>
+                                            <Link
+                                                href={`/dashboard/products/${p.id}`}
+                                                className="flex items-center gap-2.5 rounded-lg border bg-card px-2.5 py-2 transition-colors hover:bg-accent"
+                                            >
+                                                {url ? (
+                                                    <Image
+                                                        src={url}
+                                                        alt=""
+                                                        width={40}
+                                                        height={40}
+                                                        unoptimized
+                                                        className="size-10 shrink-0 rounded-md border object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="flex size-10 shrink-0 items-center justify-center rounded-md border bg-muted text-muted-foreground">
+                                                        <ImageIcon className="size-4" />
+                                                    </div>
+                                                )}
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-sm font-medium">
+                                                        {p.nameEn}
+                                                    </p>
+                                                    <p className="truncate text-xs text-muted-foreground">
+                                                        {p.sku} ·{' '}
+                                                        {formatPrice(p.price)}
+                                                    </p>
+                                                </div>
+                                            </Link>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
                         )}
                     </DetailSection>
                 </div>

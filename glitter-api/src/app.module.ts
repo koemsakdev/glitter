@@ -39,6 +39,7 @@ import { BrandsModule } from './brands/brands.module';
 import { CategoriesModule } from './category/category.module';
 import { ColorsModule } from './colors/colors.module';
 import { BadgesModule } from './badges/badges.module';
+import { VouchersModule } from './vouchers/vouchers.module';
 import { InventoryBranchModule } from './inventory-branch/inventory-branch.module';
 import { MenuModule } from './menu/menu.module';
 import { OrdersModule } from './orders/orders.module';
@@ -46,6 +47,7 @@ import { PagesModule } from './pages/pages.module';
 import { RelatedProductsModule } from './related-products/related-products.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { ShipmentsModule } from './shipments/shipments.module';
+import { NotificationsModule } from './notifications/notification.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { ProductBadgesModule } from './product-badges/product-badge.module';
 import { ProductImagesModule } from './product-images/product-image.module';
@@ -84,6 +86,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     CategoriesModule,
     ColorsModule,
     BadgesModule,
+    VouchersModule,
     BrandsModule,
     ProductsModule,
     ProductImagesModule,
@@ -94,6 +97,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     OrdersModule,
     PagesModule,
     ReviewsModule,
+    NotificationsModule,
     RelatedProductsModule,
     ShipmentsModule,
     WishlistsModule,

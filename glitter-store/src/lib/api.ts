@@ -20,6 +20,122 @@ import {
 export const API_URL =
     process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 
+export interface VoucherValidation {
+    valid: boolean;
+    reason?: string;
+    /** Discount amount when valid. */
+    discount?: number;
+    /** Where the discount applies (order subtotal or delivery fee). */
+    appliesTo?: 'order' | 'delivery';
+    /** Required minimum when the failure is `min_spend`. */
+    minSpend?: number;
+    code?: string | null;
+    nameEn?: string;
+    nameKm?: string;
+}
+
+export interface PublicPromo {
+    id: string;
+    code: string | null;
+    nameEn: string;
+    nameKm: string;
+    discountType: 'percent' | 'fixed';
+    appliesTo: 'order' | 'delivery';
+    discountValue: number;
+    minSpend: number;
+    maxDiscount: number | null;
+    endAt: string | null;
+    firstOrderOnly: boolean;
+    newAccountDays: number | null;
+}
+
+/** Promos the logged-in customer is eligible for ("My Coupons"). */
+export async function getMyVouchers(
+    authFetch: (path: string, init?: RequestInit) => Promise<Response>,
+): Promise<PublicPromo[]> {
+    try {
+        const res = await authFetch('/api/account/vouchers/mine');
+        if (!res.ok) return [];
+        const json = (await res.json()) as { data: PublicPromo[] };
+        return json.data ?? [];
+    } catch {
+        return [];
+    }
+}
+
+/** Minimal product shape for the fast search palette. */
+export interface SearchProduct {
+    id: string;
+    slug: string;
+    nameEn: string;
+    nameKm: string;
+    price: number;
+    originalPrice: number | null;
+    totalStock: number;
+    averageRating: number;
+    reviewCount: number;
+    imageUrl: string | null;
+}
+
+/** Fast product search for the header search palette. */
+export async function searchProducts(
+    q: string,
+    limit = 12,
+): Promise<SearchProduct[]> {
+    const term = q.trim();
+    if (!term) return [];
+    try {
+        const res = await apiGet<{ data: SearchProduct[] }>(
+            `/api/products/search?q=${encodeURIComponent(term)}&limit=${limit}`,
+            0,
+        );
+        return res.data ?? [];
+    } catch {
+        return [];
+    }
+}
+
+/** Active promotions to advertise on the storefront (public). */
+export async function getActivePromotions(): Promise<PublicPromo[]> {
+    try {
+        // Fresh each request so promo/announcement edits reflect immediately.
+        const res = await apiGet<{ data: PublicPromo[] }>(
+            '/api/vouchers/active',
+            0,
+        );
+        return res.data ?? [];
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Validate a voucher code against the cart subtotal, or (with no code) fetch
+ * the best automatic promo. Never throws — returns `{ valid: false }` on error.
+ */
+export async function validateVoucher(
+    subtotal: number,
+    code?: string,
+    shippingFee = 0,
+): Promise<VoucherValidation> {
+    try {
+        const res = await fetch(`${API_URL}/api/vouchers/validate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subtotal,
+                code: code || undefined,
+                shippingFee,
+            }),
+        });
+        if (!res.ok) return { valid: false };
+        const json = (await res.json()) as { data: VoucherValidation };
+        return json.data;
+    } catch {
+        return { valid: false };
+    }
+}
+
 /** Resolve a stored file path to an absolute URL on the API host. */
 export function fileUrl(path: string | null | undefined): string | null {
     if (!path) return null;
@@ -33,13 +149,18 @@ export function formatPrice(value: number | string | null | undefined): string {
 }
 
 /**
- * Server-side fetch. Defaults to always-fresh (revalidate 0) so that a live
- * `router.refresh()` triggered by the SSE stream always serves new data.
+ * Server-side fetch. Defaults to always-fresh (`no-store`) so a live
+ * `router.refresh()` from the SSE stream — or a manual reload — always serves
+ * new data and is never pinned by Next's Data Cache. Pass a `revalidate`
+ * (seconds) to opt into time-based caching for rarely-changing data.
  */
 async function apiGet<T>(path: string, revalidate = 0): Promise<T> {
-    const res = await fetch(`${API_URL}${path}`, {
-        next: { revalidate },
-    });
+    const res = await fetch(
+        `${API_URL}${path}`,
+        revalidate === 0
+            ? { cache: 'no-store' }
+            : { next: { revalidate } },
+    );
     if (!res.ok) {
         throw new Error(`API request failed (${res.status}): ${path}`);
     }
@@ -52,6 +173,7 @@ export interface ProductQuery {
     search?: string;
     categoryId?: string;
     brandId?: string;
+    brandIds?: string;
     sortBy?: string;
     sortOrder?: 'ASC' | 'DESC';
 }
@@ -66,6 +188,7 @@ export async function getProducts(
     if (query.search) params.set('search', query.search);
     if (query.categoryId) params.set('categoryId', query.categoryId);
     if (query.brandId) params.set('brandId', query.brandId);
+    if (query.brandIds) params.set('brandIds', query.brandIds);
     if (query.sortBy) params.set('sortBy', query.sortBy);
     if (query.sortOrder) params.set('sortOrder', query.sortOrder);
     // Cache briefly so toggling language / re-renders don't re-hit the API.

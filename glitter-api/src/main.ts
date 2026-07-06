@@ -8,11 +8,13 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
-  // Enable CORS for the dashboard frontend and Next.js frontend
+  // Enable CORS for the dashboard + storefront. Allow any localhost port so
+  // the browser's SSE (live updates) connects no matter which port Next picks
+  // in dev (3000, 3001, 3002…).
   app.enableCors({
     origin: [
-      'http://localhost:3000', // Next.js dev
-      'http://localhost:3001',
+      /^http:\/\/localhost:\d+$/,
+      /^http:\/\/127\.0\.0\.1:\d+$/,
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],

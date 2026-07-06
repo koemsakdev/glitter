@@ -70,6 +70,26 @@ export class ReviewsController {
     return this.reviewsService.findByProduct(productId);
   }
 
+  @Post(':id/helpful')
+  @HttpCode(HttpStatus.OK)
+  @Public()
+  @ApiOperation({ summary: 'Mark a review as helpful' })
+  async markHelpful(
+    @Param('id') id: string,
+  ): Promise<{ helpfulCount: number }> {
+    return this.reviewsService.markHelpful(id);
+  }
+
+  @Post(':id/unhelpful')
+  @HttpCode(HttpStatus.OK)
+  @Public()
+  @ApiOperation({ summary: 'Remove a helpful mark from a review' })
+  async unmarkHelpful(
+    @Param('id') id: string,
+  ): Promise<{ helpfulCount: number }> {
+    return this.reviewsService.unmarkHelpful(id);
+  }
+
   @Patch(':id/status')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)

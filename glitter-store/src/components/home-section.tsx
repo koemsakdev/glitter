@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
 import { ProductCard } from '@/components/product-card';
 import { fileUrl, getBestSellers } from '@/lib/api';
 import { pick, tr, type Lang } from '@/lib/locale';
@@ -33,17 +34,19 @@ export function SectionBlock({
         return (
             <section className="mx-auto max-w-6xl px-4 py-8">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                    <h2 className="flex items-center gap-2.5 text-lg font-bold text-zinc-900 dark:text-zinc-50">
+                        <span className="h-5 w-1 rounded-full bg-(--brand)" />
                         {title}
                     </h2>
                     <Link
                         href="/products"
-                        className="text-sm font-medium text-(--brand) hover:underline"
+                        className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-(--brand)/10 hover:text-(--brand) dark:bg-zinc-800 dark:text-zinc-200"
                     >
                         {tr(lang, 'viewAll')}
+                        <ChevronRight className="size-3.5" />
                     </Link>
                 </div>
-                <div className="stagger mt-5 flex gap-4 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:grid sm:grid-cols-5 sm:gap-3 sm:overflow-visible lg:grid-cols-8 [&::-webkit-scrollbar]:hidden">
+                <div className="stagger mt-6 flex flex-wrap gap-x-6 gap-y-6">
                     {categories.map((c) => {
                         const icon = fileUrl(c.iconUrl);
                         const cname = pick(lang, c.nameEn, c.nameKm);
@@ -51,23 +54,25 @@ export function SectionBlock({
                             <Link
                                 key={c.id}
                                 href={`/products?categoryId=${c.id}`}
-                                className="group flex w-16 shrink-0 flex-col items-center gap-2 sm:w-auto"
+                                className="group flex w-20 shrink-0 flex-col items-center gap-2.5 sm:w-24"
                             >
-                                <span className="flex size-16 items-center justify-center overflow-hidden rounded-full border border-zinc-200 bg-linear-to-br from-pink-50 to-white transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-(--brand) group-hover:shadow-md dark:border-zinc-700 dark:from-zinc-800 dark:to-zinc-900">
+                                {/* iOS-style rounded tile; icon sits centered */}
+                                <span className="relative flex size-20 items-center justify-center overflow-hidden rounded-2xl bg-linear-to-b from-white to-zinc-50 p-4 ring-1 ring-zinc-200/80 transition-all duration-300 ease-out group-hover:-translate-y-1 group-hover:ring-(--brand)/40 group-active:scale-95 sm:size-24 sm:p-5 dark:from-zinc-800 dark:to-zinc-900 dark:ring-zinc-700">
                                     {icon ? (
                                         // eslint-disable-next-line @next/next/no-img-element
                                         <img
                                             src={icon}
                                             alt=""
-                                            className="size-full object-cover"
+                                            className="size-full object-contain transition-transform duration-300 group-hover:scale-110"
                                         />
                                     ) : (
-                                        <span className="text-xl font-bold text-(--brand)">
+                                        <span className="text-3xl font-bold text-(--brand)">
                                             {cname.charAt(0)}
                                         </span>
                                     )}
                                 </span>
-                                <span className="line-clamp-1 max-w-16 text-center text-xs font-medium text-zinc-600 transition-colors group-hover:text-(--brand) dark:text-zinc-400 sm:max-w-full">
+
+                                <span className="line-clamp-1 w-full text-center text-xs font-medium text-zinc-700 transition-colors group-hover:text-(--brand) dark:text-zinc-300">
                                     {cname}
                                 </span>
                             </Link>
@@ -87,12 +92,16 @@ export function SectionBlock({
     return (
         <section className="mx-auto max-w-6xl px-4 py-6">
             <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
+                <h2 className="flex items-center gap-2.5 text-lg font-bold text-zinc-900 dark:text-zinc-50">
+                    <span className="h-5 w-1 rounded-full bg-(--brand)" />
+                    {title}
+                </h2>
                 <Link
                     href={viewAllHref}
-                    className="text-sm font-medium text-(--brand) hover:underline"
+                    className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-(--brand)/10 hover:text-(--brand) dark:bg-zinc-800 dark:text-zinc-200"
                 >
                     {tr(lang, 'viewAll')}
+                    <ChevronRight className="size-3.5" />
                 </Link>
             </div>
             {products.length === 0 ? (

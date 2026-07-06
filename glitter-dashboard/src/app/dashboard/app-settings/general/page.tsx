@@ -6,9 +6,9 @@ import { useState } from "react";
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { ResponsiveModal } from "@/components/responsive-modal";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { BilingualField } from "@/features/settings/components/settings-shared";
 import { LogoFormDialog } from "@/features/settings/components/logo-form-dialog";
+import { DeliveryConfigCard } from "@/features/settings/components/delivery-config-card";
 import { LoadingScreen } from "@/components/feedback/loading-screen";
 import {
   useSaveStoreConfig,
@@ -284,70 +284,12 @@ export default function GeneralSettingsPage() {
         })}
       </div>
 
-      {/* Delivery */}
-      <div className="rounded-xl border bg-card p-5">
-        <h3 className="text-sm font-semibold">
-          {t("settings.delivery.title")}
-        </h3>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {t("settings.delivery.note")}
-        </p>
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              {t("settings.delivery.fee")}
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                $
-              </span>
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                defaultValue={config.delivery.fee}
-                onBlur={(e) =>
-                  persist({
-                    delivery: {
-                      ...config.delivery,
-                      fee: Math.max(0, Number(e.target.value) || 0),
-                    },
-                  })
-                }
-                className="h-10 pl-7"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              {t("settings.delivery.freeOver")}
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                $
-              </span>
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                defaultValue={config.delivery.freeOver}
-                onBlur={(e) =>
-                  persist({
-                    delivery: {
-                      ...config.delivery,
-                      freeOver: Math.max(0, Number(e.target.value) || 0),
-                    },
-                  })
-                }
-                className="h-10 pl-7"
-              />
-            </div>
-          </div>
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {t("settings.delivery.hint")}
-        </p>
-      </div>
+      {/* Delivery, regions & payment options */}
+      <DeliveryConfigCard
+        value={config.delivery}
+        saving={save.isPending}
+        onChange={(delivery) => persist({ delivery })}
+      />
 
       {editing && (
         <EditDialog

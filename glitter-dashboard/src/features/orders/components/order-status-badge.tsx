@@ -62,7 +62,9 @@ export function OrderStatusBadge({ status }: { status: OrderStatus }) {
     const style = STATUS_STYLES[status];
     return (
         <Badge className={style.bg}>
-            <span className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`} />
+            <span
+                className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`}
+            />
             {t(STATUS_LABELS[status])}
         </Badge>
     );

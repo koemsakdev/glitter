@@ -20,7 +20,10 @@ import {
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
-import { ProductsService } from './product.service';
+import {
+  ProductsService,
+  type ProductSearchItem,
+} from './product.service';
 import {
   ProductDetailResponseDto,
   ProductListResponseDto,
@@ -90,6 +93,21 @@ export class ProductsController {
   ): Promise<ProductListResponse> {
     const n = Math.min(Math.max(parseInt(limit ?? '8', 10) || 8, 1), 24);
     return this.productsService.findBestSelling(n);
+  }
+
+  @Public()
+  @Get('search')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Fast product search (for the storefront search palette)',
+    description: 'Minimal fields only — no variant/badge hydration.',
+  })
+  async searchLite(
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+  ): Promise<{ data: ProductSearchItem[] }> {
+    const n = Math.min(Math.max(parseInt(limit ?? '12', 10) || 12, 1), 24);
+    return this.productsService.searchLite(q ?? '', n);
   }
 
   /**

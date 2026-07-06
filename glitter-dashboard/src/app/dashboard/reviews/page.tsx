@@ -1,10 +1,12 @@
 'use client';
 
-import { Check, EyeOff, Star, Trash2 } from 'lucide-react';
+import { BadgeCheck, Check, EyeOff, Star, Trash2 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { Button } from '@/components/ui/button';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import {
     useDeleteReview,
@@ -12,6 +14,7 @@ import {
     useSetReviewStatus,
 } from '@/features/reviews/use-reviews';
 import { getErrorMessage } from '@/lib/api-client';
+import { getFileUrl } from '@/lib/file-url';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -57,10 +60,16 @@ export default function ReviewsPage() {
     const { t } = useI18n();
     const { toast } = useToast();
     const [tab, setTab] = useState<ReviewStatus | 'all'>('all');
-    const { data, isLoading } = useReviews(tab === 'all' ? undefined : tab);
+    const { data, isLoading, isFetching } = useReviews(
+        tab === 'all' ? undefined : tab,
+    );
     const setStatus = useSetReviewStatus();
     const del = useDeleteReview();
     const [deleting, setDeleting] = useState<Review | null>(null);
+    const [lightbox, setLightbox] = useState<{
+        images: { src: string; alt: string }[];
+        index: number;
+    } | null>(null);
 
     const reviews = data?.data ?? [];
 
@@ -114,8 +123,20 @@ export default function ReviewsPage() {
                     </p>
                 </div>
             ) : (
-                <div className="stagger space-y-3">
-                    {reviews.map((r) => (
+                <div
+                    className={cn(
+                        'stagger space-y-3 transition-opacity',
+                        isFetching && 'opacity-60',
+                    )}
+                >
+                    {reviews.map((r) => {
+                        const reviewImages = (r.imageUrls ?? [])
+                            .map((u) => ({
+                                src: getFileUrl(u) ?? '',
+                                alt: r.reviewerName,
+                            }))
+                            .filter((x) => x.src);
+                        return (
                         <div
                             key={r.id}
                             className="rounded-xl border bg-card p-4"
@@ -128,16 +149,44 @@ export default function ReviewsPage() {
                                     >
                                         {r.productNameEn ?? '—'}
                                     </Link>
-                                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                                        <Stars rating={r.rating} />
-                                        <span className="text-xs text-muted-foreground">
-                                            {t('reviews.by')} {r.reviewerName}
+                                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                        <span className="relative shrink-0">
+                                            {getFileUrl(r.reviewerImageUrl) ? (
+                                                <Image
+                                                    src={
+                                                        getFileUrl(
+                                                            r.reviewerImageUrl,
+                                                        ) ?? ''
+                                                    }
+                                                    alt={r.reviewerName}
+                                                    width={24}
+                                                    height={24}
+                                                    unoptimized
+                                                    className="size-6 rounded-full object-cover ring-1 ring-border"
+                                                />
+                                            ) : (
+                                                <span className="flex size-6 items-center justify-center rounded-full bg-pink-100 text-[10px] font-bold text-pink-700 dark:bg-pink-500/15 dark:text-pink-300">
+                                                    {r.reviewerName
+                                                        .charAt(0)
+                                                        .toUpperCase()}
+                                                </span>
+                                            )}
+                                            {r.verifiedPurchase && (
+                                                <BadgeCheck className="absolute -bottom-1 -right-1 size-3.5 rounded-full bg-card fill-[#1877f2] text-white" />
+                                            )}
                                         </span>
-                                        {r.verifiedPurchase && (
-                                            <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-                                                {t('reviews.verified')}
-                                            </span>
-                                        )}
+                                        <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
+                                            {r.reviewerName}
+                                            {r.verifiedPurchase && (
+                                                <BadgeCheck
+                                                    className="size-4 fill-[#1877f2] text-white"
+                                                    aria-label={t(
+                                                        'reviews.verified',
+                                                    )}
+                                                />
+                                            )}
+                                        </span>
+                                        <Stars rating={r.rating} />
                                     </div>
                                 </div>
                                 <span
@@ -159,6 +208,33 @@ export default function ReviewsPage() {
                                 <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">
                                     {r.commentEn || r.commentKm}
                                 </p>
+                            )}
+
+                            {reviewImages.length > 0 && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {reviewImages.map((img, i) => (
+                                        <button
+                                            key={i}
+                                            type="button"
+                                            onClick={() =>
+                                                setLightbox({
+                                                    images: reviewImages,
+                                                    index: i,
+                                                })
+                                            }
+                                            className="size-16 overflow-hidden rounded-lg border bg-muted/30 transition-transform hover:scale-105"
+                                        >
+                                            <Image
+                                                src={img.src}
+                                                alt=""
+                                                width={64}
+                                                height={64}
+                                                unoptimized
+                                                className="size-full object-cover"
+                                            />
+                                        </button>
+                                    ))}
+                                </div>
                             )}
 
                             <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
@@ -200,7 +276,8 @@ export default function ReviewsPage() {
                                 </Button>
                             </div>
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
@@ -225,6 +302,12 @@ export default function ReviewsPage() {
                             onError,
                         });
                 }}
+            />
+
+            <ImageLightbox
+                images={lightbox?.images ?? []}
+                initialIndex={lightbox ? lightbox.index : null}
+                onClose={() => setLightbox(null)}
             />
         </div>
     );

@@ -15,6 +15,7 @@ import {
 import type { Announcement } from '@/features/settings/store-config';
 import { getErrorMessage } from '@/lib/api-client';
 import { useI18n } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 const CONFIG_KEY = ['app-settings', 'store-config'] as const;
@@ -118,7 +119,32 @@ export default function HomeSettingsPage() {
                 </div>
             ) : (
                 <div className="stagger space-y-2">
-                    {announcements.map((a) => (
+                    {announcements.map((a) => {
+                        // Match the storefront's date-only window: an
+                        // announcement stops showing once its end date passes,
+                        // and only starts once its start date arrives.
+                        // Local date (not UTC) so it matches the picked dates.
+                        const now = new Date();
+                        const today = `${now.getFullYear()}-${String(
+                            now.getMonth() + 1,
+                        ).padStart(2, '0')}-${String(now.getDate()).padStart(
+                            2,
+                            '0',
+                        )}`;
+                        const endDay = a.endAt ? a.endAt.slice(0, 10) : null;
+                        const startDay = a.startAt
+                            ? a.startAt.slice(0, 10)
+                            : null;
+                        const expired = !!endDay && endDay < today;
+                        const scheduled = !!startDay && startDay > today;
+                        const statusLabel = expired
+                            ? t('settings.announce.expired')
+                            : scheduled && a.enabled
+                              ? t('settings.announce.scheduled')
+                              : a.enabled
+                                ? t('settings.sections.visible')
+                                : t('settings.banner.hidden');
+                        return (
                         <div
                             key={a.id}
                             className="flex items-center gap-3 rounded-xl border bg-card p-3"
@@ -136,14 +162,21 @@ export default function HomeSettingsPage() {
                             </div>
                             <label className="flex cursor-pointer items-center gap-2">
                                 <Switch
-                                    checked={a.enabled}
+                                    checked={a.enabled && !expired}
+                                    disabled={expired}
                                     onCheckedChange={() => toggle(a)}
-                                    className="data-checked:bg-pink-500 dark:data-checked:bg-pink-600"
                                 />
-                                <span className="hidden text-sm font-medium text-muted-foreground sm:inline">
-                                    {a.enabled
-                                        ? t('settings.sections.visible')
-                                        : t('settings.banner.hidden')}
+                                <span
+                                    className={cn(
+                                        'hidden text-sm font-medium sm:inline',
+                                        expired
+                                            ? 'text-amber-600 dark:text-amber-400'
+                                            : scheduled && a.enabled
+                                              ? 'text-blue-600 dark:text-blue-400'
+                                              : 'text-muted-foreground',
+                                    )}
+                                >
+                                    {statusLabel}
                                 </span>
                             </label>
                             <Button
@@ -163,7 +196,8 @@ export default function HomeSettingsPage() {
                                 <Trash2 className="size-4" />
                             </Button>
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 

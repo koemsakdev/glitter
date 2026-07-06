@@ -1,7 +1,7 @@
 'use client';
 
 import { GoogleMap, MarkerF } from '@react-google-maps/api';
-import { Loader2, LocateFixed, MapPin, Search } from 'lucide-react';
+import { Layers, Loader2, LocateFixed, MapPin, Search } from 'lucide-react';
 import * as React from 'react';
 import { DEFAULT_CENTER, useGoogleMaps } from '@/lib/google-maps';
 import {
@@ -65,6 +65,9 @@ export function MapPicker({
 }: MapPickerProps) {
     const { isLoaded, loadError } = useGoogleMaps();
     const [locating, setLocating] = React.useState(false);
+    const [mapType, setMapType] = React.useState<'roadmap' | 'hybrid'>(
+        'roadmap',
+    );
 
     // Initial viewport center — captured once so dropping pins doesn't recenter.
     const [center] = React.useState(() => ({
@@ -73,6 +76,14 @@ export function MapPicker({
     }));
 
     const mapRef = React.useRef<google.maps.Map | null>(null);
+
+    const toggleMapType = React.useCallback(() => {
+        setMapType((t) => {
+            const next = t === 'roadmap' ? 'hybrid' : 'roadmap';
+            mapRef.current?.setMapTypeId(next);
+            return next;
+        });
+    }, []);
 
     const markerPosition = {
         lat: Number.isFinite(latitude) ? latitude : center.lat,
@@ -158,14 +169,9 @@ export function MapPicker({
                             mapRef.current = null;
                         }}
                         onClick={emit}
+                        mapTypeId={mapType}
                         options={{
-                            mapTypeControl: true,
-                            // Move the Map/Satellite toggle to the top-right so it
-                            // doesn't sit under the search box (top-left).
-                            mapTypeControlOptions: {
-                                position:
-                                    google.maps.ControlPosition.TOP_RIGHT,
-                            },
+                            mapTypeControl: false,
                             streetViewControl: false,
                             fullscreenControl: false,
                             zoomControl: true,
@@ -180,25 +186,42 @@ export function MapPicker({
                         />
                     </GoogleMap>
 
+                    {/* Prominent search bar, like Google Maps */}
                     <PlaceSearchBox
                         placeholder={searchPlaceholder}
                         noResultsText={searchNoResultsText}
                         onSelect={handleSearchSelect}
                     />
 
+                    {/* Layers (map type) toggle — bottom-left */}
+                    <button
+                        type="button"
+                        onClick={toggleMapType}
+                        className="absolute bottom-3 left-3 z-10 flex items-center gap-2 rounded-xl bg-white p-1.5 pr-3 shadow-[0_2px_6px_rgba(0,0,0,0.3)] hover:bg-gray-50"
+                        aria-label="Toggle map layers"
+                    >
+                        <span className="flex size-8 items-center justify-center rounded-lg bg-linear-to-br from-emerald-500 to-blue-600 text-white">
+                            <Layers className="size-4" />
+                        </span>
+                        <span className="text-xs font-medium text-gray-800">
+                            {mapType === 'roadmap' ? 'Satellite' : 'Map'}
+                        </span>
+                    </button>
+
+                    {/* Current location — bottom-right (Google-style round button) */}
                     {showCurrentLocation && (
                         <button
                             type="button"
                             onClick={handleCurrentLocation}
                             disabled={locating}
-                            className="absolute bottom-3 left-3 z-10 flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-[0_2px_6px_rgba(0,0,0,0.3)] hover:bg-gray-50 disabled:opacity-60"
+                            title={currentLocationText}
+                            className="absolute bottom-3 right-3 z-10 flex size-10 items-center justify-center rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.3)] hover:bg-gray-50 disabled:opacity-60"
                         >
                             {locating ? (
-                                <Loader2 className="size-4 animate-spin text-gray-500" />
+                                <Loader2 className="size-5 animate-spin text-gray-500" />
                             ) : (
-                                <LocateFixed className="size-4 text-pink-500" />
+                                <LocateFixed className="size-5 text-pink-500" />
                             )}
-                            {currentLocationText}
                         </button>
                     )}
                 </>
@@ -277,11 +300,11 @@ function PlaceSearchBox({
     return (
         <div
             ref={boxRef}
-            className="absolute left-3 top-3 z-10 w-80 max-w-[calc(100%-1.5rem)]"
+            className="absolute left-3 top-3 z-10 w-[62%] max-w-[18rem]"
         >
-            {/* White, shadowed search field styled like the Google Maps search box */}
-            <div className="relative flex items-center rounded-lg bg-white shadow-[0_2px_6px_rgba(0,0,0,0.3)]">
-                <Search className="pointer-events-none absolute left-3 size-5 text-gray-500" />
+            {/* Prominent rounded search bar, like the Google Maps app */}
+            <div className="relative flex items-center rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.25)]">
+                <Search className="pointer-events-none absolute left-4 size-5 text-gray-500" />
                 <input
                     type="text"
                     value={query}
@@ -293,15 +316,15 @@ function PlaceSearchBox({
                         if (e.key === 'Enter') e.preventDefault();
                         if (e.key === 'Escape') setOpen(false);
                     }}
-                    className="h-11 w-full rounded-lg border-0 bg-transparent pl-10 pr-10 text-sm text-gray-900 placeholder:text-gray-500 outline-none"
+                    className="h-12 w-full rounded-full border-0 bg-transparent pl-12 pr-10 text-sm text-gray-900 placeholder:text-gray-500 outline-none"
                 />
                 {loading && (
-                    <Loader2 className="absolute right-3 size-4 animate-spin text-gray-500" />
+                    <Loader2 className="absolute right-4 size-4 animate-spin text-gray-500" />
                 )}
             </div>
 
             {showDropdown && (
-                <div className="mt-1.5 overflow-hidden rounded-lg bg-white shadow-[0_2px_6px_rgba(0,0,0,0.3)]">
+                <div className="mt-2 overflow-hidden rounded-2xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.25)]">
                     {results.length > 0 ? (
                         <ul className="max-h-64 overflow-y-auto py-1">
                             {results.map((result, i) => (

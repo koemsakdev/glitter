@@ -7,6 +7,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThanOrEqual, Repository } from 'typeorm';
 import { ProductEntity } from '../products/entities/product.entity';
+import { BadgeEntity } from '../badges/entities/badge.entity';
+import { RealtimeService } from '../realtime/realtime.service';
 import { CreateProductBadgeDto } from './dto/create-product-badge.dto';
 import { UpdateProductBadgeDto } from './dto/update-product-badge.dto';
 import {
@@ -50,7 +52,75 @@ export class ProductBadgesService {
     private readonly badgeRepository: Repository<ProductBadgeEntity>,
     @InjectRepository(ProductEntity)
     private readonly productRepository: Repository<ProductEntity>,
+    @InjectRepository(BadgeEntity)
+    private readonly catalogRepository: Repository<BadgeEntity>,
+    private readonly realtime: RealtimeService,
   ) {}
+
+  /** Resolve a badge type's label/colour: built-in default → catalog → fallback. */
+  private async resolveBadgeMeta(
+    badgeType: string,
+  ): Promise<{ labelEn: string; labelKm: string; color: string }> {
+    const def = DEFAULT_LABELS[badgeType];
+    const defColor = DEFAULT_COLORS[badgeType];
+    let labelEn = def?.en;
+    let labelKm = def?.km;
+    let color = defColor;
+    if (labelEn == null || labelKm == null || color == null) {
+      const catalog = await this.catalogRepository.findOne({
+        where: { slug: badgeType },
+      });
+      labelEn = labelEn ?? catalog?.nameEn ?? badgeType.toUpperCase();
+      labelKm = labelKm ?? catalog?.nameKm ?? badgeType;
+      color = color ?? catalog?.color ?? '#64748b';
+    }
+    return { labelEn, labelKm, color };
+  }
+
+  /**
+   * Replace a product's whole badge set in one shot. This is what the product
+   * editor uses — it's atomic, so the stored badges always match exactly what
+   * was selected (no stale leftovers from incremental add/remove).
+   */
+  async setForProduct(
+    productId: string,
+    badgeTypes: string[],
+  ): Promise<ProductBadgeListResponse> {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+    });
+    if (product === null) {
+      throw new BadRequestException(`Product with ID ${productId} not found`);
+    }
+
+    const unique = [...new Set(badgeTypes)].slice(0, 2);
+    const metas = await Promise.all(
+      unique.map((badgeType) => this.resolveBadgeMeta(badgeType)),
+    );
+
+    // Replace the set inside a transaction so a concurrent storefront read
+    // never sees the in-between state where the product has zero badges.
+    await this.badgeRepository.manager.transaction(async (em) => {
+      await em.delete(ProductBadgeEntity, { productId });
+      if (unique.length > 0) {
+        const rows = unique.map((badgeType, i) =>
+          em.create(ProductBadgeEntity, {
+            productId,
+            badgeType,
+            badgeLabelEn: metas[i].labelEn,
+            badgeLabelKm: metas[i].labelKm,
+            badgeIconColor: metas[i].color,
+            badgeStartDate: null,
+            badgeEndDate: null,
+          }),
+        );
+        await em.save(rows);
+      }
+    });
+
+    this.realtime.publish('products');
+    return this.findByProduct(productId);
+  }
 
   async create(
     dto: CreateProductBadgeDto,
@@ -85,17 +155,35 @@ export class ProductBadgesService {
       );
     }
 
+    // Resolve label/color. Built-in types have defaults; custom badge slugs
+    // are looked up in the badge catalog; anything else falls back gracefully
+    // (so an unknown type never crashes the create).
+    const def = DEFAULT_LABELS[dto.badgeType];
+    const defColor = DEFAULT_COLORS[dto.badgeType];
+    let labelEn = dto.badgeLabelEn ?? def?.en;
+    let labelKm = dto.badgeLabelKm ?? def?.km;
+    let color = dto.badgeIconColor ?? defColor;
+    if (labelEn == null || labelKm == null || color == null) {
+      const catalog = await this.catalogRepository.findOne({
+        where: { slug: dto.badgeType },
+      });
+      labelEn = labelEn ?? catalog?.nameEn ?? dto.badgeType.toUpperCase();
+      labelKm = labelKm ?? catalog?.nameKm ?? dto.badgeType;
+      color = color ?? catalog?.color ?? '#64748b';
+    }
+
     const entity = this.badgeRepository.create({
       productId: dto.productId,
       badgeType: dto.badgeType,
-      badgeLabelEn: dto.badgeLabelEn ?? DEFAULT_LABELS[dto.badgeType].en,
-      badgeLabelKm: dto.badgeLabelKm ?? DEFAULT_LABELS[dto.badgeType].km,
-      badgeIconColor: dto.badgeIconColor ?? DEFAULT_COLORS[dto.badgeType],
+      badgeLabelEn: labelEn,
+      badgeLabelKm: labelKm,
+      badgeIconColor: color,
       badgeStartDate: dto.badgeStartDate ?? null,
       badgeEndDate: dto.badgeEndDate ?? null,
     });
 
     const saved = await this.badgeRepository.save(entity);
+    this.realtime.publish('products');
     return { data: this.toResponse(saved) };
   }
 
@@ -205,6 +293,7 @@ export class ProductBadgesService {
     }
 
     const updated = await this.badgeRepository.save(badge);
+    this.realtime.publish('products');
     return { data: this.toResponse(updated) };
   }
 
@@ -216,6 +305,7 @@ export class ProductBadgesService {
     }
 
     await this.badgeRepository.remove(badge);
+    this.realtime.publish('products');
   }
 
   /**

@@ -9,6 +9,7 @@ import { In, Repository } from 'typeorm';
 import { CategoryEntity } from '../category/entities/category.entity';
 import { BrandEntity } from '../brands/entities/brand.entity';
 import { ProductVariantEntity } from '../product-variants/entities/product-variant.entity';
+import { BadgeEntity } from '../badges/entities/badge.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
@@ -24,6 +25,20 @@ import {
 } from './types/product-response.type';
 import { RealtimeService } from '../realtime/realtime.service';
 
+/** Minimal product shape for the fast search palette. */
+export interface ProductSearchItem {
+  id: string;
+  slug: string;
+  nameEn: string;
+  nameKm: string;
+  price: number;
+  originalPrice: number | null;
+  totalStock: number;
+  averageRating: number;
+  reviewCount: number;
+  imageUrl: string | null;
+}
+
 @Injectable()
 export class ProductsService {
   constructor(
@@ -35,6 +50,8 @@ export class ProductsService {
     private readonly brandRepository: Repository<BrandEntity>,
     @InjectRepository(ProductVariantEntity)
     private readonly variantRepository: Repository<ProductVariantEntity>,
+    @InjectRepository(BadgeEntity)
+    private readonly badgeRepository: Repository<BadgeEntity>,
     private readonly realtime: RealtimeService,
   ) {}
 
@@ -167,7 +184,13 @@ export class ProductsService {
       });
     }
 
-    if (query.brandId) {
+    const brandIds = (query.brandIds ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (brandIds.length > 0) {
+      qb.andWhere('product.brandId IN (:...brandIds)', { brandIds });
+    } else if (query.brandId) {
       qb.andWhere('product.brandId = :brandId', { brandId: query.brandId });
     }
 
@@ -236,6 +259,7 @@ export class ProductsService {
               brand: true,
               images: true,
               variants: true,
+              badges: true,
             },
             relationLoadStrategy: 'query',
           })
@@ -269,12 +293,17 @@ export class ProductsService {
       });
     }
 
+    // The badges catalog is the source of truth for a badge's label/colour,
+    // so renaming/recolouring a badge there flows straight to the storefront.
+    const badgeMap = await this.loadBadgeMap();
+
     return {
       data: products.map((product: ProductEntity) => {
         const response = this.toResponseWithRelations(product);
         if (branchStockByProduct) {
           response.branchStock = branchStockByProduct.get(product.id) ?? 0;
         }
+        this.resolveBadges(response, badgeMap);
         return response;
       }),
       total: Number(total),
@@ -283,32 +312,127 @@ export class ProductsService {
     };
   }
 
-  /**
-   * Best-selling active products by total units sold (from order_items).
-   * Falls back to recent products to fill the list when there are few sales.
-   */
-  async findBestSelling(limit = 8): Promise<ProductListResponse> {
-    const rows: Array<{ product_id: string }> =
-      await this.productRepository.query(
-        `SELECT oi.product_id, SUM(oi.quantity) AS sold
-         FROM order_items oi
-         GROUP BY oi.product_id
-         ORDER BY sold DESC
-         LIMIT $1`,
-        [limit],
-      );
-    const ids = rows.map((r) => r.product_id);
+  /** Load the badge catalog keyed by slug (which is stored as badge_type). */
+  private async loadBadgeMap(): Promise<Map<string, BadgeEntity>> {
+    const catalog = await this.badgeRepository.find();
+    return new Map(catalog.map((b) => [b.slug, b]));
+  }
 
-    if (ids.length < limit) {
-      const recent = await this.productRepository.find({
-        where: { status: 'active' },
-        order: { createdAt: 'DESC' },
-        take: limit,
+  /**
+   * Resolve a response's badge labels/colours from the catalog. The catalog is
+   * the source of truth (so edits show immediately); the per-product cached
+   * value and finally the slug are only fallbacks.
+   */
+  private resolveBadges(
+    response: ProductResponse,
+    badgeMap: Map<string, BadgeEntity>,
+  ): void {
+    if (!response.badges || response.badges.length === 0) return;
+    response.badges = response.badges.map((b) => {
+      const cat = badgeMap.get(b.badgeType);
+      return {
+        badgeType: b.badgeType,
+        badgeLabelEn: cat?.nameEn ?? b.badgeLabelEn ?? b.badgeType,
+        badgeLabelKm: cat?.nameKm ?? b.badgeLabelKm ?? b.badgeType,
+        badgeIconColor: cat?.color ?? b.badgeIconColor ?? '#64748b',
+      };
+    });
+  }
+
+  /**
+   * Lightweight product search for the storefront search palette. Returns only
+   * the fields the dropdown needs (name, price, one image, rating) — no
+   * variants/badges/brand/category hydration — so it responds fast.
+   */
+  async searchLite(
+    q: string,
+    limit = 12,
+  ): Promise<{ data: ProductSearchItem[] }> {
+    const term = q.trim();
+    if (!term) return { data: [] };
+
+    const rows = await this.productRepository
+      .createQueryBuilder('p')
+      .where('p.status = :status', { status: 'active' })
+      .andWhere(
+        '(p.nameEn ILIKE :q OR p.nameKm ILIKE :q OR p.sku ILIKE :q)',
+        { q: `%${term}%` },
+      )
+      .orderBy('p.reviewCount', 'DESC')
+      .addOrderBy('p.averageRating', 'DESC')
+      .take(limit)
+      .getMany();
+
+    const ids = rows.map((r) => r.id);
+    const imageByProduct = new Map<string, string>();
+    if (ids.length > 0) {
+      const imaged = await this.productRepository.find({
+        where: { id: In(ids) },
+        relations: { images: true },
+        relationLoadStrategy: 'query',
       });
-      for (const p of recent) {
-        if (!ids.includes(p.id) && ids.length < limit) ids.push(p.id);
+      for (const p of imaged) {
+        const imgs = p.images ?? [];
+        const primary =
+          imgs.find((i) => i.imageType === 'primary') ??
+          [...imgs].sort((a, b) => a.displayOrder - b.displayOrder)[0];
+        if (primary) imageByProduct.set(p.id, primary.imageUrl);
       }
     }
+
+    return {
+      data: rows.map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        nameEn: p.nameEn,
+        nameKm: p.nameKm,
+        price: Number(p.price),
+        originalPrice: p.originalPrice != null ? Number(p.originalPrice) : null,
+        totalStock: p.totalStock,
+        averageRating: p.averageRating,
+        reviewCount: p.reviewCount,
+        imageUrl: imageByProduct.get(p.id) ?? null,
+      })),
+    };
+  }
+
+  /**
+   * "Popular" active products, ranked by a popularity score that blends real
+   * signals: units sold (non-cancelled orders), wishlist saves, review volume
+   * and rating. Unlike the old logic — which padded the list with the newest
+   * products and so just mirrored "New arrivals" — newest is only the final
+   * tiebreaker when nothing else differentiates two products.
+   */
+  async findBestSelling(limit = 8): Promise<ProductListResponse> {
+    const rows: Array<{ id: string }> = await this.productRepository.query(
+      `SELECT p.id
+       FROM products p
+       LEFT JOIN (
+         SELECT oi.product_id, SUM(oi.quantity) AS sold
+         FROM order_items oi
+         JOIN orders o ON o.id = oi.order_id
+           AND o.status NOT IN ('cancelled', 'refunded')
+         GROUP BY oi.product_id
+       ) s ON s.product_id = p.id
+       LEFT JOIN (
+         SELECT product_id, COUNT(*) AS wishes
+         FROM wishlist_items
+         GROUP BY product_id
+       ) w ON w.product_id = p.id
+       WHERE p.status = 'active'
+       ORDER BY (
+         COALESCE(s.sold, 0) * 5
+         + COALESCE(w.wishes, 0) * 3
+         + p.review_count * 2
+         + p.average_rating
+       ) DESC,
+       p.review_count DESC,
+       p.average_rating DESC,
+       p.created_at DESC
+       LIMIT $1`,
+      [limit],
+    );
+    const ids = rows.map((r) => r.id);
 
     if (ids.length === 0) {
       return { data: [], total: 0, page: 1, limit };
@@ -371,7 +495,7 @@ export class ProductsService {
   async findBySlug(slug: string): Promise<ProductDetailResponse> {
     const product = await this.productRepository.findOne({
       where: { slug },
-      relations: ['category', 'brand', 'images', 'variants'],
+      relations: ['category', 'brand', 'images', 'variants', 'badges'],
       order: { images: { displayOrder: 'ASC' } },
     });
 
@@ -379,15 +503,15 @@ export class ProductsService {
       throw new NotFoundException(`Product with slug "${slug}" not found`);
     }
 
-    return {
-      data: this.toResponseWithRelations(product),
-    };
+    const data = this.toResponseWithRelations(product);
+    this.resolveBadges(data, await this.loadBadgeMap());
+    return { data };
   }
 
   async findBySku(sku: string): Promise<ProductDetailResponse> {
     const product = await this.productRepository.findOne({
       where: { sku },
-      relations: ['category', 'brand', 'images', 'variants'],
+      relations: ['category', 'brand', 'images', 'variants', 'badges'],
       order: { images: { displayOrder: 'ASC' } },
     });
 
@@ -395,9 +519,9 @@ export class ProductsService {
       throw new NotFoundException(`Product with SKU "${sku}" not found`);
     }
 
-    return {
-      data: this.toResponseWithRelations(product),
-    };
+    const data = this.toResponseWithRelations(product);
+    this.resolveBadges(data, await this.loadBadgeMap());
+    return { data };
   }
 
   async update(
@@ -677,6 +801,28 @@ export class ProductsService {
             effectivePrice: priceOverride ?? productPrice,
           };
         });
+    }
+
+    if (entity.badges) {
+      const now = new Date();
+      base.badges = entity.badges
+        .slice()
+        // Newest first, so the most recently set badge is the one shown.
+        .sort(
+          (a, b) =>
+            (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0),
+        )
+        .filter((b) => {
+          if (b.badgeStartDate && now < b.badgeStartDate) return false;
+          if (b.badgeEndDate && now > b.badgeEndDate) return false;
+          return true;
+        })
+        .map((b) => ({
+          badgeType: b.badgeType,
+          badgeLabelEn: b.badgeLabelEn,
+          badgeLabelKm: b.badgeLabelKm,
+          badgeIconColor: b.badgeIconColor,
+        }));
     }
 
     return base;

@@ -55,6 +55,13 @@ export class ProductQueryDto {
   brandId?: string;
 
   @ApiPropertyOptional({
+    description: 'Filter by multiple brand UUIDs (comma-separated)',
+  })
+  @IsOptional()
+  @IsString()
+  brandIds?: string;
+
+  @ApiPropertyOptional({
     description: 'Filter to products with inventory at this branch UUID',
   })
   @IsOptional()

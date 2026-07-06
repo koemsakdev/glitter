@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { ProductCard } from '@/components/product-card';
+import { BackLink } from '@/components/ui/back-link';
 import { useAuth } from '@/lib/auth';
 import { useWishlist } from '@/lib/wishlist';
 import { tr, type Lang } from '@/lib/locale';
@@ -26,6 +27,7 @@ export function WishlistView({ lang }: { lang: Lang }) {
 
     return (
         <div className="mx-auto max-w-6xl px-4 py-12">
+            <BackLink lang={lang} fallbackHref="/account" className="mb-3" />
             <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                 {tr(lang, 'myWishlist')}
             </h1>

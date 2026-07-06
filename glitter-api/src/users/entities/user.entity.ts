@@ -14,7 +14,7 @@ import { BranchEntity } from '../../branch/entities/branch.entity';
 
 export type AccountStatus = 'active' | 'suspended' | 'deleted';
 
-export type ProfileImageSource = 'none' | 'oauth' | 'uploaded';
+export type ProfileImageSource = 'none' | 'oauth' | 'uploaded' | 'removed';
 
 /**
  * User roles — determines what the user can access in the admin dashboard.
@@ -82,7 +82,7 @@ export class UserEntity {
 
   @Column({
     type: 'enum',
-    enum: ['none', 'oauth', 'uploaded'],
+    enum: ['none', 'oauth', 'uploaded', 'removed'],
     default: 'none',
     name: 'profile_image_source',
   })
