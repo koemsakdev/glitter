@@ -37,7 +37,7 @@ type DeleteTarget =
     | { kind: 'region' | 'method' | 'payment'; id: string; name: string }
     | null;
 
-type Section = 'regions' | 'methods' | 'payments';
+type Section = 'regions' | 'methods' | 'payments' | 'hold';
 
 export function DeliveryConfigCard({
     value,
@@ -249,6 +249,48 @@ export function DeliveryConfigCard({
                     />
                 ))}
             </ListCard>
+
+            {/* Pay-first hold timeout */}
+            <div className="rounded-xl border bg-card">
+                <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-semibold">
+                                {t('settings.delivery.hold')}
+                            </h3>
+                            {saving && touched === 'hold' && (
+                                <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Loader className="mb-0.5 size-3 animate-spin" />
+                                    {t('common.saving')}
+                                </span>
+                            )}
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                            {t('settings.delivery.holdNote')}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-3 px-5 py-4">
+                    <input
+                        type="number"
+                        min={1}
+                        value={value.holdMinutes ?? 30}
+                        onChange={(e) =>
+                            commit('hold', {
+                                ...value,
+                                holdMinutes: Math.max(
+                                    1,
+                                    Math.round(Number(e.target.value) || 0),
+                                ),
+                            })
+                        }
+                        className="h-11 w-28 rounded-lg border bg-background px-3 text-sm"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                        {t('settings.delivery.holdMinutes')}
+                    </span>
+                </div>
+            </div>
 
             {regionDialog && (
                 <RegionFormDialog

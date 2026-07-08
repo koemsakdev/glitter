@@ -4,7 +4,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, GripVertical, Loader } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
-import { DEFAULT_NAV_ORDER } from '@/features/settings/store-config';
+import {
+    DEFAULT_NAV_ORDER,
+    type StoreConfig,
+} from '@/features/settings/store-config';
 import {
     useSaveStoreConfig,
     useStoreConfig,
@@ -38,9 +41,9 @@ export default function NavigationSettingsPage() {
         (id) => NAV_LABELS[id],
     );
 
-    function persist(next: string[]) {
+    function persist(patch: Partial<StoreConfig>) {
         if (!data) return;
-        const nextConfig = { ...data.config, navOrder: next };
+        const nextConfig = { ...data.config, ...patch };
         queryClient.setQueryData(CONFIG_KEY, { ...data, config: nextConfig });
         save.mutate(
             { config: nextConfig, settingId: data.settingId },
@@ -64,7 +67,7 @@ export default function NavigationSettingsPage() {
         const j = index + dir;
         if (j < 0 || j >= next.length) return;
         [next[index], next[j]] = [next[j], next[index]];
-        persist(next);
+        persist({ navOrder: next });
     }
 
     return (
@@ -122,6 +125,10 @@ export default function NavigationSettingsPage() {
                     </div>
                 ))}
             </div>
+
+            <p className="max-w-lg text-xs text-muted-foreground">
+                {t('settings.nav.barNote')}
+            </p>
         </div>
     );
 }

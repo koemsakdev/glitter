@@ -1,43 +1,19 @@
 import Link from 'next/link';
-import {
-    Home,
-    BadgePercent,
-    ShoppingBag,
-    Gem,
-    MapPin,
-    Share2,
-    type LucideIcon,
-} from 'lucide-react';
 import { AccountButton } from '@/components/account-button';
 import { AnnouncementBar } from '@/components/announcement-bar';
 import { CartButton } from '@/components/cart-button';
 import { HeaderSearch } from '@/components/header-search';
 import { LanguageToggle } from '@/components/language-toggle';
+import { MobileMenu } from '@/components/mobile-menu';
 import { NavLink } from '@/components/nav-link';
 import { NotificationBell } from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Separator } from '@/components/ui/separator';
 import { fileUrl, type PublicPromo } from '@/lib/api';
+import { resolveNavItems } from '@/lib/nav-config';
 import { pick, tr, type Lang } from '@/lib/locale';
 import { DEFAULT_NAV_ORDER, type StoreConfig } from '@/lib/store-config';
 import type { MenuItem, Product } from '@/lib/types';
-
-/**
- * Storefront primary navigation — the fixed set of menus (labels + URLs +
- * icons) lives here in code; only their display ORDER is configurable from the
- * dashboard (config.navOrder). `trKey` resolves to a bilingual label.
- */
-const NAV_DEFS: Record<
-    string,
-    { href: string; trKey: string; Icon: LucideIcon }
-> = {
-    home: { href: '/', trKey: 'navHome', Icon: Home },
-    promotion: { href: '/promotion', trKey: 'navPromotion', Icon: BadgePercent },
-    product: { href: '/products', trKey: 'navProduct', Icon: ShoppingBag },
-    brand: { href: '/brands', trKey: 'navBrand', Icon: Gem },
-    location: { href: '/stores', trKey: 'navLocation', Icon: MapPin },
-    social: { href: '/about', trKey: 'navSocial', Icon: Share2 },
-};
 
 export function SiteHeader({
     config,
@@ -54,10 +30,9 @@ export function SiteHeader({
     const shopName = pick(lang, config.brandNameEn, config.brandNameKm) || 'Glitter';
     const logo = fileUrl(config.logoUrl);
 
-    // Render the nav in the dashboard-configured order (unknown ids skipped).
-    const navItems = (config.navOrder ?? DEFAULT_NAV_ORDER)
-        .map((id) => ({ id, ...NAV_DEFS[id] }))
-        .filter((n) => n.href);
+    // Render the nav in the dashboard-configured order (shared with the mobile
+    // bottom nav so both are identical).
+    const navItems = resolveNavItems(config.navOrder ?? DEFAULT_NAV_ORDER);
 
     return (
         <div className="sticky top-0 z-40">
@@ -104,23 +79,31 @@ export function SiteHeader({
                         ))}
                     </nav>
 
-                    <div className="ml-auto flex items-center gap-2">
-                        {/* Search — opens a command palette (⌘K) */}
+                    <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+                        {/* Always visible: search, notifications, language, theme */}
                         <HeaderSearch
                             lang={lang}
                             hotkey
                             initialPopular={popular}
                         />
-                        <Separator orientation="vertical" />
-                        <LanguageToggle lang={lang} />
-                        <Separator orientation="vertical" />
                         <NotificationBell lang={lang} />
-                        <Separator orientation="vertical" />
+                        <LanguageToggle lang={lang} />
                         <ThemeToggle />
-                        <Separator orientation="vertical" />
-                        <CartButton label={tr(lang, 'cart')} />
-                        <Separator orientation="vertical" />
-                        <AccountButton lang={lang} />
+                        {/* Desktop-only: cart + profile live in the mobile
+                            bottom bar, so they're not duplicated here. */}
+                        <div className="hidden items-center gap-1.5 lg:flex">
+                            <Separator orientation="vertical" />
+                            <CartButton label={tr(lang, 'cart')} />
+                            <AccountButton lang={lang} />
+                        </div>
+                        {/* Mobile hamburger — last, opens the full menu drawer */}
+                        <MobileMenu
+                            lang={lang}
+                            navOrder={config.navOrder ?? DEFAULT_NAV_ORDER}
+                            shopName={shopName}
+                            tagline={pick(lang, config.taglineEn, config.taglineKm)}
+                            logo={logo}
+                        />
                     </div>
                   </div>
                 </div>

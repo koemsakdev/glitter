@@ -69,6 +69,15 @@ export function SiteFooter({
     const logo = fileUrl(config.logoUrl);
     const socials = config.socials.filter((s) => s.url?.trim());
 
+    // "We accept" — driven by the admin-configured, enabled payment options.
+    const acceptedPayments = (config.delivery?.payments ?? [])
+        .filter((p) => p.enabled)
+        .map((p) => ({
+            id: p.id,
+            label: pick(lang, p.nameEn, p.nameKm) || p.id,
+            icon: fileUrl(p.iconUrl),
+        }));
+
     // Prefer the structured contacts; fall back to the flat fields.
     const structured = config.contacts.filter((c) => c.value?.trim());
     const fallback: { id: string; value: string }[] = [];
@@ -173,19 +182,32 @@ export function SiteFooter({
                         © {new Date().getFullYear()} {shopName}.{' '}
                         {tr(lang, 'footerRights')}
                     </p>
-                    <div className="flex items-center gap-2">
-                        <span className="hidden text-zinc-400 sm:inline">
-                            {tr(lang, 'footerPayments')}
-                        </span>
-                        {['KHQR', 'ABA', 'Cash'].map((p) => (
-                            <span
-                                key={p}
-                                className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
-                            >
-                                {p}
+                    {acceptedPayments.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="hidden text-zinc-400 sm:inline">
+                                {tr(lang, 'footerPayments')}
                             </span>
-                        ))}
-                    </div>
+                            {acceptedPayments.map((p) =>
+                                p.icon ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                        key={p.id}
+                                        src={p.icon}
+                                        alt={p.label}
+                                        title={p.label}
+                                        className="h-6 w-auto rounded-md border border-zinc-200 bg-white object-contain px-1.5 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+                                    />
+                                ) : (
+                                    <span
+                                        key={p.id}
+                                        className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
+                                    >
+                                        {p.label}
+                                    </span>
+                                ),
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </footer>

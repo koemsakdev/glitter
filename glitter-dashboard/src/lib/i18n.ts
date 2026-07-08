@@ -271,10 +271,32 @@ const translations = {
         'settings.tab.banners': 'Banners',
         'settings.tab.sections': 'Sections',
         'settings.tab.navigation': 'Navigation',
+        'settings.tab.payments': 'Payments',
+        'settings.aba.title': 'ABA PayWay (KHQR)',
+        'settings.aba.subtitle':
+            'Connect ABA PayWay to accept KHQR payments. Credentials are stored securely and never exposed to the storefront.',
+        'settings.aba.enable': 'Enable KHQR auto-payment',
+        'settings.aba.enableHint':
+            'When on, checkout shows a live KHQR and confirms payment automatically. When off, the manual proof-upload flow is used.',
+        'settings.aba.sandbox': 'Sandbox mode',
+        'settings.aba.sandboxHint':
+            'Use ABA’s test environment. Turn off only with live production credentials.',
+        'settings.aba.credentials': 'Credentials',
+        'settings.aba.merchantId': 'Merchant ID',
+        'settings.aba.apiKey': 'API key (public key / hash string)',
+        'settings.aba.rsaPublic': 'RSA public key',
+        'settings.aba.rsaPrivate': 'RSA private key',
+        'settings.aba.secretSaved': 'Saved — leave blank to keep it.',
+        'settings.aba.secretMissing': 'Not set yet.',
+        'settings.aba.webhook': 'Webhook (pushback) URL',
+        'settings.aba.webhookHint':
+            'Give this URL to ABA so PayWay notifies you on payment. Must be publicly reachable; leave blank in local dev (status polling still confirms payment).',
         'settings.tab.about': 'About',
         'settings.about.title': 'About page',
         'settings.about.subtitle':
             'Content shown on the storefront About page.',
+        'settings.about.content': 'Main content',
+        'settings.about.contentNote': 'Hero image, headline and story text.',
         'settings.about.headline': 'Headline',
         'settings.about.story': 'Story',
         'settings.about.image': 'Hero image',
@@ -309,6 +331,8 @@ const translations = {
         'settings.nav.social': 'Social Media',
         'settings.nav.moveUp': 'Move up',
         'settings.nav.moveDown': 'Move down',
+        'settings.nav.barNote':
+            'This order applies to the desktop header and the mobile menu drawer (hamburger). The mobile bottom bar has fixed shortcuts: Home, Wishlist, Cart, Location and Profile.',
         'settings.tab.menu': 'Menu',
         'settings.tab.pages': 'Pages',
 
@@ -366,6 +390,10 @@ const translations = {
         'settings.delivery.icon': 'Icon',
         'settings.delivery.iconHint': 'Small logo shown at checkout (optional).',
         'settings.delivery.upload': 'Upload',
+        'settings.delivery.hold': 'Pay-first hold time',
+        'settings.delivery.holdNote':
+            'How long an unpaid KHQR (pay-first) order holds its stock before it auto-cancels and releases the hold. Pay-on-delivery / pickup orders are never auto-cancelled.',
+        'settings.delivery.holdMinutes': 'minutes',
         'notifications.title': 'Notifications',
         'notifications.empty': 'No notifications yet',
         'notifications.markAllRead': 'Mark all read',
@@ -374,6 +402,7 @@ const translations = {
         'notifications.review_new': 'New review',
         'notifications.order_status': 'Order updated',
         'notifications.payment_confirmed': 'Payment confirmed',
+        'notifications.payment_received': 'Payment received',
         'notifications.low_stock': 'Low stock',
         'inventory.selectBranch': 'Branch',
         'inventory.search': 'Search products…',
@@ -487,6 +516,11 @@ const translations = {
         'settings.announce.end': 'End date (optional)',
         'settings.announce.deleteTitle': 'Delete announcement?',
         'settings.announce.required': 'Enter a message',
+        'settings.announce.customBg': 'Custom background colour',
+        'settings.announce.bgColor': 'Background colour',
+        'settings.announce.bgHint':
+            'Off = use the brand colour. Text colour adjusts automatically for readability.',
+        'settings.announce.dismissible': 'Let shoppers close it',
 
         // App settings — sections tab
         'settings.sections.title': 'Home sections',
@@ -1961,9 +1995,31 @@ const translations = {
         'settings.tab.banners': 'បដា',
         'settings.tab.sections': 'ផ្នែក',
         'settings.tab.navigation': 'ម៉ឺនុយ',
+        'settings.tab.payments': 'ការទូទាត់',
+        'settings.aba.title': 'ABA PayWay (KHQR)',
+        'settings.aba.subtitle':
+            'ភ្ជាប់ ABA PayWay ដើម្បីទទួលការទូទាត់ KHQR។ ព័ត៌មានសម្ងាត់ត្រូវរក្សាទុកដោយសុវត្ថិភាព និងមិនបង្ហាញនៅហាងឡើយ។',
+        'settings.aba.enable': 'បើកការទូទាត់ KHQR ស្វ័យប្រវត្តិ',
+        'settings.aba.enableHint':
+            'ពេលបើក ការទូទាត់បង្ហាញ KHQR ផ្ទាល់ ហើយបញ្ជាក់ដោយស្វ័យប្រវត្តិ។ ពេលបិទ ប្រើវិធីផ្ទុកភស្តុតាងដោយដៃ។',
+        'settings.aba.sandbox': 'របៀបសាកល្បង (Sandbox)',
+        'settings.aba.sandboxHint':
+            'ប្រើបរិស្ថានសាកល្បងរបស់ ABA។ បិទតែពេលមានព័ត៌មានផលិតកម្មពិតប្រាកដ។',
+        'settings.aba.credentials': 'ព័ត៌មានសម្ងាត់',
+        'settings.aba.merchantId': 'លេខសម្គាល់អ្នកលក់ (Merchant ID)',
+        'settings.aba.apiKey': 'API key (public key / hash string)',
+        'settings.aba.rsaPublic': 'RSA public key',
+        'settings.aba.rsaPrivate': 'RSA private key',
+        'settings.aba.secretSaved': 'បានរក្សាទុក — ទុកទទេដើម្បីរក្សាដដែល។',
+        'settings.aba.secretMissing': 'មិនទាន់កំណត់។',
+        'settings.aba.webhook': 'Webhook (pushback) URL',
+        'settings.aba.webhookHint':
+            'ផ្ដល់ URL នេះទៅ ABA ដើម្បីឲ្យ PayWay ជូនដំណឹងពេលមានការទូទាត់។ ត្រូវចូលបានជាសាធារណៈ; ទុកទទេពេលអភិវឌ្ឍក្នុងម៉ាស៊ីន (ការ poll នៅតែបញ្ជាក់ការទូទាត់)។',
         'settings.tab.about': 'អំពី',
         'settings.about.title': 'ទំព័រអំពី',
         'settings.about.subtitle': 'ខ្លឹមសារដែលបង្ហាញនៅទំព័រអំពីនៃហាង។',
+        'settings.about.content': 'ខ្លឹមសារសំខាន់',
+        'settings.about.contentNote': 'រូបភាពបឋម ចំណងជើង និងអត្ថបទរឿងរ៉ាវ។',
         'settings.about.headline': 'ចំណងជើង',
         'settings.about.story': 'រឿងរ៉ាវ',
         'settings.about.image': 'រូបភាពបឋម',
@@ -1998,6 +2054,8 @@ const translations = {
         'settings.nav.social': 'បណ្តាញសង្គម',
         'settings.nav.moveUp': 'ផ្លាស់ឡើងលើ',
         'settings.nav.moveDown': 'ផ្លាស់ចុះក្រោម',
+        'settings.nav.barNote':
+            'លំដាប់នេះអនុវត្តលើរបារខាងលើកុំព្យូទ័រ និងម៉ឺនុយទូរស័ព្ទ (hamburger)។ របារខាងក្រោមទូរស័ព្ទមានផ្លូវកាត់ថេរ៖ ទំព័រដើម បញ្ជីចង់បាន កន្ត្រក ទីតាំង និងប្រវត្តិរូប។',
         'settings.tab.menu': 'ម៉ឺនុយ',
         'settings.tab.pages': 'ទំព័រ',
 
@@ -2055,6 +2113,10 @@ const translations = {
         'settings.delivery.icon': 'រូបតំណាង',
         'settings.delivery.iconHint': 'រូបឡូហ្គោតូចបង្ហាញពេលទូទាត់ (ស្រេចចិត្ត)។',
         'settings.delivery.upload': 'ផ្ទុកឡើង',
+        'settings.delivery.hold': 'រយៈពេលរង់ចាំបង់ប្រាក់មុន',
+        'settings.delivery.holdNote':
+            'រយៈពេលដែលការបញ្ជាទិញ KHQR (បង់មុន) ដែលមិនទាន់បង់ប្រាក់ រក្សាទុកស្តុក មុនពេលលុបចោលដោយស្វ័យប្រវត្តិ និងដោះលែងស្តុក។ ការបញ្ជាទិញបង់ពេលដឹក / ទទួលនៅហាង មិនត្រូវលុបចោលដោយស្វ័យប្រវត្តិឡើយ។',
+        'settings.delivery.holdMinutes': 'នាទី',
         'notifications.title': 'ការជូនដំណឹង',
         'notifications.empty': 'មិនទាន់មានការជូនដំណឹង',
         'notifications.markAllRead': 'សម្គាល់ថាបានអានទាំងអស់',
@@ -2063,6 +2125,7 @@ const translations = {
         'notifications.review_new': 'មតិយោបល់ថ្មី',
         'notifications.order_status': 'ការបញ្ជាទិញបានធ្វើបច្ចុប្បន្នភាព',
         'notifications.payment_confirmed': 'បានបញ្ជាក់ការទូទាត់',
+        'notifications.payment_received': 'បានទទួលការទូទាត់',
         'notifications.low_stock': 'ស្តុកតិច',
         'inventory.selectBranch': 'សាខា',
         'inventory.search': 'ស្វែងរកផលិតផល…',
@@ -2174,6 +2237,11 @@ const translations = {
         'settings.announce.end': 'ថ្ងៃបញ្ចប់ (ស្រេចចិត្ត)',
         'settings.announce.deleteTitle': 'លុបការប្រកាស?',
         'settings.announce.required': 'សូមបញ្ចូលសារ',
+        'settings.announce.customBg': 'ពណ៌ផ្ទៃខាងក្រោយផ្ទាល់ខ្លួន',
+        'settings.announce.bgColor': 'ពណ៌ផ្ទៃខាងក្រោយ',
+        'settings.announce.bgHint':
+            'បិទ = ប្រើពណ៌ម៉ាក។ ពណ៌អក្សរនឹងកែតម្រូវដោយស្វ័យប្រវត្តិឲ្យងាយអាន។',
+        'settings.announce.dismissible': 'អនុញ្ញាតឲ្យអតិថិជនបិទ',
 
         // App settings — sections tab
         'settings.sections.title': 'ផ្នែកទំព័រដើម',

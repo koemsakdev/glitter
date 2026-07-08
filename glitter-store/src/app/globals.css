@@ -151,9 +151,27 @@ button:disabled,
   }
 }
 
+/* Mobile bottom-nav cart FAB */
+@keyframes cart-pulse {
+  0% { transform: scale(1); opacity: 0.45; }
+  70%, 100% { transform: scale(1.7); opacity: 0; }
+}
+.cart-pulse {
+  animation: cart-pulse 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes cart-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-2px) rotate(-6deg); }
+}
+.cart-bob {
+  animation: cart-bob 3s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in-up,
   .stagger > *,
+  .cart-pulse,
+  .cart-bob,
   [data-slot="sheet-overlay"],
   [data-slot="sheet-content"],
   .sheet-adaptive {

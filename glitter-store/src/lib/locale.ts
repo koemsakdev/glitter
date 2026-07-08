@@ -102,6 +102,13 @@ const DICT: Record<Lang, Record<string, string>> = {
         payAtStore: 'Pay at store',
         scanToPay: 'Scan to pay',
         khqrNotConfigured: 'KHQR not configured yet',
+        liveKhqrNotice:
+            'A live KHQR will appear right after you place your order — scan it with any banking app to pay instantly.',
+        khqrWaiting: 'Waiting for your payment…',
+        openAbaApp: 'Open in ABA Mobile',
+        checkPayment: 'I have paid — check now',
+        khqrHelp:
+            'Keep this page open. It confirms automatically once your payment is received.',
         uploadProof: 'Upload payment proof',
         uploadProofHelp:
             'After paying, upload your payment screenshot. We confirm it before processing.',
@@ -314,8 +321,10 @@ const DICT: Record<Lang, Record<string, string>> = {
         navBrand: 'Brand',
         navLocation: 'Location',
         navSocial: 'Social Media',
+        menu: 'Menu',
         // Announcement countdown
         endsIn: 'Ends in',
+        dismiss: 'Dismiss',
         // Checkout voucher / promo
         promoCode: 'Promo code',
         promoAuto: 'Promo applied automatically',
@@ -354,6 +363,10 @@ const DICT: Record<Lang, Record<string, string>> = {
         footerPayments: 'We accept',
         shopByCategory: 'Categories',
         popular: 'Popular',
+        // Mobile bottom nav
+        orders: 'Orders',
+        favorites: 'Favorites',
+        viewYourCart: 'View your cart',
         searchNavigate: 'Navigate',
         searchSelect: 'Open',
         searchClose: 'Close',
@@ -453,6 +466,13 @@ const DICT: Record<Lang, Record<string, string>> = {
         payAtStore: 'បង់នៅហាង',
         scanToPay: 'ស្កេនដើម្បីបង់',
         khqrNotConfigured: 'មិនទាន់កំណត់ KHQR',
+        liveKhqrNotice:
+            'KHQR ផ្ទាល់នឹងបង្ហាញភ្លាមបន្ទាប់ពីអ្នកបញ្ជាទិញ — ស្កេនដោយកម្មវិធីធនាគារណាមួយដើម្បីបង់ភ្លាមៗ។',
+        khqrWaiting: 'កំពុងរង់ចាំការទូទាត់របស់អ្នក…',
+        openAbaApp: 'បើកក្នុង ABA Mobile',
+        checkPayment: 'ខ្ញុំបានបង់ហើយ — ពិនិត្យឥឡូវ',
+        khqrHelp:
+            'សូមទុកទំព័រនេះបើកចោល។ វានឹងបញ្ជាក់ដោយស្វ័យប្រវត្តិនៅពេលទទួលការទូទាត់។',
         uploadProof: 'ផ្ទុករូបភាពបញ្ជាក់ការទូទាត់',
         uploadProofHelp:
             'បន្ទាប់ពីបង់ប្រាក់ សូមផ្ទុករូបភាពអេក្រង់។ យើងនឹងបញ្ជាក់មុនពេលដំណើរការ។',
@@ -665,8 +685,10 @@ const DICT: Record<Lang, Record<string, string>> = {
         navBrand: 'ម៉ាកយីហោ',
         navLocation: 'ទីតាំង',
         navSocial: 'បណ្តាញសង្គម',
+        menu: 'ម៉ឺនុយ',
         // Announcement countdown
         endsIn: 'នៅសល់',
+        dismiss: 'បិទ',
         // Checkout voucher / promo
         promoCode: 'កូដបញ្ចុះតម្លៃ',
         promoAuto: 'បានអនុវត្តការបញ្ចុះតម្លៃស្វ័យប្រវត្តិ',
@@ -705,6 +727,10 @@ const DICT: Record<Lang, Record<string, string>> = {
         footerPayments: 'យើងទទួល',
         shopByCategory: 'ប្រភេទ',
         popular: 'ពេញនិយម',
+        // Mobile bottom nav
+        orders: 'ការបញ្ជាទិញ',
+        favorites: 'ចូលចិត្ត',
+        viewYourCart: 'មើលកន្ត្រករបស់អ្នក',
         searchNavigate: 'រុករក',
         searchSelect: 'បើក',
         searchClose: 'បិទ',

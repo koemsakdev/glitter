@@ -2,88 +2,110 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Heart, Home, MapPin, ShoppingCart, User } from 'lucide-react';
+import { UserAvatar } from '@/components/user-avatar';
+import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
 import { tr, type Lang } from '@/lib/locale';
 import { cn } from '@/lib/utils';
 
-type IconProps = { className?: string };
-
-function HomeIcon({ className }: IconProps) {
-    return (
-        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 9.5 12 3l9 6.5" />
-            <path d="M5 10v10h14V10" />
-        </svg>
-    );
-}
-function ShopIcon({ className }: IconProps) {
-    return (
-        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 4h18l-1.5 5.5a2 2 0 0 1-2 1.5H6.5a2 2 0 0 1-2-1.5L3 4Z" />
-            <path d="M5 11v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8" />
-        </svg>
-    );
-}
-function CartIcon({ className }: IconProps) {
-    return (
-        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="9" cy="21" r="1" />
-            <circle cx="19" cy="21" r="1" />
-            <path d="M2.5 3h2l2.2 12.4a1 1 0 0 0 1 .8h9.7a1 1 0 0 0 1-.8L21 7H6" />
-        </svg>
-    );
-}
-function UserIcon({ className }: IconProps) {
-    return (
-        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 21a8 8 0 0 1 16 0" />
-        </svg>
-    );
-}
-
-const TABS = [
-    { href: '/', key: 'home' as const, Icon: HomeIcon },
-    { href: '/products', key: 'shop' as const, Icon: ShopIcon },
-    { href: '/cart', key: 'cart' as const, Icon: CartIcon, badge: true },
-    { href: '/account', key: 'account' as const, Icon: UserIcon },
-];
-
+/**
+ * Fixed mobile utility bar: Home · Wishlist · Cart (center) · Location · Profile.
+ * All other storefront menus live in the header hamburger drawer.
+ */
 export function MobileBottomNav({ lang }: { lang: Lang }) {
     const pathname = usePathname();
     const { itemCount, hydrated } = useCart();
+    const { user } = useAuth();
+
+    const isActive = (href: string, exact = false) =>
+        exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+
+    const cartActive = pathname === '/cart';
+
+    const tab = (
+        href: string,
+        label: string,
+        Icon: typeof Home,
+        active: boolean,
+        avatar?: boolean,
+    ) => (
+        <Link
+            href={href}
+            className={cn(
+                'relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors',
+                active ? 'text-(--brand)' : 'text-zinc-500 dark:text-zinc-400',
+            )}
+        >
+            <span
+                className={cn(
+                    'absolute top-0 h-0.5 w-6 rounded-full bg-(--brand) transition-opacity',
+                    active ? 'opacity-100' : 'opacity-0',
+                )}
+            />
+            {avatar && user ? (
+                <UserAvatar
+                    src={user.profileImageUrl}
+                    name={user.fullName}
+                    className={cn(
+                        'size-5.5 rounded-full text-[9px]',
+                        active && 'ring-2 ring-(--brand)',
+                    )}
+                />
+            ) : (
+                <Icon className="size-5.5" />
+            )}
+            <span className="max-w-full truncate px-0.5">{label}</span>
+        </Link>
+    );
 
     return (
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95 lg:hidden">
-            <div className="mx-auto flex max-w-md items-stretch justify-around px-2 pb-[env(safe-area-inset-bottom)]">
-                {TABS.map((tab) => {
-                    const active =
-                        tab.href === '/'
-                            ? pathname === '/'
-                            : pathname.startsWith(tab.href);
-                    return (
-                        <Link
-                            key={tab.href}
-                            href={tab.href}
+            <div className="mx-auto flex max-w-md items-stretch px-2 pb-[env(safe-area-inset-bottom)]">
+                {tab('/', tr(lang, 'navHome'), Home, isActive('/', true))}
+                {tab(
+                    '/account/wishlist',
+                    tr(lang, 'savedItems'),
+                    Heart,
+                    isActive('/account/wishlist'),
+                )}
+
+                {/* Elevated center cart button */}
+                <div className="flex w-16 shrink-0 justify-center">
+                    <Link
+                        href="/cart"
+                        aria-label={tr(lang, 'cart')}
+                        className="group relative -mt-7 flex size-16 items-center justify-center transition-transform duration-200 hover:scale-105 active:scale-95"
+                    >
+                        {hydrated && itemCount > 0 && (
+                            <span className="cart-pulse absolute inset-1.5 rounded-full bg-(--brand)" />
+                        )}
+                        <span
                             className={cn(
-                                'relative flex flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium transition-colors',
-                                active
-                                    ? 'text-(--brand)'
-                                    : 'text-zinc-500 dark:text-zinc-400',
+                                'relative flex size-16 items-center justify-center rounded-full text-white shadow-lg ring-[6px] ring-white dark:ring-zinc-950',
+                                cartActive
+                                    ? 'bg-linear-to-br from-rose-500 to-rose-600 shadow-rose-500/40'
+                                    : 'bg-linear-to-br from-(--brand) to-rose-500 shadow-(--brand)/45',
                             )}
                         >
-                            <span className="relative">
-                                <tab.Icon className="size-6" />
-                                {tab.badge && hydrated && itemCount > 0 && (
-                                    <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-(--brand) px-1 text-[10px] font-bold text-white">
-                                        {itemCount}
-                                    </span>
-                                )}
-                            </span>
-                            {tr(lang, tab.key)}
-                        </Link>
-                    );
-                })}
+                            <ShoppingCart className="cart-bob size-7" />
+                            {hydrated && itemCount > 0 && (
+                                <span className="absolute -right-0.5 -top-0.5 flex size-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-(--brand) shadow ring-2 ring-(--brand) tabular-nums">
+                                    {itemCount}
+                                </span>
+                            )}
+                        </span>
+                    </Link>
+                </div>
+
+                {tab('/stores', tr(lang, 'navLocation'), MapPin, isActive('/stores'))}
+                {tab(
+                    user ? '/account' : '/account/login',
+                    tr(lang, 'profile'),
+                    User,
+                    isActive('/account', true) || pathname === '/account/login',
+                    true,
+                )}
             </div>
         </nav>
     );

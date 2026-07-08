@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, LessThan, Repository } from 'typeorm';
 import { BranchEntity } from '../branch/entities/branch.entity';
 import { ProductImageEntity } from '../product-images/entities/product-image.entity';
 import { ProductVariantEntity } from '../product-variants/entities/product-variant.entity';
@@ -138,6 +138,72 @@ export class OrdersService {
       // fall through to defaults
     }
     return { methods: DEFAULT_METHOD_CONFIG, payments: [] };
+  }
+
+  /**
+   * Minutes an unpaid pay-first (KHQR) order holds its reserved stock before it
+   * auto-cancels. Admin-configurable via `delivery.holdMinutes` (default 30).
+   */
+  private async loadHoldMinutes(): Promise<number> {
+    try {
+      const row = await this.appSettingRepository.findOne({
+        where: { settingGroup: 'storefront', settingKey: 'home_config' },
+      });
+      if (row?.settingValue) {
+        const cfg = JSON.parse(row.settingValue) as {
+          delivery?: { holdMinutes?: number };
+        };
+        const m = cfg.delivery?.holdMinutes;
+        if (typeof m === 'number' && m > 0) return m;
+      }
+    } catch {
+      // fall through to default
+    }
+    return 30;
+  }
+
+  /**
+   * Auto-cancel unpaid pay-first (KHQR) online orders whose hold window has
+   * lapsed, releasing their reserved stock back to available. Pay-on-delivery
+   * and pay-at-pickup orders are intentionally left alone — they're real orders
+   * to fulfil, not abandoned payments. Runs periodically (see OrdersExpiryService).
+   */
+  async expireStalePrepaidOrders(): Promise<number> {
+    const holdMinutes = await this.loadHoldMinutes();
+    const cutoff = new Date(Date.now() - holdMinutes * 60_000);
+
+    // Which payment-option ids are pay-first (QR)? Plus legacy ids.
+    const { payments } = await this.loadDeliveryConfig();
+    const prepayIds = new Set<string>(['khqr', 'aba_khqr']);
+    for (const p of payments) {
+      if (p.type === 'qr') prepayIds.add(p.id);
+    }
+
+    const candidates = await this.orderRepository.find({
+      where: {
+        source: 'online',
+        status: 'pending',
+        paymentStatus: 'unpaid',
+        createdAt: LessThan(cutoff),
+      },
+      select: ['id', 'paymentMethod'],
+    });
+
+    const stale = candidates.filter(
+      (o) => o.paymentMethod !== null && prepayIds.has(o.paymentMethod),
+    );
+
+    let cancelled = 0;
+    for (const o of stale) {
+      try {
+        // Reuses the normal transition: releases the stock hold + notifies.
+        await this.updateStatus(o.id, 'cancelled');
+        cancelled += 1;
+      } catch {
+        // A concurrent payment/confirmation may have moved it on — skip.
+      }
+    }
+    return cancelled;
   }
 
   /**
@@ -491,25 +557,114 @@ export class OrdersService {
     id: string,
     paymentStatus: OrderPaymentStatus,
   ): Promise<OrderDetailResponse> {
-    const order = await this.orderRepository.findOne({ where: { id } });
+    const order = await this.orderRepository.findOne({
+      where: { id },
+      relations: ['branch', 'items'],
+    });
     if (order === null) {
       throw new NotFoundException(`Order ${id} not found`);
     }
+    const wasPaid = order.paymentStatus === 'paid';
     order.paymentStatus = paymentStatus;
     await this.orderRepository.save(order);
     this.realtime.publish('orders');
 
-    // Notify the customer when their payment is confirmed.
-    if (paymentStatus === 'paid' && order.customerId) {
-      await this.notifications.notifyUser(
-        order.customerId,
-        'payment_confirmed',
-        { orderNumber: order.orderNumber, orderId: order.id },
-        `/account/orders/${order.id}`,
+    // On first transition to "paid": confirm to the customer and give staff a
+    // clear message of what sold and from which branch (stock is deducted from
+    // this branch's hold when the order is fulfilled).
+    if (paymentStatus === 'paid' && !wasPaid) {
+      const items = order.items ?? [];
+      const itemCount = items.reduce((n, it) => n + it.quantity, 0);
+      const summary = items
+        .map((it) => `${it.quantity}× ${it.productName}`)
+        .join(', ');
+
+      await this.notifications.notifyStaff(
+        'payment_received',
+        {
+          orderNumber: order.orderNumber,
+          orderId: order.id,
+          branchName: order.branch?.branchNameEn ?? '',
+          customerName: order.customerName ?? '',
+          itemCount,
+          summary,
+        },
+        `/dashboard/orders/${order.id}`,
       );
+
+      if (order.customerId) {
+        await this.notifications.notifyUser(
+          order.customerId,
+          'payment_confirmed',
+          { orderNumber: order.orderNumber, orderId: order.id },
+          `/account/orders/${order.id}`,
+        );
+      }
     }
 
     return this.findOne(id);
+  }
+
+  /**
+   * Prepare an online order for a KHQR payment: derive a stable ABA tran id
+   * from the order number, persist it (for webhook/poll lookup), and return the
+   * amount to charge. Rejects already-paid or non-online orders.
+   */
+  async getKhqrPayable(orderId: string): Promise<{
+    tranId: string;
+    amount: string;
+    currency: string;
+    firstName: string;
+    phone: string;
+  }> {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+    });
+    if (order === null) {
+      throw new NotFoundException(`Order ${orderId} not found`);
+    }
+    if (order.source !== 'online') {
+      throw new BadRequestException('Not an online order');
+    }
+    if (order.paymentStatus === 'paid') {
+      throw new BadRequestException('Order is already paid');
+    }
+    const tranId = order.orderNumber
+      .replace(/[^A-Za-z0-9]/g, '')
+      .slice(0, 20);
+    if (order.abaTranId !== tranId) {
+      order.abaTranId = tranId;
+      await this.orderRepository.save(order);
+    }
+    return {
+      tranId,
+      amount: Number(order.grandTotal).toFixed(2),
+      currency: order.currency || 'USD',
+      firstName: order.customerName ?? '',
+      phone: order.customerPhone ?? '',
+    };
+  }
+
+  /**
+   * Mark the order behind an ABA tran id as paid (idempotent). Moves a pending
+   * order to `paid` (stock stays reserved for fulfilment) and flips the payment
+   * status, which notifies staff + customer. Returns the order id when found.
+   */
+  async confirmAbaPayment(
+    tranId: string,
+  ): Promise<{ paid: boolean; orderId: string | null }> {
+    const order = await this.orderRepository.findOne({
+      where: { abaTranId: tranId },
+    });
+    if (order === null) return { paid: false, orderId: null };
+    if (order.paymentStatus === 'paid') {
+      return { paid: true, orderId: order.id };
+    }
+    if (order.status === 'pending') {
+      await this.updateStatus(order.id, 'paid');
+    }
+    await this.updatePaymentStatus(order.id, 'paid');
+    return { paid: true, orderId: order.id };
   }
 
   async findByCustomer(customerId: string): Promise<OrderListResponse> {

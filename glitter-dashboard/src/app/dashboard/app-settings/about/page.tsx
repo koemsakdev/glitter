@@ -165,40 +165,30 @@ export default function AboutSettingsPage() {
             />
 
             {/* Stats */}
-            <section className="rounded-xl border bg-card">
-                <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
-                    <div>
-                        <h3 className="text-sm font-semibold">
-                            {t('settings.about.stats')}
-                        </h3>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                            {t('settings.about.statsNote')}
-                        </p>
-                    </div>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setStatDialog(null)}
-                    >
-                        <Plus className="size-4" />
-                        {t('settings.about.addStat')}
-                    </Button>
-                </div>
+            <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+                <SectionHeader
+                    icon={BarChart3}
+                    title={t('settings.about.stats')}
+                    note={t('settings.about.statsNote')}
+                    onAdd={() => setStatDialog(null)}
+                    addLabel={t('settings.about.addStat')}
+                />
                 {stats.length === 0 ? (
-                    <p className="px-5 py-8 text-center text-sm text-muted-foreground">
-                        {t('settings.about.noStats')}
-                    </p>
+                    <EmptyState
+                        icon={BarChart3}
+                        text={t('settings.about.noStats')}
+                    />
                 ) : (
                     <div className="divide-y">
                         {stats.map((s) => (
                             <div
                                 key={s.id}
-                                className="flex items-center gap-3 px-5 py-3"
+                                className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
                             >
-                                <span className="text-lg font-bold text-pink-600 dark:text-pink-400">
+                                <span className="flex h-10 min-w-14 items-center justify-center rounded-lg bg-pink-50 px-2 text-base font-extrabold text-pink-600 dark:bg-pink-500/10 dark:text-pink-300">
                                     {s.value}
                                 </span>
-                                <span className="flex-1 text-sm text-muted-foreground">
+                                <span className="flex-1 truncate text-sm font-medium">
                                     {s.labelEn}
                                 </span>
                                 <RowActions
@@ -220,29 +210,19 @@ export default function AboutSettingsPage() {
             </section>
 
             {/* Highlights */}
-            <section className="rounded-xl border bg-card">
-                <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
-                    <div>
-                        <h3 className="text-sm font-semibold">
-                            {t('settings.about.highlights')}
-                        </h3>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                            {t('settings.about.highlightsNote')}
-                        </p>
-                    </div>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setHlDialog(null)}
-                    >
-                        <Plus className="size-4" />
-                        {t('settings.about.addHighlight')}
-                    </Button>
-                </div>
+            <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+                <SectionHeader
+                    icon={Award}
+                    title={t('settings.about.highlights')}
+                    note={t('settings.about.highlightsNote')}
+                    onAdd={() => setHlDialog(null)}
+                    addLabel={t('settings.about.addHighlight')}
+                />
                 {highlights.length === 0 ? (
-                    <p className="px-5 py-8 text-center text-sm text-muted-foreground">
-                        {t('settings.about.noHighlights')}
-                    </p>
+                    <EmptyState
+                        icon={Award}
+                        text={t('settings.about.noHighlights')}
+                    />
                 ) : (
                     <div className="divide-y">
                         {highlights.map((h) => {
@@ -250,14 +230,21 @@ export default function AboutSettingsPage() {
                             return (
                                 <div
                                     key={h.id}
-                                    className="flex items-center gap-3 px-5 py-3"
+                                    className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
                                 >
-                                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pink-50 text-pink-600 dark:bg-pink-500/10 dark:text-pink-300">
-                                        <Icon className="size-4.5" />
+                                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-pink-50 text-pink-600 dark:bg-pink-500/10 dark:text-pink-300">
+                                        <Icon className="size-5" />
                                     </span>
-                                    <span className="flex-1 text-sm font-medium">
-                                        {h.titleEn}
-                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-medium">
+                                            {h.titleEn}
+                                        </p>
+                                        {h.textEn && (
+                                            <p className="truncate text-xs text-muted-foreground">
+                                                {h.textEn}
+                                            </p>
+                                        )}
+                                    </div>
                                     <RowActions
                                         onEdit={() => setHlDialog(h)}
                                         onDelete={() =>
@@ -349,6 +336,53 @@ function RowActions({
     );
 }
 
+function SectionHeader({
+    icon: Icon,
+    title,
+    note,
+    onAdd,
+    addLabel,
+}: {
+    icon: LucideIcon;
+    title: string;
+    note: string;
+    onAdd: () => void;
+    addLabel: string;
+}) {
+    return (
+        <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3.5">
+            <div className="flex items-center gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pink-50 text-pink-600 dark:bg-pink-500/10 dark:text-pink-300">
+                    <Icon className="size-4.5" />
+                </span>
+                <div className="min-w-0">
+                    <h3 className="text-sm font-semibold">{title}</h3>
+                    <p className="truncate text-xs text-muted-foreground">
+                        {note}
+                    </p>
+                </div>
+            </div>
+            <Button
+                size="sm"
+                onClick={onAdd}
+                className="shrink-0 bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
+            >
+                <Plus className="size-4" />
+                {addLabel}
+            </Button>
+        </div>
+    );
+}
+
+function EmptyState({ icon: Icon, text }: { icon: LucideIcon; text: string }) {
+    return (
+        <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
+            <Icon className="size-8 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">{text}</p>
+        </div>
+    );
+}
+
 function AboutContentForm({
     config,
     onSave,
@@ -400,14 +434,28 @@ function AboutContentForm({
     }
 
     return (
-        <div className="max-w-2xl space-y-5 rounded-xl border bg-card p-5">
-            <IconUploader
-                value={url}
-                file={file}
-                onPick={setFile}
-                label={t('settings.about.image')}
-                hint={t('settings.about.imageHint')}
-            />
+        <div className="max-w-2xl overflow-hidden rounded-2xl border bg-card shadow-sm">
+            <div className="flex items-center gap-3 border-b bg-muted/30 px-4 py-3.5">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pink-50 text-pink-600 dark:bg-pink-500/10 dark:text-pink-300">
+                    <FileText className="size-4.5" />
+                </span>
+                <div className="min-w-0">
+                    <h3 className="text-sm font-semibold">
+                        {t('settings.about.content')}
+                    </h3>
+                    <p className="truncate text-xs text-muted-foreground">
+                        {t('settings.about.contentNote')}
+                    </p>
+                </div>
+            </div>
+            <div className="space-y-5 p-5">
+                <IconUploader
+                    value={url}
+                    file={file}
+                    onPick={setFile}
+                    label={t('settings.about.image')}
+                    hint={t('settings.about.imageHint')}
+                />
             <BilingualField
                 label={t('settings.about.headline')}
                 en={headlineEn}
@@ -423,20 +471,21 @@ function AboutContentForm({
                 onKm={setStoryKm}
                 textarea
             />
-            <div className="flex justify-end">
-                <Button
-                    type="button"
-                    disabled={!dirty || saving}
-                    onClick={handleSave}
-                    className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
-                >
-                    {saving ? (
-                        <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                        <Save className="size-4" />
-                    )}
-                    {t('settings.saveChanges')}
-                </Button>
+                <div className="flex justify-end">
+                    <Button
+                        type="button"
+                        disabled={!dirty || saving}
+                        onClick={handleSave}
+                        className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
+                    >
+                        {saving ? (
+                            <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                            <Save className="size-4" />
+                        )}
+                        {t('settings.saveChanges')}
+                    </Button>
+                </div>
             </div>
         </div>
     );

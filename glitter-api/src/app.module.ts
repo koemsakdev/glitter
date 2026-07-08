@@ -43,6 +43,7 @@ import { VouchersModule } from './vouchers/vouchers.module';
 import { InventoryBranchModule } from './inventory-branch/inventory-branch.module';
 import { MenuModule } from './menu/menu.module';
 import { OrdersModule } from './orders/orders.module';
+import { PaymentsAbaModule } from './payments-aba/payments-aba.module';
 import { PagesModule } from './pages/pages.module';
 import { RelatedProductsModule } from './related-products/related-products.module';
 import { ReviewsModule } from './reviews/reviews.module';
@@ -95,6 +96,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     InventoryBranchModule,
     MenuModule,
     OrdersModule,
+    PaymentsAbaModule,
     PagesModule,
     ReviewsModule,
     NotificationsModule,

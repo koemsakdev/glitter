@@ -12,6 +12,7 @@ export type NotificationType =
   | 'review_new'
   | 'order_status'
   | 'payment_confirmed'
+  | 'payment_received'
   | 'low_stock';
 
 /**

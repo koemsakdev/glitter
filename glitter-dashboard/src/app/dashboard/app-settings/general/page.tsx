@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { BilingualField } from "@/features/settings/components/settings-shared";
 import { LogoFormDialog } from "@/features/settings/components/logo-form-dialog";
 import { DeliveryConfigCard } from "@/features/settings/components/delivery-config-card";
+import { AbaConfigCard } from "@/features/settings/components/aba-config-card";
 import { LoadingScreen } from "@/components/feedback/loading-screen";
 import {
   useSaveStoreConfig,
@@ -290,6 +291,9 @@ export default function GeneralSettingsPage() {
         saving={save.isPending}
         onChange={(delivery) => persist({ delivery })}
       />
+
+      {/* ABA PayWay (KHQR) gateway connection */}
+      <AbaConfigCard />
 
       {editing && (
         <EditDialog

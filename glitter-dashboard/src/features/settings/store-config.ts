@@ -88,6 +88,10 @@ export interface Announcement {
     endAt: string | null;
     /** When set, this announcement mirrors a live promotion (voucher id). */
     voucherId?: string | null;
+    /** Background colour (any CSS colour). Falls back to the brand colour. */
+    bgColor?: string | null;
+    /** When true, shoppers can dismiss the bar (remembered per browser). */
+    dismissible?: boolean;
 }
 
 export type FontScale = 'sm' | 'md' | 'lg';
@@ -192,6 +196,12 @@ export interface StoreDelivery {
     methods: DeliveryMethod[];
     /** Admin-configurable payment options. */
     payments: PaymentOption[];
+    /**
+     * Minutes an unpaid pay-first (KHQR) online order holds its reserved stock
+     * before it auto-cancels and releases the hold. Pay-on-delivery/pickup
+     * orders are not auto-cancelled.
+     */
+    holdMinutes: number;
 }
 
 export const DEFAULT_REGIONS: DeliveryRegion[] = [
@@ -280,6 +290,7 @@ export const DEFAULT_DELIVERY: StoreDelivery = {
     regions: DEFAULT_REGIONS,
     methods: DEFAULT_METHODS,
     payments: DEFAULT_PAYMENTS,
+    holdMinutes: 30,
 };
 
 /** Old keyed-object method shape (pre-dynamic). Used only for migration. */
@@ -371,6 +382,10 @@ export function mergeDelivery(partial: unknown): StoreDelivery {
         regions,
         methods,
         payments,
+        holdMinutes:
+            typeof d.holdMinutes === 'number' && d.holdMinutes > 0
+                ? d.holdMinutes
+                : DEFAULT_DELIVERY.holdMinutes,
     };
 }
 

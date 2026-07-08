@@ -1,9 +1,32 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import { pick, tr, type Lang } from '@/lib/locale';
 import type { PublicPromo } from '@/lib/api';
 import type { Announcement } from '@/lib/store-config';
+
+const DISMISS_KEY = 'glitter:dismissed-announcements';
+
+/** Readable text colour (#fff / #111) for a given hex background. */
+function readableText(bg?: string | null): string | undefined {
+    if (!bg) return undefined;
+    const hex = bg.trim().replace('#', '');
+    const full =
+        hex.length === 3
+            ? hex
+                  .split('')
+                  .map((c) => c + c)
+                  .join('')
+            : hex;
+    if (full.length !== 6 || /[^0-9a-f]/i.test(full)) return undefined;
+    const r = parseInt(full.slice(0, 2), 16);
+    const g = parseInt(full.slice(2, 4), 16);
+    const b = parseInt(full.slice(4, 6), 16);
+    // Perceived luminance — dark text on light backgrounds, white otherwise.
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.6 ? '#111827' : '#ffffff';
+}
 
 /** Local 'YYYY-MM-DD' (not UTC) so date windows match the admin's local dates. */
 function todayIso(): string {
@@ -52,6 +75,8 @@ interface Resolved {
     enabled: boolean;
     startAt: string | null;
     endAt: string | null;
+    bgColor?: string | null;
+    dismissible?: boolean;
 }
 
 function Countdown({ endAt, lang }: { endAt: string; lang: Lang }) {
@@ -121,6 +146,8 @@ export function AnnouncementBar({
                         enabled: a.enabled,
                         startAt: null,
                         endAt: promo.endAt,
+                        bgColor: a.bgColor,
+                        dismissible: a.dismissible,
                     };
                 }
                 // Linked promo inactive/deleted → hide (once promos have loaded).
@@ -132,14 +159,28 @@ export function AnnouncementBar({
                 enabled: a.enabled,
                 startAt: a.startAt,
                 endAt: a.endAt,
+                bgColor: a.bgColor,
+                dismissible: a.dismissible,
             };
         })
         .filter((r): r is Resolved => r !== null);
+
+    // Dismissed ids are read after mount so SSR/first render stay identical.
+    const [dismissed, setDismissed] = useState<string[]>([]);
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(DISMISS_KEY);
+            if (raw) setDismissed(JSON.parse(raw) as string[]);
+        } catch {
+            /* ignore malformed storage */
+        }
+    }, []);
 
     const active = resolved.filter(
         (r) =>
             r.enabled &&
             r.text &&
+            !dismissed.includes(r.id) &&
             (!r.startAt || r.startAt <= today) &&
             (!r.endAt || r.endAt >= today),
     );
@@ -159,11 +200,43 @@ export function AnnouncementBar({
     if (count === 0) return null;
     const current = active[index % count];
 
+    const dismiss = () => {
+        const next = [...new Set([...dismissed, current.id])];
+        setDismissed(next);
+        setIndex(0);
+        try {
+            localStorage.setItem(DISMISS_KEY, JSON.stringify(next));
+        } catch {
+            /* ignore */
+        }
+    };
+
+    const textColor = readableText(current.bgColor);
+
     return (
-        <div className="flex items-center justify-center bg-(--brand) px-4 py-1.5 text-center text-xs font-medium text-white transition-opacity">
-            <span>{current.text}</span>
-            {current.endAt && (
-                <Countdown endAt={current.endAt} lang={lang} />
+        <div
+            className="relative flex items-center justify-center bg-(--brand) px-9 py-1.5 text-center text-[11px] font-medium text-white transition-opacity sm:text-xs"
+            style={{
+                backgroundColor: current.bgColor || undefined,
+                color: textColor,
+            }}
+        >
+            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5">
+                <span>{current.text}</span>
+                {current.endAt && (
+                    <Countdown endAt={current.endAt} lang={lang} />
+                )}
+            </div>
+            {current.dismissible && (
+                <button
+                    type="button"
+                    onClick={dismiss}
+                    aria-label={tr(lang, 'dismiss')}
+                    className="absolute right-2 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full transition-colors hover:bg-black/10"
+                    style={textColor ? { color: textColor } : undefined}
+                >
+                    <X className="size-3.5" />
+                </button>
             )}
         </div>
     );

@@ -75,6 +75,9 @@ export function AnnouncementDialog({
     const [startAt, setStartAt] = useState(item?.startAt ?? '');
     const [endAt, setEndAt] = useState(item?.endAt ?? '');
     const [fromPromo, setFromPromo] = useState(item?.voucherId ?? '');
+    const [customBg, setCustomBg] = useState(Boolean(item?.bgColor));
+    const [bgColor, setBgColor] = useState(item?.bgColor ?? '#ec4899');
+    const [dismissible, setDismissible] = useState(item?.dismissible ?? false);
 
     function applyPromo(id: string) {
         setFromPromo(id);
@@ -103,6 +106,8 @@ export function AnnouncementDialog({
             startAt: startAt || null,
             endAt: endAt || null,
             voucherId: fromPromo || null,
+            bgColor: customBg ? bgColor : null,
+            dismissible,
         });
     }
 
@@ -194,6 +199,49 @@ export function AnnouncementDialog({
                             <DatePicker value={endAt} onChange={setEndAt} />
                         </div>
                     </div>
+                    {/* Background colour */}
+                    <div className="space-y-2 rounded-lg border p-3">
+                        <label className="flex cursor-pointer items-center gap-2">
+                            <Switch
+                                checked={customBg}
+                                onCheckedChange={(v) => setCustomBg(Boolean(v))}
+                            />
+                            <span className="text-sm font-medium">
+                                {t('settings.announce.customBg')}
+                            </span>
+                        </label>
+                        {customBg && (
+                            <div className="flex items-center gap-3 pl-1">
+                                <input
+                                    type="color"
+                                    value={bgColor}
+                                    onChange={(e) => setBgColor(e.target.value)}
+                                    aria-label={t('settings.announce.bgColor')}
+                                    className="size-10 cursor-pointer rounded-md border bg-transparent p-0.5"
+                                />
+                                <span
+                                    className="rounded-md px-3 py-1.5 text-xs font-semibold"
+                                    style={{ backgroundColor: bgColor, color: '#fff' }}
+                                >
+                                    {bgColor.toUpperCase()}
+                                </span>
+                            </div>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                            {t('settings.announce.bgHint')}
+                        </p>
+                    </div>
+
+                    <label className="flex cursor-pointer items-center gap-2">
+                        <Switch
+                            checked={dismissible}
+                            onCheckedChange={(v) => setDismissible(Boolean(v))}
+                        />
+                        <span className="text-sm font-medium">
+                            {t('settings.announce.dismissible')}
+                        </span>
+                    </label>
+
                     <label className="flex cursor-pointer items-center gap-2">
                         <Switch
                             checked={enabled}

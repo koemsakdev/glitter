@@ -219,6 +219,20 @@ export function CheckoutForm({
     const [error, setError] = useState('');
     const [placed, setPlaced] = useState<string | null>(null);
 
+    // ABA PayWay dynamic KHQR (auto-confirm). When enabled, KHQR shows a live
+    // QR after the order is placed and confirms via polling — no proof upload.
+    const [abaEnabled, setAbaEnabled] = useState(false);
+    const [khqrPay, setKhqrPay] = useState<{
+        orderId: string;
+        orderNumber: string;
+        tranId: string;
+        qrImage: string;
+        deeplink: string;
+        amount: string;
+        currency: string;
+    } | null>(null);
+    const [checking, setChecking] = useState(false);
+
     const loadAddresses = useCallback(
         async (selectId?: string) => {
             try {
@@ -247,6 +261,50 @@ export function CheckoutForm({
         setPhone((p) => p || user.phoneNumber || '');
         void loadAddresses();
     }, [user, loadAddresses]);
+
+    // Is ABA PayWay live-KHQR available?
+    useEffect(() => {
+        let active = true;
+        fetch(`${API_URL}/api/payments/aba/enabled`)
+            .then((r) => r.json())
+            .then((d: { enabled?: boolean }) => {
+                if (active) setAbaEnabled(Boolean(d.enabled));
+            })
+            .catch(() => {});
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    // Poll the KHQR transaction until ABA reports it paid.
+    const confirmKhqr = useCallback(
+        async (tranId: string, orderNumber: string): Promise<boolean> => {
+            try {
+                const r = await fetch(
+                    `${API_URL}/api/payments/aba/status/${tranId}`,
+                );
+                const d = (await r.json()) as { paid?: boolean };
+                if (d.paid) {
+                    clear();
+                    setPlaced(orderNumber);
+                    setKhqrPay(null);
+                    return true;
+                }
+            } catch {
+                // keep polling
+            }
+            return false;
+        },
+        [clear],
+    );
+
+    useEffect(() => {
+        if (!khqrPay) return;
+        const id = setInterval(() => {
+            void confirmKhqr(khqrPay.tranId, khqrPay.orderNumber);
+        }, 3500);
+        return () => clearInterval(id);
+    }, [khqrPay, confirmKhqr]);
 
     async function deleteAddress(id: string) {
         try {
@@ -340,6 +398,69 @@ export function CheckoutForm({
         );
     }
 
+    if (khqrPay !== null) {
+        const qrSrc = khqrPay.qrImage
+            ? `data:image/png;base64,${khqrPay.qrImage}`
+            : null;
+        return (
+            <div className="mx-auto max-w-md px-4 py-16 text-center">
+                <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-(--brand)/10 text-(--brand)">
+                    <QrCode className="size-7" />
+                </div>
+                <h1 className="mt-4 text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                    {tr(lang, 'scanToPay')}
+                </h1>
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                    {tr(lang, 'orderNumber')}:{' '}
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                        {khqrPay.orderNumber}
+                    </span>
+                </p>
+                {qrSrc && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                        src={qrSrc}
+                        alt="KHQR"
+                        className="mx-auto mt-5 size-60 rounded-2xl border border-zinc-200 bg-white object-contain p-3 shadow-sm dark:border-zinc-700"
+                    />
+                )}
+                <p className="mt-3 text-lg font-bold text-(--brand)">
+                    {khqrPay.currency} {khqrPay.amount}
+                </p>
+                {khqrPay.deeplink && (
+                    <a
+                        href={khqrPay.deeplink}
+                        className="mt-4 inline-flex items-center gap-2 rounded-full bg-(--brand) px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
+                    >
+                        {tr(lang, 'openAbaApp')}
+                    </a>
+                )}
+                <div className="mt-6 flex items-center justify-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                    <span className="size-4 animate-spin rounded-full border-2 border-(--brand) border-t-transparent" />
+                    {tr(lang, 'khqrWaiting')}
+                </div>
+                <button
+                    type="button"
+                    disabled={checking}
+                    onClick={async () => {
+                        setChecking(true);
+                        await confirmKhqr(
+                            khqrPay.tranId,
+                            khqrPay.orderNumber,
+                        );
+                        setChecking(false);
+                    }}
+                    className="mt-3 rounded-full border border-zinc-200 px-5 py-2.5 text-sm font-semibold text-zinc-700 hover:border-(--brand) disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200"
+                >
+                    {tr(lang, 'checkPayment')}
+                </button>
+                <p className="mx-auto mt-5 max-w-xs text-xs text-zinc-400">
+                    {tr(lang, 'khqrHelp')}
+                </p>
+            </div>
+        );
+    }
+
     if (items.length === 0) {
         return (
             <div className="mx-auto max-w-xl px-4 py-24 text-center">
@@ -380,12 +501,16 @@ export function CheckoutForm({
         if (needsAddress && !address.trim())
             return setError(tr(lang, 'addressRequired'));
         if (isPickup && !branchId) return setError(tr(lang, 'branchRequired'));
-        if (usesKhqr && !proof) return setError(tr(lang, 'proofRequired'));
+        // With live ABA KHQR the QR appears after placing the order, so no
+        // manual proof is needed; only the static-QR flow requires a screenshot.
+        const useLiveKhqr = usesKhqr && abaEnabled;
+        if (usesKhqr && !abaEnabled && !proof)
+            return setError(tr(lang, 'proofRequired'));
 
         setSubmitting(true);
         try {
             let paymentProofUrl: string | undefined;
-            if (usesKhqr && proof) {
+            if (usesKhqr && !abaEnabled && proof) {
                 const fd = new FormData();
                 fd.append('image', proof.file);
                 const up = await fetch(`${API_URL}/api/orders/payment-proof`, {
@@ -435,8 +560,51 @@ export function CheckoutForm({
             const json: { data?: { orderNumber?: string; id?: string } } =
                 await res.json();
             if (proof) URL.revokeObjectURL(proof.preview);
+            const orderId = json.data?.id ?? '';
+            const orderNumber = json.data?.orderNumber ?? orderId;
+
+            // Live KHQR: generate a dynamic QR and switch to the pay-and-wait
+            // view. The order is already placed (stock reserved); if the shopper
+            // abandons it, the backend hold expiry cancels + releases it.
+            if (useLiveKhqr && orderId) {
+                const qr = await fetch(`${API_URL}/api/payments/aba/khqr`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId }),
+                });
+                if (qr.ok) {
+                    const qd = (await qr.json()) as {
+                        data?: {
+                            tranId: string;
+                            qrString: string;
+                            qrImage: string;
+                            deeplink: string;
+                            amount: string;
+                            currency: string;
+                        };
+                    };
+                    if (qd.data?.qrString || qd.data?.qrImage) {
+                        setKhqrPay({
+                            orderId,
+                            orderNumber,
+                            tranId: qd.data.tranId,
+                            qrImage: qd.data.qrImage,
+                            deeplink: qd.data.deeplink,
+                            amount: qd.data.amount,
+                            currency: qd.data.currency,
+                        });
+                        return;
+                    }
+                }
+                // QR generation failed — the order still exists; show success
+                // and let staff reconcile the payment.
+                clear();
+                setPlaced(orderNumber);
+                return;
+            }
+
             clear();
-            setPlaced(json.data?.orderNumber ?? json.data?.id ?? '');
+            setPlaced(orderNumber);
         } catch {
             setError(tr(lang, 'orderFailed'));
         } finally {
@@ -635,6 +803,14 @@ export function CheckoutForm({
                                         </div>
                                     )}
 
+                                    {abaEnabled ? (
+                                        <div className="flex items-start gap-3 rounded-xl border border-(--brand)/30 bg-(--brand)/5 p-4">
+                                            <QrCode className="mt-0.5 size-5 shrink-0 text-(--brand)" />
+                                            <p className="text-sm text-zinc-700 dark:text-zinc-200">
+                                                {tr(lang, 'liveKhqrNotice')}
+                                            </p>
+                                        </div>
+                                    ) : (
                                     <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900/60">
                                         <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                                             {tr(lang, 'scanToPay')}{' '}
@@ -735,6 +911,7 @@ export function CheckoutForm({
                                             </div>
                                         </div>
                                     </div>
+                                    )}
                                 </div>
                             ) : (
                                 <p className="rounded-xl bg-zinc-50 px-4 py-3 text-sm text-zinc-600 dark:bg-zinc-900/60 dark:text-zinc-300">

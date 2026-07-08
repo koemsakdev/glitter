@@ -265,6 +265,16 @@ export class OrderEntity {
   @Column({ type: 'text', nullable: true, name: 'payment_proof_url' })
   paymentProofUrl!: string | null;
 
+  /** ABA PayWay transaction id used to generate/verify a KHQR payment. */
+  @Index()
+  @Column({
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+    name: 'aba_tran_id',
+  })
+  abaTranId!: string | null;
+
   @Column({ type: 'varchar', length: 40, nullable: true, name: 'voucher_code' })
   voucherCode!: string | null;
 
