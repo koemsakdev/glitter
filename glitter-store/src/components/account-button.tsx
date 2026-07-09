@@ -16,7 +16,7 @@ export function AccountButton({ lang }: { lang: Lang }) {
             href={user ? '/account' : '/account/login'}
             aria-label={label}
             title={label}
-            className="relative flex size-9 items-center justify-center rounded-md text-zinc-600 dark:text-zinc-300 transition-colors hover:text-(--brand)"
+            className="relative flex size-9 items-center justify-center rounded-full text-zinc-600 dark:text-zinc-300 transition-colors hover:text-(--brand) h-9 w-9 border border-neutral-200 dark:border-neutral-800"
         >
             {user ? (
                 <span className="relative">

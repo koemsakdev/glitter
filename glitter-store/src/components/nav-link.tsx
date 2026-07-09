@@ -9,11 +9,13 @@ import { cn } from '@/lib/utils';
 export function NavLink({
     href,
     children,
+    className,
     target,
     rel,
 }: {
     href: string;
     children: ReactNode;
+    className?: string;
     target?: string;
     rel?: string;
 }) {
@@ -32,6 +34,7 @@ export function NavLink({
                 active
                     ? 'bg-(--brand)/15 text-(--brand)'
                     : 'text-zinc-600 hover:text-(--brand) dark:text-zinc-300',
+                className
             )}
         >
             {children}

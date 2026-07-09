@@ -135,7 +135,7 @@ export function HeaderSearch({
                 aria-label={tr(lang, 'search')}
                 title={tr(lang, 'search')}
                 className={cn(
-                    'flex size-9 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-(--brand) dark:text-zinc-300 dark:hover:bg-zinc-800',
+                    'flex size-9 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-(--brand) dark:text-zinc-300 dark:hover:bg-zinc-800 h-9 w-9 border border-neutral-200 dark:border-neutral-800',
                     className,
                 )}
             >
