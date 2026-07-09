@@ -113,7 +113,7 @@ export default async function RootLayout({
                             promos={promos}
                             popular={popular}
                         />
-                        <main className="flex-1 pb-20 lg:pb-0">
+                        <main className="flex-1 pb-20 max-lg:overflow-x-clip lg:pb-0">
                             <PageTransition>{children}</PageTransition>
                         </main>
                         <SiteFooter

@@ -87,4 +87,37 @@ export interface DashboardStatsResponse {
     primaryImageUrl: string | null;
     count: number;
   }>;
+  sales: {
+    revenue: number;
+    orders: number;
+    avgOrderValue: number;
+    prevRevenue: number;
+    prevOrders: number;
+    pendingOrders: number;
+    customers: number;
+  };
+  range: {
+    from: string;
+    to: string;
+    granularity: 'day' | 'week' | 'month';
+  };
+  ordersByStatus: {
+    pending: number;
+    paid: number;
+    processing: number;
+    shipped: number;
+    completed: number;
+    cancelled: number;
+    refunded: number;
+  };
+  salesSeries: Array<{ day: string; orders: number; revenue: number }>;
+  recentOrders: Array<{
+    id: string;
+    orderNumber: string;
+    customerName: string | null;
+    grandTotal: number;
+    status: string;
+    source: string;
+    createdAt: Date;
+  }>;
 }

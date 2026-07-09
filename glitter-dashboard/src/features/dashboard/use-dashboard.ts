@@ -3,11 +3,15 @@ import { dashboardApi } from './dashboard-api';
 
 const DASHBOARD_KEY = ['dashboard'] as const;
 
-export function useDashboardStats() {
+export function useDashboardStats(range?: { from?: string; to?: string }) {
     return useQuery({
-        queryKey: [...DASHBOARD_KEY, 'stats'],
-        queryFn: () => dashboardApi.getStats(),
-        refetchInterval: 30 * 1000,
-        staleTime: 10 * 1000,
+        queryKey: [...DASHBOARD_KEY, 'stats', range?.from ?? '', range?.to ?? ''],
+        queryFn: () => dashboardApi.getStats(range),
+        // Server memoizes the payload for ~20s, so revisits render instantly
+        // from the query cache and background polling stays cheap.
+        staleTime: 30 * 1000,
+        refetchInterval: 60 * 1000,
+        refetchOnWindowFocus: false,
+        placeholderData: (prev) => prev,
     });
 }

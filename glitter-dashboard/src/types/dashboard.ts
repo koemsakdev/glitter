@@ -29,6 +29,55 @@ export interface DashboardStats {
     inventory: InventorySummary;
     bestSelling: TopProduct[];
     mostBought: TopProduct[];
+    sales: SalesSummary;
+    ordersByStatus: OrdersByStatus;
+    salesSeries: SalesPoint[];
+    recentOrders: RecentOrder[];
+    range: DashboardRange;
+}
+
+export type SalesGranularity = 'day' | 'week' | 'month';
+
+export interface DashboardRange {
+    from: string;
+    to: string;
+    granularity: SalesGranularity;
+}
+
+export interface SalesSummary {
+    revenue: number;
+    orders: number;
+    avgOrderValue: number;
+    prevRevenue: number;
+    prevOrders: number;
+    pendingOrders: number;
+    customers: number;
+}
+
+export interface OrdersByStatus {
+    pending: number;
+    paid: number;
+    processing: number;
+    shipped: number;
+    completed: number;
+    cancelled: number;
+    refunded: number;
+}
+
+export interface SalesPoint {
+    day: string;
+    orders: number;
+    revenue: number;
+}
+
+export interface RecentOrder {
+    id: string;
+    orderNumber: string;
+    customerName: string | null;
+    grandTotal: number;
+    status: string;
+    source: string;
+    createdAt: string;
 }
 
 export interface TopProduct {

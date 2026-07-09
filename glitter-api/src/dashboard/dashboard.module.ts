@@ -4,6 +4,8 @@ import { BrandEntity } from '../brands/entities/brand.entity';
 import { CategoryEntity } from '../category/entities/category.entity';
 import { ProductEntity } from '../products/entities/product.entity';
 import { ProductVariantEntity } from '../product-variants/entities/product-variant.entity';
+import { OrderEntity } from '../orders/entities/order.entity';
+import { UserEntity } from '../users/entities/user.entity';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 
@@ -14,6 +16,8 @@ import { DashboardService } from './dashboard.service';
       BrandEntity,
       CategoryEntity,
       ProductVariantEntity,
+      OrderEntity,
+      UserEntity,
     ]),
   ],
   controllers: [DashboardController],

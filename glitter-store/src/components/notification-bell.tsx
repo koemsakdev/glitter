@@ -142,7 +142,7 @@ export function NotificationBell({ lang }: { lang: Lang }) {
                 aria-label={tr(lang, 'notifications')}
                 className="relative flex size-9 items-center justify-center rounded-full text-zinc-600 transition-colors hover:text-(--brand) dark:text-zinc-300 h-9 w-9 border border-neutral-200 dark:border-neutral-800"
             >
-                {bellIcon}
+                <Bell className="size-4" />
                 {unread > 0 && (
                     <span className="absolute right-0.5 top-0.5 flex min-w-4 items-center justify-center rounded-full bg-(--brand) px-1 text-[10px] font-bold leading-4 text-white">
                         {unread > 9 ? '9+' : unread}

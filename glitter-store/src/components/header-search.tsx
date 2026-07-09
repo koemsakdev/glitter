@@ -139,7 +139,7 @@ export function HeaderSearch({
                     className,
                 )}
             >
-                <Search className="size-5" />
+                <Search className="size-4" />
             </button>
 
             <Dialog.Root

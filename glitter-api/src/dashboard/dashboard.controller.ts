@@ -1,4 +1,10 @@
-import { Controller, Get, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -52,9 +58,14 @@ export class DashboardController {
   })
   @UseGuards(RolesGuard)
   @Roles('admin', 'super_admin', 'manager')
-  async getStats(): Promise<{ data: DashboardStatsResponse }> {
-    const stats: DashboardStatsResponse =
-      await this.dashboardService.getStats();
+  async getStats(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<{ data: DashboardStatsResponse }> {
+    const stats: DashboardStatsResponse = await this.dashboardService.getStats({
+      from,
+      to,
+    });
     return { data: stats };
   }
 }

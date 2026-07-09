@@ -29,7 +29,7 @@ export function ProductGallery({
     }));
 
     return (
-        <div className="lg:sticky lg:top-24">
+        <div className="max-lg:mx-auto max-sm:max-w-xs sm:max-lg:max-w-xl lg:sticky lg:top-24">
             <div className="group relative aspect-square w-full overflow-hidden rounded-3xl bg-zinc-100 shadow-sm dark:bg-zinc-800">
                 {mainUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
