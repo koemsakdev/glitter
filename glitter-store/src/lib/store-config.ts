@@ -105,8 +105,24 @@ export type PaymentRule = 'prepay' | 'on_pickup' | 'either';
 /** Whether a method delivers to an address or is collected at a branch. */
 export type DeliveryMethodType = 'delivery' | 'pickup';
 
-/** qr = static QR + proof · on_delivery = cash on receipt · external = provider API. */
-export type PaymentOptionType = 'qr' | 'on_delivery' | 'external';
+/** aba_khqr = ABA Pay (KHQR) · khqr = generic KHQR (any bank) — both go through
+ *  ABA PayWay · cod = pay on delivery / at pickup. */
+export type PaymentOptionType = 'aba_khqr' | 'khqr' | 'cod';
+
+/** A payment option (admin-configurable list). ABA credentials live privately
+ *  in the ABA PayWay config, never here. */
+export interface PaymentOption {
+    id: string;
+    nameEn: string;
+    nameKm: string;
+    descEn: string;
+    descKm: string;
+    iconUrl: string;
+    /** Accent/border colour (hex) for the checkout card. */
+    color: string;
+    type: PaymentOptionType;
+    enabled: boolean;
+}
 
 /** A shipping region (admin-configurable). */
 export interface DeliveryRegion {
@@ -129,36 +145,14 @@ export interface DeliveryMethod {
     enabled: boolean;
 }
 
-/** A payment option (admin-configurable list). */
-export interface PaymentOption {
-    id: string;
-    nameEn: string;
-    nameKm: string;
-    iconUrl: string;
-    type: PaymentOptionType;
-    enabled: boolean;
-    qrImageUrl: string;
-    accountName: string;
-    note: string;
-    provider: string;
-}
-
-/** @deprecated legacy single static KHQR config — migrated into `payments`. */
-export interface KhqrConfig {
-    imageUrl: string;
-    accountName: string;
-    note: string;
-}
-
 export interface StoreDelivery {
-    /** Legacy flat fee (kept for back-compat). */
+    /** Flat delivery fee fallback. */
     fee: number;
-    /** Legacy free-over threshold (kept for back-compat). */
+    /** Orders at/above this subtotal ship free (0 = never). */
     freeOver: number;
-    /** @deprecated legacy KHQR — migrated into `payments`. */
-    khqr: KhqrConfig;
     regions: DeliveryRegion[];
     methods: DeliveryMethod[];
+    /** Admin-configurable payment options shown at checkout. */
     payments: PaymentOption[];
     /**
      * Minutes an unpaid pay-first (KHQR) online order holds its reserved stock
@@ -182,7 +176,7 @@ export const DEFAULT_METHODS: DeliveryMethod[] = [
         type: 'delivery',
         regionId: 'phnom_penh',
         fee: 1.5,
-        payment: 'either',
+        payment: 'on_pickup',
         enabled: true,
     },
     {
@@ -225,25 +219,34 @@ export const DEFAULT_PAYMENTS: PaymentOption[] = [
         id: 'aba_khqr',
         nameEn: 'ABA KHQR',
         nameKm: 'ABA KHQR',
+        descEn: 'Scan with any banking app',
+        descKm: 'ស្កេនដោយកម្មវិធីធនាគារណាមួយ',
         iconUrl: '',
-        type: 'qr',
+        color: '#00529C',
+        type: 'aba_khqr',
         enabled: true,
-        qrImageUrl: '',
-        accountName: '',
-        note: '',
-        provider: '',
     },
     {
-        id: 'cash',
-        nameEn: 'Cash on delivery / at store',
-        nameKm: 'បង់ប្រាក់ពេលដឹក / នៅហាង',
+        id: 'khqr',
+        nameEn: 'KHQR',
+        nameKm: 'KHQR',
+        descEn: 'Scan with any KHQR bank app',
+        descKm: 'ស្កេនដោយកម្មវិធីធនាគារ KHQR',
         iconUrl: '',
-        type: 'on_delivery',
+        color: '#E1251B',
+        type: 'khqr',
         enabled: true,
-        qrImageUrl: '',
-        accountName: '',
-        note: '',
-        provider: '',
+    },
+    {
+        id: 'cod',
+        nameEn: 'Cash on Delivery',
+        nameKm: 'បង់ប្រាក់ពេលដឹក',
+        descEn: 'Pay when you receive your order',
+        descKm: 'បង់ប្រាក់ពេលទទួលទំនិញ',
+        iconUrl: '',
+        color: '#16a34a',
+        type: 'cod',
+        enabled: true,
     },
 ];
 
@@ -360,7 +363,6 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
     delivery: {
         fee: 1.5,
         freeOver: 15,
-        khqr: { imageUrl: '', accountName: '', note: '' },
         regions: DEFAULT_REGIONS,
         methods: DEFAULT_METHODS,
         payments: DEFAULT_PAYMENTS,
@@ -403,7 +405,6 @@ function mergeDelivery(partial: unknown): StoreDelivery {
     const base = DEFAULT_STORE_CONFIG.delivery;
     const d = (partial ?? {}) as Partial<StoreDelivery> & {
         methods?: unknown;
-        khqr?: KhqrConfig;
     };
 
     const regions =
@@ -444,29 +445,38 @@ function mergeDelivery(partial: unknown): StoreDelivery {
         methods = DEFAULT_METHODS;
     }
 
-    let payments: PaymentOption[];
-    if (Array.isArray(d.payments) && d.payments.length > 0) {
-        payments = (d.payments as Partial<PaymentOption>[]).map((p, i) => ({
-            ...(DEFAULT_PAYMENTS[i] ?? DEFAULT_PAYMENTS[0]),
-            ...p,
-        })) as PaymentOption[];
-    } else {
-        payments = DEFAULT_PAYMENTS.map((p) => ({ ...p }));
-        const legacyKhqr = d.khqr;
-        if (legacyKhqr?.imageUrl || legacyKhqr?.accountName) {
-            const qr = payments.find((p) => p.type === 'qr');
-            if (qr) {
-                qr.qrImageUrl = legacyKhqr.imageUrl ?? '';
-                qr.accountName = legacyKhqr.accountName ?? '';
-                qr.note = legacyKhqr.note ?? '';
-            }
-        }
-    }
+    const normalizePayType = (ty: unknown): PaymentOptionType =>
+        ty === 'cod' || ty === 'cash' || ty === 'on_delivery'
+            ? 'cod'
+            : ty === 'khqr'
+              ? 'khqr'
+              : 'aba_khqr';
+    // Default each option from its OWN (normalised) type, so new fields fall
+    // back to the right values regardless of position in the saved array.
+    const defByType = (ty: PaymentOptionType): PaymentOption =>
+        DEFAULT_PAYMENTS.find((dp) => dp.type === ty) ?? DEFAULT_PAYMENTS[0];
+    const payments: PaymentOption[] =
+        Array.isArray(d.payments) && d.payments.length > 0
+            ? (d.payments as Partial<PaymentOption>[]).map((p) => {
+                  const type = normalizePayType(p.type);
+                  const def = defByType(type);
+                  return {
+                      id: p.id ?? def.id,
+                      nameEn: p.nameEn ?? def.nameEn,
+                      nameKm: p.nameKm ?? def.nameKm,
+                      descEn: p.descEn ?? def.descEn,
+                      descKm: p.descKm ?? def.descKm,
+                      iconUrl: p.iconUrl ?? '',
+                      color: p.color || def.color,
+                      type,
+                      enabled: p.enabled ?? def.enabled,
+                  };
+              })
+            : DEFAULT_PAYMENTS.map((p) => ({ ...p }));
 
     return {
         fee: typeof d.fee === 'number' ? d.fee : base.fee,
         freeOver: typeof d.freeOver === 'number' ? d.freeOver : base.freeOver,
-        khqr: { ...base.khqr, ...(d.khqr ?? {}) },
         regions,
         methods,
         payments,

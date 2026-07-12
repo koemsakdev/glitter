@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { CSSProperties } from 'react';
 import localFont from 'next/font/local';
 import './globals.css';
@@ -48,6 +48,13 @@ export async function generateMetadata(): Promise<Metadata> {
     };
 }
 
+export const viewport: Viewport = {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1, // Prevent iOS zoom on inputs just in case
+    viewportFit: 'cover',
+};
+
 export default async function RootLayout({
     children,
 }: Readonly<{
@@ -81,6 +88,12 @@ export default async function RootLayout({
                 {/* Applies the saved/system theme early. `async src` makes it a
                     React-hoistable script (no inline-script dev warning). */}
                 <script async src="/theme-init.js" />
+                {/* ABA PayWay checkout bridge — defines the global `AbaPayway`
+                    used by the checkout page to open ABA's payment modal. */}
+                <script
+                    async
+                    src="https://checkout.payway.com.kh/plugins/checkout2-0.js"
+                />
                 {font.href && (
                     <>
                         <link

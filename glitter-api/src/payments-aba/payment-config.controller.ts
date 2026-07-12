@@ -19,7 +19,7 @@ export class PaymentConfigController {
   constructor(private readonly service: PaymentConfigService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get ABA PayWay config (secrets masked)' })
+  @ApiOperation({ summary: 'Get ABA PayWay config (admin-only, incl. secrets)' })
   get() {
     return this.service.getAdminView();
   }

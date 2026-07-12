@@ -1,12 +1,15 @@
 import { apiClient } from '@/lib/api-client';
 
-/** Secrets are never returned — only presence flags. */
+/** Admin-only view — includes the secret values so the admin can review/edit
+ *  them (the endpoint is role-guarded and never exposed to the storefront). */
 export interface PaymentConfigView {
     enabled: boolean;
     sandbox: boolean;
     merchantId: string;
     webhookUrl: string;
     rsaPublicKey: string;
+    apiKey: string;
+    rsaPrivateKey: string;
     hasApiKey: boolean;
     hasRsaPrivateKey: boolean;
 }

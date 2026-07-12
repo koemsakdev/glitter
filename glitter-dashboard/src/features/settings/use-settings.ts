@@ -54,8 +54,18 @@ export function useSaveStoreConfig() {
                 ? settingsApi.update(params.settingId, input)
                 : settingsApi.create(input);
         },
-        onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: SETTINGS_KEY });
+        // Sync the cache straight from the saved row (deterministic) instead of
+        // refetching — a refetch can race a rapid follow-up edit and briefly
+        // revert it. Fall back to invalidation only if the row can't be parsed.
+        onSuccess: (row) => {
+            try {
+                queryClient.setQueryData([...SETTINGS_KEY, 'store-config'], {
+                    config: mergeStoreConfig(JSON.parse(row.settingValue)),
+                    settingId: row.id,
+                });
+            } catch {
+                void queryClient.invalidateQueries({ queryKey: SETTINGS_KEY });
+            }
         },
     });
 }

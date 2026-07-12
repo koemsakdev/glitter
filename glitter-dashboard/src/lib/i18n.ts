@@ -277,7 +277,7 @@ const translations = {
             'Connect ABA PayWay to accept KHQR payments. Credentials are stored securely and never exposed to the storefront.',
         'settings.aba.enable': 'Enable KHQR auto-payment',
         'settings.aba.enableHint':
-            'When on, checkout shows a live KHQR and confirms payment automatically. When off, the manual proof-upload flow is used.',
+            'When on, checkout offers a live KHQR and confirms payment automatically. When off, only Cash on Delivery is offered.',
         'settings.aba.sandbox': 'Sandbox mode',
         'settings.aba.sandboxHint':
             'Use ABA’s test environment. Turn off only with live production credentials.',
@@ -286,8 +286,9 @@ const translations = {
         'settings.aba.apiKey': 'API key (public key / hash string)',
         'settings.aba.rsaPublic': 'RSA public key',
         'settings.aba.rsaPrivate': 'RSA private key',
-        'settings.aba.secretSaved': 'Saved — leave blank to keep it.',
+        'settings.aba.secretSaved': 'Saved.',
         'settings.aba.secretMissing': 'Not set yet.',
+        'settings.aba.toggleSecret': 'Show or hide value',
         'settings.aba.webhook': 'Webhook (pushback) URL',
         'settings.aba.webhookHint':
             'Give this URL to ABA so PayWay notifies you on payment. Must be publicly reachable; leave blank in local dev (status polling still confirms payment).',
@@ -374,11 +375,30 @@ const translations = {
         'settings.delivery.typePickup': 'Store pickup (branch)',
         'settings.delivery.payments': 'Payment options',
         'settings.delivery.paymentsNote':
-            'Add how customers can pay. QR options show a static QR + ask for proof.',
+            'The payment methods shown at checkout. Add a logo and toggle each on/off.',
         'settings.delivery.addPayment': 'Add payment',
         'settings.delivery.editPayment': 'Edit payment option',
         'settings.delivery.paymentName': 'Payment name',
         'settings.delivery.paymentType': 'Payment type',
+        'settings.delivery.typeKhqr': 'ABA KHQR (online)',
+        'settings.delivery.typeCash': 'Cash on delivery / pickup',
+        'settings.delivery.typeAbaKhqr': 'ABA KHQR',
+        'settings.delivery.typeKhqrOnly': 'KHQR (any bank)',
+        'settings.delivery.typeCod': 'Cash on delivery',
+        'settings.delivery.paymentDesc': 'Description',
+        'settings.delivery.paymentDescHint':
+            'Short line under the title, e.g. "Scan with any banking app".',
+        'settings.delivery.paymentColor': 'Accent colour',
+        'settings.delivery.paymentColorHint':
+            'Border & highlight colour of the payment card at checkout.',
+        'settings.delivery.abaSection': 'ABA PayWay credentials',
+        'settings.delivery.abaSectionHint':
+            'Private keys used to process this payment. Never shown to customers.',
+        'settings.delivery.paymentLogo': 'Logo',
+        'settings.delivery.paymentLogoHint':
+            'Shown on the payment card at checkout (optional).',
+        'settings.delivery.khqrCredsHint':
+            'Enter your ABA credentials below to accept this payment.',
         'settings.delivery.typeQr': 'Scan QR + upload proof',
         'settings.delivery.typeOnDelivery': 'Pay on delivery / at store',
         'settings.delivery.typeExternal': 'Online payment API (coming soon)',
@@ -394,6 +414,14 @@ const translations = {
         'settings.delivery.holdNote':
             'How long an unpaid KHQR (pay-first) order holds its stock before it auto-cancels and releases the hold. Pay-on-delivery / pickup orders are never auto-cancelled.',
         'settings.delivery.holdMinutes': 'minutes',
+        'settings.delivery.cod': 'Cash on Delivery',
+        'settings.delivery.codNote':
+            'Let customers pay with cash when the order is delivered or picked up.',
+        'settings.delivery.paymentMethods': 'Payment methods',
+        'settings.delivery.paymentMethodsNote':
+            'Upload an icon for each method (shown at checkout). Configure KHQR credentials in the ABA PayWay card below.',
+        'settings.delivery.khqrRow':
+            'Online payment — enabled and configured in the ABA PayWay card.',
         'notifications.title': 'Notifications',
         'notifications.empty': 'No notifications yet',
         'notifications.markAllRead': 'Mark all read',
@@ -2025,7 +2053,7 @@ const translations = {
             'ភ្ជាប់ ABA PayWay ដើម្បីទទួលការទូទាត់ KHQR។ ព័ត៌មានសម្ងាត់ត្រូវរក្សាទុកដោយសុវត្ថិភាព និងមិនបង្ហាញនៅហាងឡើយ។',
         'settings.aba.enable': 'បើកការទូទាត់ KHQR ស្វ័យប្រវត្តិ',
         'settings.aba.enableHint':
-            'ពេលបើក ការទូទាត់បង្ហាញ KHQR ផ្ទាល់ ហើយបញ្ជាក់ដោយស្វ័យប្រវត្តិ។ ពេលបិទ ប្រើវិធីផ្ទុកភស្តុតាងដោយដៃ។',
+            'ពេលបើក ការទូទាត់ផ្ដល់ KHQR ផ្ទាល់ ហើយបញ្ជាក់ដោយស្វ័យប្រវត្តិ។ ពេលបិទ ផ្ដល់តែការបង់ប្រាក់ពេលដឹកជញ្ជូន។',
         'settings.aba.sandbox': 'របៀបសាកល្បង (Sandbox)',
         'settings.aba.sandboxHint':
             'ប្រើបរិស្ថានសាកល្បងរបស់ ABA។ បិទតែពេលមានព័ត៌មានផលិតកម្មពិតប្រាកដ។',
@@ -2034,8 +2062,9 @@ const translations = {
         'settings.aba.apiKey': 'API key (public key / hash string)',
         'settings.aba.rsaPublic': 'RSA public key',
         'settings.aba.rsaPrivate': 'RSA private key',
-        'settings.aba.secretSaved': 'បានរក្សាទុក — ទុកទទេដើម្បីរក្សាដដែល។',
+        'settings.aba.secretSaved': 'បានរក្សាទុក។',
         'settings.aba.secretMissing': 'មិនទាន់កំណត់។',
+        'settings.aba.toggleSecret': 'បង្ហាញ ឬលាក់តម្លៃ',
         'settings.aba.webhook': 'Webhook (pushback) URL',
         'settings.aba.webhookHint':
             'ផ្ដល់ URL នេះទៅ ABA ដើម្បីឲ្យ PayWay ជូនដំណឹងពេលមានការទូទាត់។ ត្រូវចូលបានជាសាធារណៈ; ទុកទទេពេលអភិវឌ្ឍក្នុងម៉ាស៊ីន (ការ poll នៅតែបញ្ជាក់ការទូទាត់)។',
@@ -2121,11 +2150,30 @@ const translations = {
         'settings.delivery.typePickup': 'ទទួលនៅសាខា',
         'settings.delivery.payments': 'ជម្រើសទូទាត់',
         'settings.delivery.paymentsNote':
-            'បន្ថែមវិធីទូទាត់។ ជម្រើស QR បង្ហាញ QR ស្ថិត និងសុំភស្តុតាង។',
+            'វិធីទូទាត់ដែលបង្ហាញនៅពេលទូទាត់។ បន្ថែមរូបនិមិត្ត និងបិទ/បើកនីមួយៗ។',
         'settings.delivery.addPayment': 'បន្ថែមការទូទាត់',
         'settings.delivery.editPayment': 'កែជម្រើសទូទាត់',
         'settings.delivery.paymentName': 'ឈ្មោះការទូទាត់',
         'settings.delivery.paymentType': 'ប្រភេទទូទាត់',
+        'settings.delivery.typeKhqr': 'ABA KHQR (អនឡាញ)',
+        'settings.delivery.typeCash': 'បង់ប្រាក់ពេលដឹក / ទទួល',
+        'settings.delivery.typeAbaKhqr': 'ABA KHQR',
+        'settings.delivery.typeKhqrOnly': 'KHQR (ធនាគារណាមួយ)',
+        'settings.delivery.typeCod': 'បង់ប្រាក់ពេលដឹក',
+        'settings.delivery.paymentDesc': 'ការពិពណ៌នា',
+        'settings.delivery.paymentDescHint':
+            'បន្ទាត់ខ្លីក្រោមចំណងជើង ឧ. "ស្កេនដោយកម្មវិធីធនាគារណាមួយ"។',
+        'settings.delivery.paymentColor': 'ពណ៌សញ្ញា',
+        'settings.delivery.paymentColorHint':
+            'ពណ៌ស៊ុម និងបន្លិចនៃកាតទូទាត់ពេលទូទាត់។',
+        'settings.delivery.abaSection': 'ព័ត៌មានសម្ងាត់ ABA PayWay',
+        'settings.delivery.abaSectionHint':
+            'កូនសោឯកជនប្រើសម្រាប់ដំណើរការទូទាត់នេះ។ មិនបង្ហាញដល់អតិថិជនទេ។',
+        'settings.delivery.paymentLogo': 'រូបនិមិត្ត',
+        'settings.delivery.paymentLogoHint':
+            'បង្ហាញនៅលើកាតទូទាត់ពេលទូទាត់ (ស្រេចចិត្ត)។',
+        'settings.delivery.khqrCredsHint':
+            'បញ្ចូលព័ត៌មាន ABA របស់អ្នកខាងក្រោម ដើម្បីទទួលការទូទាត់នេះ។',
         'settings.delivery.typeQr': 'ស្កេន QR + បញ្ជូនភស្តុតាង',
         'settings.delivery.typeOnDelivery': 'បង់ពេលដឹក / នៅហាង',
         'settings.delivery.typeExternal': 'API ទូទាត់អនឡាញ (មកដល់ឆាប់ៗ)',
@@ -2141,6 +2189,14 @@ const translations = {
         'settings.delivery.holdNote':
             'រយៈពេលដែលការបញ្ជាទិញ KHQR (បង់មុន) ដែលមិនទាន់បង់ប្រាក់ រក្សាទុកស្តុក មុនពេលលុបចោលដោយស្វ័យប្រវត្តិ និងដោះលែងស្តុក។ ការបញ្ជាទិញបង់ពេលដឹក / ទទួលនៅហាង មិនត្រូវលុបចោលដោយស្វ័យប្រវត្តិឡើយ។',
         'settings.delivery.holdMinutes': 'នាទី',
+        'settings.delivery.cod': 'បង់ប្រាក់ពេលដឹកជញ្ជូន',
+        'settings.delivery.codNote':
+            'អនុញ្ញាតឲ្យអតិថិជនបង់ជាសាច់ប្រាក់ពេលទទួលទំនិញ ឬមកយកនៅហាង។',
+        'settings.delivery.paymentMethods': 'វិធីទូទាត់',
+        'settings.delivery.paymentMethodsNote':
+            'ផ្ទុករូបតំណាងសម្រាប់វិធីនីមួយៗ (បង្ហាញនៅពេលទូទាត់)។ កំណត់ព័ត៌មាន KHQR នៅកាត ABA PayWay ខាងក្រោម។',
+        'settings.delivery.khqrRow':
+            'ការទូទាត់តាមអ៊ីនធឺណិត — បើក និងកំណត់នៅកាត ABA PayWay។',
         'notifications.title': 'ការជូនដំណឹង',
         'notifications.empty': 'មិនទាន់មានការជូនដំណឹង',
         'notifications.markAllRead': 'សម្គាល់ថាបានអានទាំងអស់',

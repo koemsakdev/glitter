@@ -43,17 +43,52 @@ export class PaymentsAbaController {
   }
 
   @Public()
+  @Post('checkout')
+  @ApiOperation({ summary: 'Get signed form fields for the ABA checkout popup' })
+  async checkout(@Body() dto: CreateKhqrDto) {
+    const payable = await this.orders.getKhqrPayable(dto.orderId);
+    const result = await this.aba.generateCheckoutParams({
+      tranId: payable.tranId,
+      amount: payable.amount,
+      currency: payable.currency,
+      firstName: payable.firstName,
+      phone: payable.phone,
+    });
+    return { data: result };
+  }
+
+  @Public()
   @Get('status/:tranId')
   @ApiOperation({ summary: 'Poll a KHQR transaction status' })
-  async status(
-    @Param('tranId') tranId: string,
-  ): Promise<{ status: string; paid: boolean }> {
-    const status = await this.aba.checkTransaction(tranId);
-    if (status === 'APPROVED') {
+  async status(@Param('tranId') tranId: string): Promise<{
+    status: string;
+    paid: boolean;
+    detail?: {
+      tranId: string;
+      apv: string;
+      amount: string;
+      currency: string;
+      date: string;
+      payer: string;
+    };
+  }> {
+    const info = await this.aba.checkTransactionDetail(tranId);
+    if (info.status === 'APPROVED') {
       const { paid } = await this.orders.confirmAbaPayment(tranId);
-      return { status, paid };
+      return {
+        status: info.status,
+        paid,
+        detail: {
+          tranId,
+          apv: info.apv,
+          amount: info.amount,
+          currency: info.currency,
+          date: info.date,
+          payer: info.payer,
+        },
+      };
     }
-    return { status, paid: false };
+    return { status: info.status, paid: false };
   }
 
   @Public()

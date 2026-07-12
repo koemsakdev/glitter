@@ -38,6 +38,26 @@ interface CheckTxnResponse {
   status?: { code?: string | number; message?: string };
   payment_status?: string;
   payment_status_code?: string | number;
+  apv?: string;
+  total_amount?: string | number;
+  original_amount?: string | number;
+  payment_amount?: string | number;
+  payment_currency?: string;
+  original_currency?: string;
+  transaction_date?: string;
+  payment_date?: string;
+  payer_account_name?: string;
+  bank_ref?: string;
+}
+
+/** Verified transaction details shown on the payment-success screen. */
+export interface AbaTransactionInfo {
+  status: AbaPaymentStatus;
+  apv: string;
+  amount: string;
+  currency: string;
+  date: string;
+  payer: string;
 }
 
 /**
@@ -81,6 +101,106 @@ export class AbaPaywayService {
   async isEnabled(): Promise<boolean> {
     const creds = await this.config.getCredentials();
     return creds.enabled && !!creds.merchantId && !!creds.apiKey;
+  }
+
+  /**
+   * Call ABA's Purchase endpoint with `abapay_khqr_deeplink` to get a
+   * `checkout_qr_url` that can be shown in an iframe on the storefront.
+   *
+   * Hash field order from official ABA Purchase API docs (24 fields):
+   * req_time + merchant_id + tran_id + amount + items + shipping +
+   * firstname + lastname + email + phone + type + payment_option +
+   * return_url + cancel_url + continue_success_url + return_deeplink +
+   * currency + custom_fields + return_params + payout + lifetime +
+   * additional_params + google_pay_token + skip_success_page
+   *
+   * Content-Type: multipart/form-data (per official docs)
+   */
+  /**
+   * Build the SIGNED form fields for ABA's hosted checkout popup (checkout2-0.js).
+   * The storefront renders these as a hidden <form id="aba_merchant_request"
+   * target="aba_webservice"> that POSTs to `actionUrl`, then calls
+   * `AbaPayway.checkout()` to open ABA's branded KHQR overlay. We do NOT call
+   * the purchase API server-to-server — the plugin drives the iframe itself and
+   * ABA notifies us of the result via the pushback webhook / status polling.
+   */
+  async generateCheckoutParams(params: {
+    tranId: string;
+    amount: string;
+    currency?: string;
+    firstName?: string;
+    phone?: string;
+  }): Promise<{
+    actionUrl: string;
+    fields: Record<string, string>;
+  }> {
+    const creds = await this.requireCreds();
+    const reqTime = this.reqTime();
+    const currency = params.currency ?? 'USD';
+    // MUST be empty so ABA returns its HTML checkout interface (the modal with
+    // KHQR / cards / Alipay / WeChat tabs). A specific value makes the purchase
+    // endpoint return raw JSON (the QR-API style) instead of the checkout page.
+    const paymentOption = '';
+    const type = 'purchase';
+    const returnUrl = creds.webhookUrl
+      ? Buffer.from(creds.webhookUrl).toString('base64')
+      : '';
+    const firstname = params.firstName ?? '';
+    const phone = params.phone ?? '';
+    const returnParams = params.tranId;
+
+    // Exact hash field order from official ABA Purchase API PHP sample (24 fields).
+    // ABA recomputes this over the SAME order using the values it receives, so
+    // every field we sign with a value must be POSTed with that same value.
+    const hash = this.hash(
+      [
+        reqTime,        // req_time
+        creds.merchantId, // merchant_id
+        params.tranId,  // tran_id
+        params.amount,  // amount
+        '',             // items
+        '',             // shipping
+        firstname,      // firstname
+        '',             // lastname
+        '',             // email
+        phone,          // phone
+        type,           // type
+        paymentOption,  // payment_option
+        returnUrl,      // return_url
+        '',             // cancel_url
+        '',             // continue_success_url
+        '',             // return_deeplink
+        currency,       // currency
+        '',             // custom_fields
+        returnParams,   // return_params
+        '',             // payout
+        '',             // lifetime
+        '',             // additional_params
+        '',             // google_pay_token
+        '',             // skip_success_page
+      ],
+      creds.apiKey,
+    );
+
+    const fields: Record<string, string> = {
+      req_time: reqTime,
+      merchant_id: creds.merchantId,
+      tran_id: params.tranId,
+      amount: params.amount,
+      currency,
+      type,
+      payment_option: paymentOption,
+      return_params: returnParams,
+      hash,
+    };
+    if (firstname) fields.firstname = firstname;
+    if (phone) fields.phone = phone;
+    if (returnUrl) fields.return_url = returnUrl;
+
+    return {
+      actionUrl: `${creds.baseUrl}/api/payment-gateway/v1/payments/purchase`,
+      fields,
+    };
   }
 
   /**
@@ -159,7 +279,7 @@ export class AbaPaywayService {
     );
 
     const code = String(json.status?.code ?? '');
-    if (code !== '0' || !json.qrString) {
+    if ((code !== '0' && code !== '00') || !json.qrString) {
       this.logger.warn(
         `generate-qr failed: ${code} ${json.status?.message ?? ''}`,
       );
@@ -180,6 +300,12 @@ export class AbaPaywayService {
 
   /** Poll the authoritative payment status for a transaction. */
   async checkTransaction(tranId: string): Promise<AbaPaymentStatus> {
+    return (await this.checkTransactionDetail(tranId)).status;
+  }
+
+  /** Like checkTransaction, but also returns the verified receipt details
+   *  (approval code, amount, date, payer) for the success screen. */
+  async checkTransactionDetail(tranId: string): Promise<AbaTransactionInfo> {
     const creds = await this.requireCreds();
     const reqTime = this.reqTime();
     const hash = this.hash(
@@ -197,17 +323,26 @@ export class AbaPaywayService {
       },
     );
 
-    const status = (json.payment_status ?? '').toUpperCase();
-    if (
-      status === 'APPROVED' ||
-      status === 'PENDING' ||
-      status === 'DECLINED' ||
-      status === 'REFUNDED' ||
-      status === 'CANCELLED'
-    ) {
-      return status;
-    }
-    return 'UNKNOWN';
+    const raw = (json.payment_status ?? '').toUpperCase();
+    const status: AbaPaymentStatus =
+      raw === 'APPROVED' ||
+      raw === 'PENDING' ||
+      raw === 'DECLINED' ||
+      raw === 'REFUNDED' ||
+      raw === 'CANCELLED'
+        ? raw
+        : 'UNKNOWN';
+
+    const amount =
+      json.total_amount ?? json.payment_amount ?? json.original_amount ?? '';
+    return {
+      status,
+      apv: String(json.apv ?? ''),
+      amount: amount === '' ? '' : String(amount),
+      currency: String(json.payment_currency ?? json.original_currency ?? ''),
+      date: String(json.transaction_date ?? json.payment_date ?? ''),
+      payer: String(json.payer_account_name ?? ''),
+    };
   }
 
   private async post<T>(url: string, body: unknown): Promise<T> {

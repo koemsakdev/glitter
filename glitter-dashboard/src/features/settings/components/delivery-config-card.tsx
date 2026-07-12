@@ -22,9 +22,9 @@ const METHOD_TYPE_LABEL: Record<DeliveryMethod['type'], TranslationKey> = {
 };
 
 const PAYMENT_TYPE_LABEL: Record<PaymentOption['type'], TranslationKey> = {
-    qr: 'settings.delivery.typeQr',
-    on_delivery: 'settings.delivery.typeOnDelivery',
-    external: 'settings.delivery.typeExternal',
+    aba_khqr: 'settings.delivery.typeAbaKhqr',
+    khqr: 'settings.delivery.typeKhqrOnly',
+    cod: 'settings.delivery.typeCod',
 };
 
 const RULE_LABEL: Record<DeliveryMethod['payment'], TranslationKey> = {
@@ -122,7 +122,7 @@ export function DeliveryConfigCard({
         });
     }
 
-    // ----- payment mutations -----
+    // ----- payment option mutations -----
     function upsertPayment(option: PaymentOption) {
         const exists = payments.some((p) => p.id === option.id);
         commit('payments', {
@@ -311,6 +311,7 @@ export function DeliveryConfigCard({
             )}
             {paymentDialog && (
                 <PaymentOptionFormDialog
+                    key={paymentDialog.editing?.id ?? 'new'}
                     open
                     option={paymentDialog.editing}
                     onOpenChange={(o) => !o && setPaymentDialog(null)}

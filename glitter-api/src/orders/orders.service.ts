@@ -64,11 +64,6 @@ interface ConfiguredMethod {
   regionId?: string;
 }
 
-/** Shape of a configured payment option read from the store config JSON. */
-interface ConfiguredPayment {
-  id: string;
-  type?: 'qr' | 'on_delivery' | 'external';
-}
 
 /** Built-in method config used when the store config row is missing. */
 const DEFAULT_METHOD_CONFIG: ConfiguredMethod[] = [
@@ -107,13 +102,12 @@ export class OrdersService {
    * client-supplied shipping cost.
    */
   /**
-   * Read the admin-configured delivery methods + payment options from the
-   * store config JSON (best-effort). Falls back to built-in defaults so an
-   * order can still be placed if the config row is missing.
+   * Read the admin-configured delivery methods from the store config JSON
+   * (best-effort). Falls back to built-in defaults so an order can still be
+   * placed if the config row is missing.
    */
   private async loadDeliveryConfig(): Promise<{
     methods: ConfiguredMethod[];
-    payments: ConfiguredPayment[];
   }> {
     try {
       const row = await this.appSettingRepository.findOne({
@@ -121,23 +115,17 @@ export class OrdersService {
       });
       if (row?.settingValue) {
         const cfg = JSON.parse(row.settingValue) as {
-          delivery?: {
-            methods?: ConfiguredMethod[];
-            payments?: ConfiguredPayment[];
-          };
+          delivery?: { methods?: ConfiguredMethod[] };
         };
         const methods = Array.isArray(cfg.delivery?.methods)
           ? cfg.delivery!.methods!
           : DEFAULT_METHOD_CONFIG;
-        const payments = Array.isArray(cfg.delivery?.payments)
-          ? cfg.delivery!.payments!
-          : [];
-        return { methods, payments };
+        return { methods };
       }
     } catch {
       // fall through to defaults
     }
-    return { methods: DEFAULT_METHOD_CONFIG, payments: [] };
+    return { methods: DEFAULT_METHOD_CONFIG };
   }
 
   /**
@@ -172,13 +160,6 @@ export class OrdersService {
     const holdMinutes = await this.loadHoldMinutes();
     const cutoff = new Date(Date.now() - holdMinutes * 60_000);
 
-    // Which payment-option ids are pay-first (QR)? Plus legacy ids.
-    const { payments } = await this.loadDeliveryConfig();
-    const prepayIds = new Set<string>(['khqr', 'aba_khqr']);
-    for (const p of payments) {
-      if (p.type === 'qr') prepayIds.add(p.id);
-    }
-
     const candidates = await this.orderRepository.find({
       where: {
         source: 'online',
@@ -186,11 +167,16 @@ export class OrdersService {
         paymentStatus: 'unpaid',
         createdAt: LessThan(cutoff),
       },
-      select: ['id', 'paymentMethod'],
+      select: ['id', 'paymentMethod', 'abaTranId'],
     });
 
+    // Pay-first (KHQR) orders are the ones that started an ABA transaction, or
+    // carry a KHQR payment method. Cash / pay-on-receipt orders are left alone.
+    const prepayMethods = new Set(['khqr', 'aba_khqr']);
     const stale = candidates.filter(
-      (o) => o.paymentMethod !== null && prepayIds.has(o.paymentMethod),
+      (o) =>
+        o.abaTranId !== null ||
+        (o.paymentMethod !== null && prepayMethods.has(o.paymentMethod)),
     );
 
     let cancelled = 0;
@@ -265,27 +251,17 @@ export class OrdersService {
 
     const isOnline = dto.source === 'online';
 
-    // Online: validate the delivery choice + compute the fee server-side, and
-    // enforce that KHQR pay-first orders include a payment proof.
+    // Online: validate the delivery choice + compute the fee server-side. KHQR
+    // orders are confirmed against ABA PayWay (real API), so no manual proof is
+    // required here.
     let onlineShipping = 0;
     if (isOnline) {
-      const { methods, payments } = await this.loadDeliveryConfig();
+      const { methods } = await this.loadDeliveryConfig();
       onlineShipping = this.resolveOnlineDelivery(
         methods,
         dto.deliveryRegion,
         dto.deliveryMethod,
       );
-      // QR-type payment options must include an uploaded proof. (Legacy orders
-      // used the literal 'khqr' id.)
-      const option = payments.find((p) => p.id === dto.paymentMethod);
-      const requiresProof = option
-        ? option.type === 'qr'
-        : dto.paymentMethod === 'khqr';
-      if (requiresProof && !dto.paymentProofUrl) {
-        throw new BadRequestException(
-          'A payment proof is required for this payment option',
-        );
-      }
     }
 
     const result = await this.dataSource.transaction(async (manager) => {

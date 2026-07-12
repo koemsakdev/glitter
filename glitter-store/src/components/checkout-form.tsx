@@ -2,10 +2,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+    Banknote,
     Check,
-    ImagePlus,
     MapPin,
     Pencil,
     Plus,
@@ -14,7 +14,7 @@ import {
     Store,
     Trash2,
     Truck,
-    X,
+    Loader2,
 } from 'lucide-react';
 import {
     fileUrl,
@@ -28,14 +28,69 @@ import { MapPicker } from '@/components/ui/map-picker';
 import { BackLink } from '@/components/ui/back-link';
 import { AddressForm } from '@/components/checkout/address-form';
 import { pick, tr, type Lang } from '@/lib/locale';
-import type {
-    DeliveryMethod,
-    PaymentOption,
-    StoreDelivery,
-} from '@/lib/store-config';
+import type { DeliveryMethod, StoreDelivery } from '@/lib/store-config';
 import type { Address, Branch } from '@/lib/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+
+// ABA's checkout.prod.js (loaded in the root layout) defines `AbaPayway` as a
+// top-level `const`, so it lives in the global lexical scope — NOT on `window`.
+// Reference it as a bare global, guarded by `typeof` so it can't throw before
+// the script has loaded.
+declare const AbaPayway: { checkout: () => void } | undefined;
+
+function getAbaPayway(): { checkout: () => void } | undefined {
+    return typeof AbaPayway === 'undefined' ? undefined : AbaPayway;
+}
+
+/** Resolve once ABA's bridge is ready (script may still be loading), or false. */
+function waitForAba(timeoutMs = 8000): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+        if (getAbaPayway()?.checkout) return resolve(true);
+        let waited = 0;
+        const step = 100;
+        const t = setInterval(() => {
+            if (getAbaPayway()?.checkout) {
+                clearInterval(t);
+                resolve(true);
+            } else if ((waited += step) >= timeoutMs) {
+                clearInterval(t);
+                resolve(false);
+            }
+        }, step);
+    });
+}
+
+/**
+ * Build the signed hidden <form id="aba_merchant_request" target="aba_webservice">
+ * and call `AbaPayway.checkout()`, which finds that form and opens ABA's own
+ * checkout modal/iframe. Returns false if the bridge isn't available.
+ */
+function openAbaCheckout(
+    actionUrl: string,
+    fields: Record<string, string>,
+): boolean {
+    const aba = getAbaPayway();
+    if (!aba?.checkout) return false;
+
+    document.getElementById('aba_merchant_request')?.remove();
+    const form = document.createElement('form');
+    form.id = 'aba_merchant_request';
+    form.method = 'POST';
+    form.action = actionUrl;
+    form.target = 'aba_webservice';
+    form.style.display = 'none';
+    for (const [name, value] of Object.entries(fields)) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value ?? '';
+        form.appendChild(input);
+    }
+    document.body.appendChild(form);
+    aba.checkout();
+    return true;
+}
 
 export function CheckoutForm({
     branches,
@@ -62,10 +117,8 @@ export function CheckoutForm({
         );
     });
     const [branchId, setBranchId] = useState(branches[0]?.id ?? '');
-    // For methods that let the customer choose (payment rule 'either').
-    const [payChoice, setPayChoice] = useState<'now' | 'later'>('now');
-    // Which QR payment option the customer picked (when paying now).
-    const [payOptionId, setPayOptionId] = useState<string>('');
+    // Which payment method the customer picked ('khqr' | 'cod').
+    const [payMethodId, setPayMethodId] = useState<string>('');
 
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
@@ -210,28 +263,24 @@ export function CheckoutForm({
         editing: Address | null;
     } | null>(null);
 
-    const [proof, setProof] = useState<{ file: File; preview: string } | null>(
-        null,
-    );
-    const proofRef = useRef<HTMLInputElement>(null);
-
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [placed, setPlaced] = useState<string | null>(null);
 
-    // ABA PayWay dynamic KHQR (auto-confirm). When enabled, KHQR shows a live
-    // QR after the order is placed and confirms via polling — no proof upload.
-    const [abaEnabled, setAbaEnabled] = useState(false);
-    const [khqrPay, setKhqrPay] = useState<{
-        orderId: string;
-        orderNumber: string;
+    // ABA PayWay — while ABA's own checkout modal is open, poll for payment.
+    const [abaPay, setAbaPay] = useState<{
         tranId: string;
-        qrImage: string;
-        deeplink: string;
+        orderNumber: string;
+    } | null>(null);
+    // Verified receipt shown on the success screen.
+    const [receipt, setReceipt] = useState<{
+        tranId: string;
+        apv: string;
         amount: string;
         currency: string;
+        date: string;
+        payer: string;
     } | null>(null);
-    const [checking, setChecking] = useState(false);
 
     const loadAddresses = useCallback(
         async (selectId?: string) => {
@@ -262,49 +311,38 @@ export function CheckoutForm({
         void loadAddresses();
     }, [user, loadAddresses]);
 
-    // Is ABA PayWay live-KHQR available?
+    // Poll ABA for payment confirmation while the KHQR modal is open.
     useEffect(() => {
-        let active = true;
-        fetch(`${API_URL}/api/payments/aba/enabled`)
-            .then((r) => r.json())
-            .then((d: { enabled?: boolean }) => {
-                if (active) setAbaEnabled(Boolean(d.enabled));
-            })
-            .catch(() => {});
-        return () => {
-            active = false;
-        };
-    }, []);
-
-    // Poll the KHQR transaction until ABA reports it paid.
-    const confirmKhqr = useCallback(
-        async (tranId: string, orderNumber: string): Promise<boolean> => {
+        if (!abaPay) return;
+        const id = setInterval(async () => {
             try {
                 const r = await fetch(
-                    `${API_URL}/api/payments/aba/status/${tranId}`,
+                    `${API_URL}/api/payments/aba/status/${abaPay.tranId}`,
                 );
-                const d = (await r.json()) as { paid?: boolean };
+                const d = (await r.json()) as {
+                    paid?: boolean;
+                    detail?: {
+                        tranId: string;
+                        apv: string;
+                        amount: string;
+                        currency: string;
+                        date: string;
+                        payer: string;
+                    };
+                };
                 if (d.paid) {
+                    clearInterval(id);
                     clear();
-                    setPlaced(orderNumber);
-                    setKhqrPay(null);
-                    return true;
+                    if (d.detail) setReceipt(d.detail);
+                    setAbaPay(null);
+                    setPlaced(abaPay.orderNumber);
                 }
             } catch {
                 // keep polling
             }
-            return false;
-        },
-        [clear],
-    );
-
-    useEffect(() => {
-        if (!khqrPay) return;
-        const id = setInterval(() => {
-            void confirmKhqr(khqrPay.tranId, khqrPay.orderNumber);
-        }, 3500);
+        }, 4000);
         return () => clearInterval(id);
-    }, [khqrPay, confirmKhqr]);
+    }, [abaPay, clear]);
 
     async function deleteAddress(id: string) {
         try {
@@ -337,22 +375,65 @@ export function CheckoutForm({
     // combined total (order promos ≤ subtotal, delivery promos ≤ fee).
     const grandTotal = Math.max(0, subtotal + fee - discount);
 
-    // Enabled payment options, split by kind. External options aren't offered
-    // at checkout until a provider is wired.
-    const qrOptions = payments.filter((p) => p.enabled && p.type === 'qr');
-    const onReceiveOption = payments.find(
-        (p) => p.enabled && p.type === 'on_delivery',
+    // The delivery method's payment rule decides what's shown:
+    //   on_pickup → pay on delivery (no payment picker at all)
+    //   prepay    → must pay online now (KHQR options)
+    //   either    → choose an online option OR pay on delivery
+    const payOnDeliveryOnly = rule === 'on_pickup';
+    const allowsNow = rule === 'prepay' || rule === 'either';
+    const allowsCash = rule === 'either';
+
+    // Enabled payment options from the admin's list. aba_khqr + khqr both pay
+    // online via ABA; cod is pay-on-receipt.
+    const onlineOptions = payments.filter(
+        (p) => p.enabled && (p.type === 'aba_khqr' || p.type === 'khqr'),
     );
+    const cashOption = payments.find((p) => p.enabled && p.type === 'cod');
 
-    const offersChoice = rule === 'either';
-    const payNow = rule === 'prepay' || (offersChoice && payChoice === 'now');
-    const selectedQr =
-        qrOptions.find((p) => p.id === payOptionId) ?? qrOptions[0];
-    const usesKhqr = payNow && Boolean(selectedQr);
-
-    const chosenOption: PaymentOption | undefined = usesKhqr
-        ? selectedQr
-        : onReceiveOption;
+    const payMethods: {
+        id: string;
+        now: boolean;
+        title: string;
+        desc: string;
+        color: string;
+        Icon: typeof QrCode;
+        iconUrl: string | null;
+    }[] = [];
+    if (allowsNow) {
+        for (const o of onlineOptions) {
+            payMethods.push({
+                id: o.id,
+                now: true,
+                title: pick(lang, o.nameEn, o.nameKm) || tr(lang, 'payKhqrTitle'),
+                desc:
+                    pick(lang, o.descEn, o.descKm) || tr(lang, 'payKhqrDesc'),
+                color: o.color || '#00529C',
+                Icon: QrCode,
+                iconUrl: fileUrl(o.iconUrl),
+            });
+        }
+    }
+    if (allowsCash && cashOption) {
+        payMethods.push({
+            id: cashOption.id,
+            now: false,
+            title:
+                pick(lang, cashOption.nameEn, cashOption.nameKm) ||
+                tr(lang, 'payOnDelivery'),
+            desc:
+                pick(lang, cashOption.descEn, cashOption.descKm) ||
+                (isPickup
+                    ? tr(lang, 'payAtStoreHelp')
+                    : tr(lang, 'payOnDeliveryHelp')),
+            color: cashOption.color || '#16a34a',
+            Icon: Banknote,
+            iconUrl: fileUrl(cashOption.iconUrl),
+        });
+    }
+    const selectedPay =
+        payMethods.find((p) => p.id === payMethodId) ?? payMethods[0];
+    const payNow = selectedPay?.now === true;
+    const usesKhqr = payNow;
 
     if (!hydrated) {
         return <div className="mx-auto max-w-5xl px-4 py-16" />;
@@ -378,6 +459,47 @@ export function CheckoutForm({
                 <p className="mx-auto mt-3 max-w-md text-sm text-zinc-500 dark:text-zinc-400">
                     {tr(lang, 'orderPlacedHelp')}
                 </p>
+                {receipt && (
+                    <div className="mx-auto mt-6 max-w-sm overflow-hidden rounded-2xl border border-emerald-200 text-left dark:border-emerald-500/25">
+                        <div className="flex items-center gap-2 bg-emerald-50 px-5 py-3 dark:bg-emerald-500/10">
+                            <Check className="size-4 text-emerald-600 dark:text-emerald-400" />
+                            <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                                {tr(lang, 'paymentReceived')}
+                            </span>
+                            <span className="ml-auto rounded-full bg-[#00529C] px-2 py-0.5 text-[10px] font-bold text-white">
+                                ABA KHQR
+                            </span>
+                        </div>
+                        <dl className="divide-y divide-zinc-100 px-5 dark:divide-zinc-800">
+                            {(
+                                [
+                                    [tr(lang, 'receiptAmount'),
+                                        receipt.amount
+                                            ? `${receipt.currency === 'KHR' ? '៛' : '$'}${receipt.amount}`
+                                            : formatPrice(grandTotal)],
+                                    [tr(lang, 'receiptTxn'), receipt.tranId],
+                                    [tr(lang, 'receiptApproval'), receipt.apv],
+                                    [tr(lang, 'receiptPayer'), receipt.payer],
+                                    [tr(lang, 'receiptDate'), receipt.date],
+                                ] as [string, string][]
+                            )
+                                .filter(([, v]) => v)
+                                .map(([label, value]) => (
+                                    <div
+                                        key={label}
+                                        className="flex items-center justify-between gap-4 py-2.5 text-sm"
+                                    >
+                                        <dt className="text-zinc-500 dark:text-zinc-400">
+                                            {label}
+                                        </dt>
+                                        <dd className="font-medium text-zinc-900 dark:text-zinc-100">
+                                            {value}
+                                        </dd>
+                                    </div>
+                                ))}
+                        </dl>
+                    </div>
+                )}
                 <div className="mt-7 flex justify-center gap-3">
                     <Link
                         href="/products"
@@ -394,69 +516,6 @@ export function CheckoutForm({
                         </Link>
                     )}
                 </div>
-            </div>
-        );
-    }
-
-    if (khqrPay !== null) {
-        const qrSrc = khqrPay.qrImage
-            ? `data:image/png;base64,${khqrPay.qrImage}`
-            : null;
-        return (
-            <div className="mx-auto max-w-md px-4 py-16 text-center">
-                <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-(--brand)/10 text-(--brand)">
-                    <QrCode className="size-7" />
-                </div>
-                <h1 className="mt-4 text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                    {tr(lang, 'scanToPay')}
-                </h1>
-                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                    {tr(lang, 'orderNumber')}:{' '}
-                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                        {khqrPay.orderNumber}
-                    </span>
-                </p>
-                {qrSrc && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                        src={qrSrc}
-                        alt="KHQR"
-                        className="mx-auto mt-5 size-60 rounded-2xl border border-zinc-200 bg-white object-contain p-3 shadow-sm dark:border-zinc-700"
-                    />
-                )}
-                <p className="mt-3 text-lg font-bold text-(--brand)">
-                    {khqrPay.currency} {khqrPay.amount}
-                </p>
-                {khqrPay.deeplink && (
-                    <a
-                        href={khqrPay.deeplink}
-                        className="mt-4 inline-flex items-center gap-2 rounded-full bg-(--brand) px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
-                    >
-                        {tr(lang, 'openAbaApp')}
-                    </a>
-                )}
-                <div className="mt-6 flex items-center justify-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-                    <span className="size-4 animate-spin rounded-full border-2 border-(--brand) border-t-transparent" />
-                    {tr(lang, 'khqrWaiting')}
-                </div>
-                <button
-                    type="button"
-                    disabled={checking}
-                    onClick={async () => {
-                        setChecking(true);
-                        await confirmKhqr(
-                            khqrPay.tranId,
-                            khqrPay.orderNumber,
-                        );
-                        setChecking(false);
-                    }}
-                    className="mt-3 rounded-full border border-zinc-200 px-5 py-2.5 text-sm font-semibold text-zinc-700 hover:border-(--brand) disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200"
-                >
-                    {tr(lang, 'checkPayment')}
-                </button>
-                <p className="mx-auto mt-5 max-w-xs text-xs text-zinc-400">
-                    {tr(lang, 'khqrHelp')}
-                </p>
             </div>
         );
     }
@@ -486,13 +545,6 @@ export function CheckoutForm({
         setLng(a.longitude ? Number(a.longitude) : null);
     }
 
-    function onPickProof(file: File | null) {
-        if (!file) return;
-        if (proof) URL.revokeObjectURL(proof.preview);
-        setProof({ file, preview: URL.createObjectURL(file) });
-        setError('');
-    }
-
     async function submit(e: React.FormEvent) {
         e.preventDefault();
         setError('');
@@ -501,26 +553,11 @@ export function CheckoutForm({
         if (needsAddress && !address.trim())
             return setError(tr(lang, 'addressRequired'));
         if (isPickup && !branchId) return setError(tr(lang, 'branchRequired'));
-        // With live ABA KHQR the QR appears after placing the order, so no
-        // manual proof is needed; only the static-QR flow requires a screenshot.
-        const useLiveKhqr = usesKhqr && abaEnabled;
-        if (usesKhqr && !abaEnabled && !proof)
-            return setError(tr(lang, 'proofRequired'));
+        // Live ABA KHQR: the QR appears after the order is placed (real API).
+        const useLiveKhqr = usesKhqr;
 
         setSubmitting(true);
         try {
-            let paymentProofUrl: string | undefined;
-            if (usesKhqr && !abaEnabled && proof) {
-                const fd = new FormData();
-                fd.append('image', proof.file);
-                const up = await fetch(`${API_URL}/api/orders/payment-proof`, {
-                    method: 'POST',
-                    body: fd,
-                });
-                if (!up.ok) throw new Error('upload failed');
-                paymentProofUrl = ((await up.json()) as { url: string }).url;
-            }
-
             const regionObj = regions.find((r) => r.id === region);
             const body = JSON.stringify({
                 deliveryRegion: region,
@@ -533,11 +570,16 @@ export function CheckoutForm({
                 deliveryAddress: needsAddress ? address.trim() : undefined,
                 deliveryLat: needsAddress && lat != null ? lat : undefined,
                 deliveryLng: needsAddress && lng != null ? lng : undefined,
-                paymentMethod:
-                    chosenOption?.id ?? (isPickup ? 'on_pickup' : 'cod'),
-                paymentMethodName:
-                    chosenOption?.nameEn ?? chosenOption?.nameKm ?? '',
-                paymentProofUrl,
+                paymentMethod: usesKhqr
+                    ? 'khqr'
+                    : isPickup
+                      ? 'on_pickup'
+                      : 'cod',
+                paymentMethodName: usesKhqr
+                    ? 'ABA KHQR'
+                    : isPickup
+                      ? tr(lang, 'payAtStore')
+                      : tr(lang, 'payOnDelivery'),
                 voucherCode: appliedCode ?? undefined,
                 note: note.trim() || undefined,
                 items: items.map((i) => ({
@@ -559,15 +601,13 @@ export function CheckoutForm({
             if (!res.ok) throw new Error('failed');
             const json: { data?: { orderNumber?: string; id?: string } } =
                 await res.json();
-            if (proof) URL.revokeObjectURL(proof.preview);
             const orderId = json.data?.id ?? '';
             const orderNumber = json.data?.orderNumber ?? orderId;
 
-            // Live KHQR: generate a dynamic QR and switch to the pay-and-wait
-            // view. The order is already placed (stock reserved); if the shopper
-            // abandons it, the backend hold expiry cancels + releases it.
+            // ABA KHQR: get the signed checkout params, then open ABA's own
+            // checkout modal (their checkout2-0.js bridge) and poll for payment.
             if (useLiveKhqr && orderId) {
-                const qr = await fetch(`${API_URL}/api/payments/aba/khqr`, {
+                const qr = await fetch(`${API_URL}/api/payments/aba/checkout`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ orderId }),
@@ -575,31 +615,29 @@ export function CheckoutForm({
                 if (qr.ok) {
                     const qd = (await qr.json()) as {
                         data?: {
-                            tranId: string;
-                            qrString: string;
-                            qrImage: string;
-                            deeplink: string;
-                            amount: string;
-                            currency: string;
+                            actionUrl: string;
+                            fields: Record<string, string>;
                         };
                     };
-                    if (qd.data?.qrString || qd.data?.qrImage) {
-                        setKhqrPay({
-                            orderId,
-                            orderNumber,
-                            tranId: qd.data.tranId,
-                            qrImage: qd.data.qrImage,
-                            deeplink: qd.data.deeplink,
-                            amount: qd.data.amount,
-                            currency: qd.data.currency,
-                        });
-                        return;
+                    if (qd.data?.actionUrl && qd.data.fields?.tran_id) {
+                        await waitForAba();
+                        const opened = openAbaCheckout(
+                            qd.data.actionUrl,
+                            qd.data.fields,
+                        );
+                        if (opened) {
+                            setAbaPay({
+                                tranId: qd.data.fields.tran_id,
+                                orderNumber,
+                            });
+                            return;
+                        }
                     }
                 }
-                // QR generation failed — the order still exists; show success
-                // and let staff reconcile the payment.
-                clear();
-                setPlaced(orderNumber);
+                // Payment couldn't be started — this is a pay-first (KHQR) order,
+                // so it is NOT placed. Keep the cart, show an error, and let the
+                // unpaid order auto-expire and release its reserved stock.
+                setError(tr(lang, 'abaPayFailed'));
                 return;
             }
 
@@ -616,7 +654,11 @@ export function CheckoutForm({
         'h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors focus:border-(--brand) dark:border-zinc-700 dark:bg-zinc-900';
 
     return (
-        <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
+        <div className="relative min-h-screen">
+            {/* Subtle premium background gradient */}
+            <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-zinc-50 via-zinc-100/50 to-zinc-50 dark:from-zinc-950 dark:via-zinc-900/50 dark:to-zinc-950" />
+            
+            <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
             <BackLink lang={lang} fallbackHref="/cart" className="mb-3" />
             <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                 {tr(lang, 'checkout')}
@@ -708,222 +750,89 @@ export function CheckoutForm({
 
                     {/* 3 — Payment */}
                     <Section step={3} title={tr(lang, 'payment')}>
-                        {offersChoice && (
-                            <div className="mb-4 grid grid-cols-2 gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setPayChoice('now')}
-                                    className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition-colors ${
-                                        payChoice === 'now'
-                                            ? 'border-(--brand) bg-(--brand)/5 text-(--brand)'
-                                            : 'border-zinc-200 text-zinc-700 dark:border-zinc-700 dark:text-zinc-200'
-                                    }`}
-                                >
-                                    {tr(lang, 'payNowKhqr')}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setPayChoice('later')}
-                                    className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition-colors ${
-                                        payChoice === 'later'
-                                            ? 'border-(--brand) bg-(--brand)/5 text-(--brand)'
-                                            : 'border-zinc-200 text-zinc-700 dark:border-zinc-700 dark:text-zinc-200'
-                                    }`}
-                                >
-                                    {tr(
-                                        lang,
-                                        isPickup ? 'payAtStore' : 'payOnDelivery',
-                                    )}
-                                </button>
-                            </div>
-                        )}
-
-                        {payNow ? (
-                            selectedQr ? (
-                                <div className="space-y-3">
-                                    {/* Choose which QR provider, if more than one */}
-                                    {qrOptions.length > 1 && (
-                                        <div className="grid gap-2.5 sm:grid-cols-2">
-                                            {qrOptions.map((o) => {
-                                                const icon = fileUrl(o.iconUrl);
-                                                const active =
-                                                    selectedQr.id === o.id;
-                                                return (
-                                                    <button
-                                                        key={o.id}
-                                                        type="button"
-                                                        onClick={() =>
-                                                            setPayOptionId(o.id)
-                                                        }
-                                                        className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition-all ${
-                                                            active
-                                                                ? 'border-(--brand) bg-(--brand)/5 ring-1 ring-(--brand)/30'
-                                                                : 'border-zinc-200 hover:border-(--brand)/40 dark:border-zinc-700'
-                                                        }`}
-                                                    >
-                                                        <span
-                                                            className={`flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border ${
-                                                                icon
-                                                                    ? 'border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900'
-                                                                    : 'border-transparent bg-zinc-100 dark:bg-zinc-800'
-                                                            }`}
-                                                        >
-                                                            {icon ? (
-                                                                // eslint-disable-next-line @next/next/no-img-element
-                                                                <img
-                                                                    src={icon}
-                                                                    alt=""
-                                                                    className="size-full object-contain p-1"
-                                                                />
-                                                            ) : (
-                                                                <QrCode className="size-5 text-zinc-400" />
-                                                            )}
-                                                        </span>
-                                                        <span className="min-w-0 flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                                                            {pick(
-                                                                lang,
-                                                                o.nameEn,
-                                                                o.nameKm,
-                                                            )}
-                                                        </span>
-                                                        <span
-                                                            className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                                                                active
-                                                                    ? 'border-(--brand) bg-(--brand)'
-                                                                    : 'border-zinc-300 dark:border-zinc-600'
-                                                            }`}
-                                                        >
-                                                            {active && (
-                                                                <Check className="size-3 text-white" />
-                                                            )}
-                                                        </span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-
-                                    {abaEnabled ? (
-                                        <div className="flex items-start gap-3 rounded-xl border border-(--brand)/30 bg-(--brand)/5 p-4">
-                                            <QrCode className="mt-0.5 size-5 shrink-0 text-(--brand)" />
-                                            <p className="text-sm text-zinc-700 dark:text-zinc-200">
-                                                {tr(lang, 'liveKhqrNotice')}
-                                            </p>
-                                        </div>
-                                    ) : (
-                                    <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900/60">
-                                        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                                            {tr(lang, 'scanToPay')}{' '}
-                                            <span className="text-(--brand)">
-                                                {formatPrice(grandTotal)}
-                                            </span>
-                                        </p>
-                                        <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:items-start">
-                                            {fileUrl(selectedQr.qrImageUrl) ? (
-                                                // eslint-disable-next-line @next/next/no-img-element
-                                                <img
-                                                    src={
-                                                        fileUrl(
-                                                            selectedQr.qrImageUrl,
-                                                        ) as string
-                                                    }
-                                                    alt="QR"
-                                                    className="size-44 rounded-2xl border border-zinc-200 bg-white object-contain p-2.5 shadow-sm dark:border-zinc-700"
-                                                />
-                                            ) : (
-                                                <div className="flex size-44 items-center justify-center rounded-2xl border border-dashed border-zinc-300 px-3 text-center text-xs text-zinc-400 dark:border-zinc-600">
-                                                    {tr(
-                                                        lang,
-                                                        'khqrNotConfigured',
-                                                    )}
-                                                </div>
-                                            )}
-                                            <div className="flex-1 text-sm">
-                                                {selectedQr.accountName && (
-                                                    <p className="font-medium text-zinc-900 dark:text-zinc-100">
-                                                        {selectedQr.accountName}
-                                                    </p>
-                                                )}
-                                                {selectedQr.note && (
-                                                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                                                        {selectedQr.note}
-                                                    </p>
-                                                )}
-                                                <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                                    {tr(lang, 'uploadProofHelp')}
-                                                </p>
-                                                <div className="mt-3">
-                                                    {proof ? (
-                                                        <div className="relative inline-block">
-                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                            <img
-                                                                src={
-                                                                    proof.preview
-                                                                }
-                                                                alt=""
-                                                                className="size-24 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700"
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    URL.revokeObjectURL(
-                                                                        proof.preview,
-                                                                    );
-                                                                    setProof(
-                                                                        null,
-                                                                    );
-                                                                }}
-                                                                className="absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full bg-zinc-900 text-white"
-                                                                aria-label="remove"
-                                                            >
-                                                                <X className="size-3.5" />
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                proofRef.current?.click()
-                                                            }
-                                                            className="inline-flex items-center gap-2 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-600 hover:border-(--brand) hover:text-(--brand) dark:border-zinc-600 dark:text-zinc-300"
-                                                        >
-                                                            <ImagePlus className="size-4" />
-                                                            {tr(
-                                                                lang,
-                                                                'uploadProof',
-                                                            )}
-                                                        </button>
-                                                    )}
-                                                    <input
-                                                        ref={proofRef}
-                                                        type="file"
-                                                        accept="image/*"
-                                                        hidden
-                                                        onChange={(e) =>
-                                                            onPickProof(
-                                                                e.target
-                                                                    .files?.[0] ??
-                                                                    null,
-                                                            )
-                                                        }
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <p className="rounded-xl bg-zinc-50 px-4 py-3 text-sm text-zinc-600 dark:bg-zinc-900/60 dark:text-zinc-300">
-                                    {tr(lang, 'khqrNotConfigured')}
+                        {payOnDeliveryOnly ? (
+                            <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+                                <Banknote className="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                <p className="text-sm text-zinc-700 dark:text-zinc-200">
+                                    {isPickup
+                                        ? tr(lang, 'payAtStoreHelp')
+                                        : tr(lang, 'payOnDeliveryHelp')}
                                 </p>
-                            )
-                        ) : (
+                            </div>
+                        ) : payMethods.length === 0 ? (
                             <p className="rounded-xl bg-zinc-50 px-4 py-3 text-sm text-zinc-600 dark:bg-zinc-900/60 dark:text-zinc-300">
-                                {isPickup
-                                    ? tr(lang, 'payAtStoreHelp')
-                                    : tr(lang, 'payOnDeliveryHelp')}
+                                {tr(lang, 'noPayMethod')}
                             </p>
+                        ) : (
+                            <div className="space-y-2.5">
+                                {payMethods.map((pm) => {
+                                    const active = selectedPay?.id === pm.id;
+                                    return (
+                                        <button
+                                            key={pm.id}
+                                            type="button"
+                                            onClick={() => setPayMethodId(pm.id)}
+                                            style={{
+                                                borderColor: active
+                                                    ? pm.color
+                                                    : `${pm.color}59`,
+                                                backgroundColor: active
+                                                    ? `${pm.color}12`
+                                                    : undefined,
+                                                boxShadow: active
+                                                    ? `0 0 0 1px ${pm.color}`
+                                                    : undefined,
+                                            }}
+                                            className="relative flex w-full items-center gap-4 rounded-2xl border-2 p-4 text-left transition-all hover:opacity-95"
+                                        >
+                                            <span
+                                                style={
+                                                    pm.iconUrl
+                                                        ? undefined
+                                                        : { backgroundColor: pm.color }
+                                                }
+                                                className={`flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${
+                                                    pm.iconUrl
+                                                        ? 'border border-zinc-200 bg-white dark:border-zinc-700'
+                                                        : 'text-white'
+                                                }`}
+                                            >
+                                                <PayIcon
+                                                    iconUrl={pm.iconUrl}
+                                                    Icon={pm.Icon}
+                                                />
+                                            </span>
+                                            <span className="flex flex-1 flex-col">
+                                                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                                                    {pm.title}
+                                                </span>
+                                                <span className="mt-0.5 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                                                    {pm.desc}
+                                                </span>
+                                            </span>
+                                            <span
+                                                style={
+                                                    active
+                                                        ? {
+                                                              backgroundColor: pm.color,
+                                                              borderColor: pm.color,
+                                                          }
+                                                        : undefined
+                                                }
+                                                className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                                                    active
+                                                        ? ''
+                                                        : 'border-zinc-300 dark:border-zinc-600'
+                                                }`}
+                                            >
+                                                {active && (
+                                                    <Check className="size-3.5 text-white" />
+                                                )}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         )}
                     </Section>
 
@@ -1102,8 +1011,8 @@ export function CheckoutForm({
 
                 {/* Summary */}
                 <div className="lg:sticky lg:top-24 lg:h-fit">
-                    <div className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                        <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-xl backdrop-blur-xl dark:border-zinc-700/50 dark:bg-zinc-900/70">
+                        <h2 className="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                             {tr(lang, 'orderSummary')}
                         </h2>
                         <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto pr-1">
@@ -1234,8 +1143,9 @@ export function CheckoutForm({
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="mt-5 w-full rounded-full bg-(--brand) px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-opacity hover:opacity-90 disabled:opacity-60"
+                            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-(--brand) px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-opacity hover:opacity-90 disabled:opacity-60"
                         >
+                            {submitting && <Loader2 className="size-4 animate-spin" />}
                             {submitting
                                 ? tr(lang, 'placingOrder')
                                 : tr(lang, 'placeOrder')}
@@ -1257,8 +1167,54 @@ export function CheckoutForm({
                     }}
                 />
             )}
+
+            {/* ABA renders its own checkout modal (via its JS bridge). We only
+                show a small, non-blocking pill so the customer can stop waiting
+                if they close ABA without paying. It never covers ABA's modal. */}
+            {abaPay && (
+                <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
+                    <div className="flex items-center gap-3 rounded-full border border-zinc-200 bg-white/95 px-4 py-2 text-sm shadow-lg backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
+                        <Loader2 className="size-4 animate-spin text-[#00529C]" />
+                        <span className="text-zinc-600 dark:text-zinc-300">
+                            {tr(lang, 'abaWaiting')}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setAbaPay(null)}
+                            className="text-xs font-medium text-zinc-400 underline-offset-2 hover:text-zinc-600 hover:underline dark:hover:text-zinc-300"
+                        >
+                            {tr(lang, 'cancel')}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
         </div>
     );
+}
+
+/** Payment-method icon: the uploaded logo, falling back to a default icon if
+ *  the image is missing or fails to load. */
+function PayIcon({
+    iconUrl,
+    Icon,
+}: {
+    iconUrl: string | null;
+    Icon: typeof QrCode;
+}) {
+    const [failed, setFailed] = useState(false);
+    if (iconUrl && !failed) {
+        return (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+                src={iconUrl}
+                alt=""
+                className="size-full object-contain p-1"
+                onError={() => setFailed(true)}
+            />
+        );
+    }
+    return <Icon className="size-6" />;
 }
 
 function MethodCard({
@@ -1342,9 +1298,9 @@ function Section({
     children: React.ReactNode;
 }) {
     return (
-        <div className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="mb-4 flex items-center gap-2.5 text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                <span className="flex size-6 items-center justify-center rounded-full bg-(--brand) text-xs font-bold text-white">
+        <div className="rounded-3xl border border-white/60 bg-white/60 p-6 shadow-sm backdrop-blur-md dark:border-zinc-800/60 dark:bg-zinc-900/50">
+            <h2 className="mb-5 flex items-center gap-3 text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                <span className="flex size-7 items-center justify-center rounded-full bg-(--brand) text-sm font-bold text-white shadow-sm shadow-(--brand)/30">
                     {step}
                 </span>
                 {title}

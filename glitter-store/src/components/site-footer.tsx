@@ -69,14 +69,25 @@ export function SiteFooter({
     const logo = fileUrl(config.logoUrl);
     const socials = config.socials.filter((s) => s.url?.trim());
 
-    // "We accept" — driven by the admin-configured, enabled payment options.
-    const acceptedPayments = (config.delivery?.payments ?? [])
-        .filter((p) => p.enabled)
-        .map((p) => ({
-            id: p.id,
-            label: pick(lang, p.nameEn, p.nameKm) || p.id,
-            icon: fileUrl(p.iconUrl),
-        }));
+    // "We accept" — derived from the delivery methods' payment rules: KHQR
+    // (ABA PayWay) for prepay methods, cash for pay-on-receipt.
+    const methods = config.delivery?.methods ?? [];
+    const hasKhqr = methods.some(
+        (m) => m.enabled && (m.payment === 'prepay' || m.payment === 'either'),
+    );
+    const hasCash = methods.some(
+        (m) =>
+            m.enabled && (m.payment === 'on_pickup' || m.payment === 'either'),
+    );
+    const acceptedPayments: { id: string; label: string; icon: string | null }[] =
+        [];
+    if (hasKhqr) acceptedPayments.push({ id: 'khqr', label: 'KHQR', icon: null });
+    if (hasCash)
+        acceptedPayments.push({
+            id: 'cash',
+            label: pick(lang, 'Cash', 'សាច់ប្រាក់'),
+            icon: null,
+        });
 
     // Prefer the structured contacts; fall back to the flat fields.
     const structured = config.contacts.filter((c) => c.value?.trim());

@@ -4,13 +4,19 @@ import { Repository } from 'typeorm';
 import { PaymentConfigEntity } from './entities/payment-config.entity';
 import { UpdatePaymentConfigDto } from './dto/update-payment-config.dto';
 
-/** Secrets are never returned; the UI sees only presence flags. */
+/**
+ * Admin-only view. Includes the secret values (API key + RSA private key) so
+ * the admin can review/edit their own credentials in the dashboard — this route
+ * is guarded to admin/super_admin roles and is NEVER exposed to the storefront.
+ */
 export interface PaymentConfigAdminView {
   enabled: boolean;
   sandbox: boolean;
   merchantId: string;
   webhookUrl: string;
   rsaPublicKey: string;
+  apiKey: string;
+  rsaPrivateKey: string;
   hasApiKey: boolean;
   hasRsaPrivateKey: boolean;
 }
@@ -53,6 +59,8 @@ export class PaymentConfigService {
       merchantId: c.merchantId,
       webhookUrl: c.webhookUrl,
       rsaPublicKey: c.rsaPublicKey,
+      apiKey: c.apiKey,
+      rsaPrivateKey: c.rsaPrivateKey,
       hasApiKey: c.apiKey.trim().length > 0,
       hasRsaPrivateKey: c.rsaPrivateKey.trim().length > 0,
     };

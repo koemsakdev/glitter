@@ -132,9 +132,28 @@ export type PaymentRule = 'prepay' | 'on_pickup' | 'either';
 /** Whether a method delivers to an address or is collected at a branch. */
 export type DeliveryMethodType = 'delivery' | 'pickup';
 
-/** Payment instrument kind. qr = static QR + proof · on_delivery = cash on
- *  receipt · external = real provider API (wired later). */
-export type PaymentOptionType = 'qr' | 'on_delivery' | 'external';
+/** aba_khqr = ABA Pay (KHQR) · khqr = generic KHQR (any bank) — both go through
+ *  ABA PayWay · cod = pay on delivery / at pickup. */
+export type PaymentOptionType = 'aba_khqr' | 'khqr' | 'cod';
+
+/** Payment option types that pay online via ABA PayWay (need credentials). */
+export const ABA_PAYMENT_TYPES: PaymentOptionType[] = ['aba_khqr', 'khqr'];
+
+/** A payment option (admin-configurable list). ABA credentials live privately
+ *  in the ABA PayWay config, never in this public blob. */
+export interface PaymentOption {
+    id: string;
+    nameEn: string;
+    nameKm: string;
+    /** Short line shown under the title at checkout, e.g. "Scan to pay". */
+    descEn: string;
+    descKm: string;
+    iconUrl: string;
+    /** Accent/border colour (hex) used for the checkout card. */
+    color: string;
+    type: PaymentOptionType;
+    enabled: boolean;
+}
 
 /** A shipping region (admin-configurable). `id` is stable; the rest is editable. */
 export interface DeliveryRegion {
@@ -159,42 +178,16 @@ export interface DeliveryMethod {
     enabled: boolean;
 }
 
-/** A payment option (admin-configurable list). */
-export interface PaymentOption {
-    id: string;
-    nameEn: string;
-    nameKm: string;
-    iconUrl: string;
-    type: PaymentOptionType;
-    enabled: boolean;
-    /** type 'qr': the static QR image + account shown at checkout. */
-    qrImageUrl: string;
-    accountName: string;
-    note: string;
-    /** type 'external': provider id (e.g. 'aba_payway', 'wing'); secrets live
-     *  in the API env, never here. */
-    provider: string;
-}
-
-/** @deprecated legacy single static KHQR config — migrated into `payments`. */
-export interface KhqrConfig {
-    imageUrl: string;
-    accountName: string;
-    note: string;
-}
-
 export interface StoreDelivery {
-    /** Legacy flat fee (kept for back-compat; no longer shown). */
+    /** Flat delivery fee fallback. */
     fee: number;
-    /** Legacy free-over threshold (kept for back-compat; no longer shown). */
+    /** Orders at/above this subtotal ship free (0 = never). */
     freeOver: number;
-    /** @deprecated legacy KHQR — migrated into `payments`. */
-    khqr: KhqrConfig;
     /** Admin-configurable shipping regions. */
     regions: DeliveryRegion[];
     /** Admin-configurable delivery options. */
     methods: DeliveryMethod[];
-    /** Admin-configurable payment options. */
+    /** Admin-configurable payment options shown at checkout. */
     payments: PaymentOption[];
     /**
      * Minutes an unpaid pay-first (KHQR) online order holds its reserved stock
@@ -218,7 +211,7 @@ export const DEFAULT_METHODS: DeliveryMethod[] = [
         type: 'delivery',
         regionId: 'phnom_penh',
         fee: 1.5,
-        payment: 'either',
+        payment: 'on_pickup',
         enabled: true,
     },
     {
@@ -261,32 +254,40 @@ export const DEFAULT_PAYMENTS: PaymentOption[] = [
         id: 'aba_khqr',
         nameEn: 'ABA KHQR',
         nameKm: 'ABA KHQR',
+        descEn: 'Scan with any banking app',
+        descKm: 'ស្កេនដោយកម្មវិធីធនាគារណាមួយ',
         iconUrl: '',
-        type: 'qr',
+        color: '#00529C',
+        type: 'aba_khqr',
         enabled: true,
-        qrImageUrl: '',
-        accountName: '',
-        note: '',
-        provider: '',
     },
     {
-        id: 'cash',
-        nameEn: 'Cash on delivery / at store',
-        nameKm: 'បង់ប្រាក់ពេលដឹក / នៅហាង',
+        id: 'khqr',
+        nameEn: 'KHQR',
+        nameKm: 'KHQR',
+        descEn: 'Scan with any KHQR bank app',
+        descKm: 'ស្កេនដោយកម្មវិធីធនាគារ KHQR',
         iconUrl: '',
-        type: 'on_delivery',
+        color: '#E1251B',
+        type: 'khqr',
         enabled: true,
-        qrImageUrl: '',
-        accountName: '',
-        note: '',
-        provider: '',
+    },
+    {
+        id: 'cod',
+        nameEn: 'Cash on Delivery',
+        nameKm: 'បង់ប្រាក់ពេលដឹក',
+        descEn: 'Pay when you receive your order',
+        descKm: 'បង់ប្រាក់ពេលទទួលទំនិញ',
+        iconUrl: '',
+        color: '#16a34a',
+        type: 'cod',
+        enabled: true,
     },
 ];
 
 export const DEFAULT_DELIVERY: StoreDelivery = {
     fee: 1.5,
     freeOver: 15,
-    khqr: { imageUrl: '', accountName: '', note: '' },
     regions: DEFAULT_REGIONS,
     methods: DEFAULT_METHODS,
     payments: DEFAULT_PAYMENTS,
@@ -309,7 +310,6 @@ interface LegacyMethod {
 export function mergeDelivery(partial: unknown): StoreDelivery {
     const d = (partial ?? {}) as Partial<StoreDelivery> & {
         methods?: unknown;
-        khqr?: KhqrConfig;
     };
 
     const regions =
@@ -352,25 +352,34 @@ export function mergeDelivery(partial: unknown): StoreDelivery {
         methods = DEFAULT_METHODS;
     }
 
-    // --- payments: accept the new array, else seed defaults + migrate khqr ---
-    let payments: PaymentOption[];
-    if (Array.isArray(d.payments) && d.payments.length > 0) {
-        payments = (d.payments as Partial<PaymentOption>[]).map((p, i) => ({
-            ...(DEFAULT_PAYMENTS[i] ?? DEFAULT_PAYMENTS[0]),
-            ...p,
-        })) as PaymentOption[];
-    } else {
-        payments = DEFAULT_PAYMENTS.map((p) => ({ ...p }));
-        const legacyKhqr = d.khqr;
-        if (legacyKhqr?.imageUrl || legacyKhqr?.accountName) {
-            const qr = payments.find((p) => p.type === 'qr');
-            if (qr) {
-                qr.qrImageUrl = legacyKhqr.imageUrl ?? '';
-                qr.accountName = legacyKhqr.accountName ?? '';
-                qr.note = legacyKhqr.note ?? '';
-            }
-        }
-    }
+    const normalizePayType = (ty: unknown): PaymentOptionType =>
+        ty === 'cod' || ty === 'cash' || ty === 'on_delivery'
+            ? 'cod'
+            : ty === 'khqr'
+              ? 'khqr'
+              : 'aba_khqr';
+    // Default each option from its OWN (normalised) type, so new fields fall
+    // back to the right values regardless of position in the saved array.
+    const defByType = (ty: PaymentOptionType): PaymentOption =>
+        DEFAULT_PAYMENTS.find((dp) => dp.type === ty) ?? DEFAULT_PAYMENTS[0];
+    const payments: PaymentOption[] =
+        Array.isArray(d.payments) && d.payments.length > 0
+            ? (d.payments as Partial<PaymentOption>[]).map((p) => {
+                  const type = normalizePayType(p.type);
+                  const def = defByType(type);
+                  return {
+                      id: p.id ?? def.id,
+                      nameEn: p.nameEn ?? def.nameEn,
+                      nameKm: p.nameKm ?? def.nameKm,
+                      descEn: p.descEn ?? def.descEn,
+                      descKm: p.descKm ?? def.descKm,
+                      iconUrl: p.iconUrl ?? '',
+                      color: p.color || def.color,
+                      type,
+                      enabled: p.enabled ?? def.enabled,
+                  };
+              })
+            : DEFAULT_PAYMENTS.map((p) => ({ ...p }));
 
     return {
         fee: typeof d.fee === 'number' ? d.fee : DEFAULT_DELIVERY.fee,
@@ -378,7 +387,6 @@ export function mergeDelivery(partial: unknown): StoreDelivery {
             typeof d.freeOver === 'number'
                 ? d.freeOver
                 : DEFAULT_DELIVERY.freeOver,
-        khqr: { ...DEFAULT_DELIVERY.khqr, ...(d.khqr ?? {}) },
         regions,
         methods,
         payments,

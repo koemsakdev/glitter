@@ -128,10 +128,25 @@
 
   body {
     @apply bg-background text-foreground;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  @supports (padding: max(0px)) {
+    body {
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
   }
 
   html {
     @apply font-sans;
+  }
+
+  /* Prevent iOS Safari auto-zoom on focus */
+  input, textarea, select {
+    font-size: 16px;
   }
 
   button {
