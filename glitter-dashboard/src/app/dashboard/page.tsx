@@ -9,24 +9,17 @@ import {
     RANGE_PRESETS,
     type DateRange,
 } from '@/features/dashboard/components/date-range-filter';
-import { InventorySummaryCard } from '@/features/dashboard/components/inventory-summary-card';
 import { LowStockCard } from '@/features/dashboard/components/low-stock-card';
-import { MostWishlistedCard } from '@/features/dashboard/components/most-wishlisted-card';
-import { OrderStatusCard } from '@/features/dashboard/components/order-status-card';
 import { QuickActionsCard } from '@/features/dashboard/components/quick-actions-card';
 import { RecentOrdersCard } from '@/features/dashboard/components/recent-orders-card';
-import { RecentProductsCard } from '@/features/dashboard/components/recent-products-card';
 import { SalesChart } from '@/features/dashboard/components/sales-chart';
 import { StatCard } from '@/features/dashboard/components/stat-card';
-import { TopBrandsCard } from '@/features/dashboard/components/top-brands-card';
-import { TopCategoriesCard } from '@/features/dashboard/components/top-categories-card';
 import { TopProductsCard } from '@/features/dashboard/components/top-products-card';
 import { WelcomeHeader } from '@/features/dashboard/components/welcome-header';
 import { useDashboardStats } from '@/features/dashboard/use-dashboard';
 import { formatPrice } from '@/lib/formatters';
 import { useI18n } from '@/lib/i18n';
 
-/** Period-over-period % change, guarding divide-by-zero. */
 function pctChange(cur: number, prev: number): number {
     if (prev > 0) return ((cur - prev) / prev) * 100;
     return cur > 0 ? 100 : 0;
@@ -60,6 +53,7 @@ export default function DashboardHomePage() {
 
     return (
         <div className="space-y-6">
+            {/* Header & Quick Actions moved to the top for immediate access */}
             <WelcomeHeader
                 action={
                     <DateRangeFilter
@@ -71,8 +65,9 @@ export default function DashboardHomePage() {
                     />
                 }
             />
+            <QuickActionsCard />
 
-            {/* Sales KPIs — the numbers that run the shop, for the chosen range */}
+            {/* Core KPIs */}
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 <StatCard
                     title={t('dashboard.stats.revenue')}
@@ -109,7 +104,7 @@ export default function DashboardHomePage() {
                 />
             </div>
 
-            {/* Revenue trend + order status */}
+            {/* Trends & Urgent Actions (Low Stock) */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <div className="lg:col-span-2">
                     <SalesChart
@@ -118,51 +113,20 @@ export default function DashboardHomePage() {
                         rangeLabel={rangeLabel}
                     />
                 </div>
-                <OrderStatusCard data={stats.ordersByStatus} />
-            </div>
-
-            {/* Recent orders + low stock */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <div className="lg:col-span-2">
-                    <RecentOrdersCard orders={stats.recentOrders} />
-                </div>
                 <LowStockCard
                     variants={stats.lowStockVariants}
                     outOfStockCount={stats.variants.outOfStockCount}
                 />
             </div>
 
-            {/* What's selling */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <TopProductsCard
-                    title={t('dashboard.bestSelling.title')}
-                    subtitle={t('dashboard.bestSelling.subtitle')}
-                    countLabel={t('dashboard.sold')}
-                    products={stats.bestSelling}
-                />
-                <TopProductsCard
-                    title={t('dashboard.mostBought.title')}
-                    subtitle={t('dashboard.mostBought.subtitle')}
-                    countLabel={t('dashboard.orders')}
-                    products={stats.mostBought}
-                />
-                <MostWishlistedCard />
-            </div>
-
-            {/* Catalog snapshot */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <TopCategoriesCard categories={stats.topCategories} />
-                <TopBrandsCard brands={stats.topBrands} />
-                <InventorySummaryCard data={stats.inventory} />
-            </div>
-
-            {/* Recent products + quick actions */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <div className="lg:col-span-2">
-                    <RecentProductsCard products={stats.recentProducts} />
-                </div>
-                <QuickActionsCard />
-            </div>
+            {/* Operations & Performance */}
+            <TopProductsCard
+                title={t('dashboard.bestSelling.title')}
+                subtitle={t('dashboard.bestSelling.subtitle')}
+                countLabel={t('dashboard.sold')}
+                products={stats.bestSelling}
+            />
+            <RecentOrdersCard orders={stats.recentOrders} />
         </div>
     );
 }

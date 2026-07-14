@@ -95,7 +95,8 @@ export function BannerCarousel({
                                         draggable={false}
                                     />
                                     {hasOverlay && (
-                                        <div className="absolute inset-0 flex flex-col justify-end bg-linear-to-t from-black/80 via-black/30 to-transparent p-5 sm:p-8 dark:from-black/90 dark:via-black/45">
+                                        // ADDED `hidden sm:flex` here to hide overlay on mobile and show on larger screens
+                                        <div className="absolute inset-0 hidden sm:flex flex-col justify-end bg-linear-to-t from-black/80 via-black/30 to-transparent p-5 sm:p-8 dark:from-black/90 dark:via-black/45">
                                             {title && (
                                                 <h2 className="line-clamp-2 max-w-xl text-2xl font-extrabold leading-tight text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.6)] sm:text-4xl">
                                                     {title}
