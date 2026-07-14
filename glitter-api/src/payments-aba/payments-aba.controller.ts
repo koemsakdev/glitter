@@ -44,7 +44,9 @@ export class PaymentsAbaController {
 
   @Public()
   @Post('checkout')
-  @ApiOperation({ summary: 'Get signed form fields for the ABA checkout popup' })
+  @ApiOperation({
+    summary: 'Get signed form fields for the ABA checkout popup',
+  })
   async checkout(@Body() dto: CreateKhqrDto) {
     const payable = await this.orders.getKhqrPayable(dto.orderId);
     const result = await this.aba.generateCheckoutParams({
@@ -94,9 +96,7 @@ export class PaymentsAbaController {
   @Public()
   @Post('webhook')
   @ApiOperation({ summary: 'PayWay pushback (payment result)' })
-  async webhook(
-    @Body() body: AbaWebhookDto,
-  ): Promise<{ received: boolean }> {
+  async webhook(@Body() body: AbaWebhookDto): Promise<{ received: boolean }> {
     const tranId =
       body.tran_id ||
       body.return_params ||

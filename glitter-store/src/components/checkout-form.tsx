@@ -439,7 +439,6 @@ export function CheckoutForm({
         } catch {
             localStorage.removeItem(KHQR_STORE_KEY);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Persist the live KHQR session (skip the first run so we don't clobber the
@@ -831,7 +830,7 @@ export function CheckoutForm({
     return (
         <div className="relative min-h-screen">
             {/* Subtle premium background gradient */}
-            <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-zinc-50 via-zinc-100/50 to-zinc-50 dark:from-zinc-950 dark:via-zinc-900/50 dark:to-zinc-950" />
+            <div className="pointer-events-none absolute inset-0 -z-10 bg-linear-to-br from-zinc-50 via-zinc-100/50 to-zinc-50 dark:from-zinc-950 dark:via-zinc-900/50 dark:to-zinc-950" />
             
             <div className="mx-auto max-w-5xl px-4 pb-32 pt-8 sm:pt-12 md:pb-12">
             <BackLink lang={lang} fallbackHref="/products" className="mb-4" />
@@ -1545,7 +1544,7 @@ export function CheckoutForm({
                     {/* KHQR payment step (confirmation is a separate modal on top) */}
                     <div className="w-full">
                             {/* Brand header with the amount */}
-                            <div className="relative overflow-hidden bg-gradient-to-br from-[#017a9c] to-[#013a4b] px-6 pb-12 pt-6 text-white">
+                            <div className="relative overflow-hidden bg-linear-to-br from-[#017a9c] to-[#013a4b] px-6 pb-12 pt-6 text-white">
                                 <div className="pointer-events-none absolute -right-10 -top-10 size-36 rounded-full bg-white/10 blur-2xl" />
                                 <div className="pointer-events-none absolute -bottom-16 -left-10 size-36 rounded-full bg-white/5 blur-2xl" />
                                 <div className="relative flex items-center gap-2.5">
@@ -1578,7 +1577,7 @@ export function CheckoutForm({
                                     <h3 className="mt-4 text-lg font-bold text-zinc-900 dark:text-zinc-100">
                                         {tr(lang, 'khqrExpiredTitle')}
                                     </h3>
-                                    <p className="mt-1.5 max-w-[17rem] text-sm text-zinc-500 dark:text-zinc-400">
+                                    <p className="mt-1.5 max-w-68 text-sm text-zinc-500 dark:text-zinc-400">
                                         {tr(lang, 'khqrExpiredBody')}
                                     </p>
                                 </div>
