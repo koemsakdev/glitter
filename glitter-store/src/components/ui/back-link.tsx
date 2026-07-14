@@ -31,10 +31,14 @@ export function BackLink({
                     router.push(fallbackHref);
                 }
             }}
-            className={`group inline-flex items-center gap-1 text-sm font-medium text-zinc-500 transition-colors hover:text-(--brand) dark:text-zinc-400 ${className}`}
+            className={`group inline-flex items-center gap-2.5 ${className}`}
         >
-            <ChevronLeft className="size-4 transition-transform group-hover:-translate-x-0.5" />
-            {label ?? tr(lang, 'back')}
+            <span className="flex size-10 items-center justify-center rounded-full border border-zinc-200 bg-white/80 text-zinc-700 shadow-sm backdrop-blur transition-all group-hover:-translate-x-0.5 group-hover:border-(--brand)/40 group-hover:text-(--brand) group-hover:shadow-md group-active:scale-95 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-200">
+                <ChevronLeft className="size-5" />
+            </span>
+            <span className="text-sm font-semibold text-zinc-600 transition-colors group-hover:text-(--brand) dark:text-zinc-300">
+                {label ?? tr(lang, 'back')}
+            </span>
         </button>
     );
 }

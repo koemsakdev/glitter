@@ -33,7 +33,7 @@ const LINK_COLUMNS: {
             { href: '/account', label: 'footerMyAccount' },
             { href: '/account/orders', label: 'myOrders' },
             { href: '/account/wishlist', label: 'footerWishlist' },
-            { href: '/cart', label: 'cart' },
+            { href: '/checkout', label: 'cart' },
         ],
     },
 ];

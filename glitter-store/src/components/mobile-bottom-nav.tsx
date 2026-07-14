@@ -14,10 +14,14 @@ export function MobileBottomNav({ lang }: { lang: Lang }) {
     const { itemCount, hydrated } = useCart();
     const { user } = useAuth();
 
+    // Checkout is an app-style flow with its own fixed bottom action bar —
+    // hide the tab bar there so the two don't stack.
+    if (pathname === '/checkout') return null;
+
     const isActive = (href: string, exact = false) =>
         exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 
-    const cartActive = pathname === '/cart';
+    const cartActive = pathname === '/checkout' || pathname === '/cart';
 
     const tab = (
         href: string,
@@ -101,8 +105,8 @@ export function MobileBottomNav({ lang }: { lang: Lang }) {
 
                 {/* Seamless Inline Cart Tab matching the updated system styling rules */}
                 {tab(
-                    '/cart', 
-                    tr(lang, 'cart'), 
+                    '/checkout',
+                    tr(lang, 'cart'),
                     ShoppingCart, 
                     cartActive,
                     false,

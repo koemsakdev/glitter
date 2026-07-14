@@ -383,8 +383,17 @@ const translations = {
         'settings.delivery.typeKhqr': 'ABA KHQR (online)',
         'settings.delivery.typeCash': 'Cash on delivery / pickup',
         'settings.delivery.typeAbaKhqr': 'ABA KHQR',
-        'settings.delivery.typeKhqrOnly': 'KHQR (any bank)',
+        'settings.delivery.typeAbaEcom': 'ABA KHQR E-Commerce',
         'settings.delivery.typeCod': 'Cash on delivery',
+        'settings.delivery.ecomConfirm':
+            'I confirm my ABA merchant account has E-Commerce (hosted checkout) enabled.',
+        'settings.delivery.ecomConfirmHint':
+            'ABA must enable eCommerce Checkout on your merchant profile, otherwise this option cannot process payments.',
+        'settings.delivery.ecomRequired':
+            'Please confirm your merchant has ABA E-Commerce enabled first.',
+        'settings.delivery.onePerFamily':
+            'You can have only one ABA option and one Cash on Delivery option.',
+        'settings.delivery.typeTaken': 'Already added',
         'settings.delivery.paymentDesc': 'Description',
         'settings.delivery.paymentDescHint':
             'Short line under the title, e.g. "Scan with any banking app".',
@@ -2158,8 +2167,17 @@ const translations = {
         'settings.delivery.typeKhqr': 'ABA KHQR (អនឡាញ)',
         'settings.delivery.typeCash': 'បង់ប្រាក់ពេលដឹក / ទទួល',
         'settings.delivery.typeAbaKhqr': 'ABA KHQR',
-        'settings.delivery.typeKhqrOnly': 'KHQR (ធនាគារណាមួយ)',
+        'settings.delivery.typeAbaEcom': 'ABA KHQR E-Commerce',
         'settings.delivery.typeCod': 'បង់ប្រាក់ពេលដឹក',
+        'settings.delivery.ecomConfirm':
+            'ខ្ញុំបញ្ជាក់ថាគណនីអ្នកលក់ ABA របស់ខ្ញុំបានបើក E-Commerce (hosted checkout)។',
+        'settings.delivery.ecomConfirmHint':
+            'ABA ត្រូវបើក eCommerce Checkout នៅលើប្រវត្តិរូបអ្នកលក់របស់អ្នក បើមិនដូច្នេះទេ ជម្រើសនេះមិនអាចដំណើរការទូទាត់បានទេ។',
+        'settings.delivery.ecomRequired':
+            'សូមបញ្ជាក់ថាអ្នកលក់របស់អ្នកបានបើក ABA E-Commerce ជាមុនសិន។',
+        'settings.delivery.onePerFamily':
+            'អ្នកអាចមានតែជម្រើស ABA មួយ និងជម្រើសបង់ប្រាក់ពេលដឹកមួយប៉ុណ្ណោះ។',
+        'settings.delivery.typeTaken': 'បានបន្ថែមរួច',
         'settings.delivery.paymentDesc': 'ការពិពណ៌នា',
         'settings.delivery.paymentDescHint':
             'បន្ទាត់ខ្លីក្រោមចំណងជើង ឧ. "ស្កេនដោយកម្មវិធីធនាគារណាមួយ"។',

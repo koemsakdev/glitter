@@ -9,7 +9,7 @@ export function CartButton({ label }: { label: string }) {
 
     return (
         <Link
-            href="/cart"
+            href="/checkout"
             aria-label={label}
             title={label}
             className="relative flex size-9 items-center justify-center rounded-full text-zinc-600 dark:text-zinc-300 transition-colors hover:text-(--brand) h-9 w-9 border border-neutral-200 dark:border-neutral-800"

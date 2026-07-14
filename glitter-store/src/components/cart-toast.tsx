@@ -58,7 +58,7 @@ export function CartToast({ lang }: { lang: Lang }) {
                     )}
                 </div>
                 <Link
-                    href="/cart"
+                    href="/checkout"
                     onClick={() => setShow(false)}
                     className="shrink-0 rounded-full bg-(--brand) px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
                 >

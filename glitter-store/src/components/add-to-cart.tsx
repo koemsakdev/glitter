@@ -264,7 +264,7 @@ export function AddToCart({ product, lang }: { product: Product; lang: Lang }) {
             {added && (
                 <p className="text-sm font-medium text-emerald-600">
                     {tr(lang, 'added')} ·{' '}
-                    <Link href="/cart" className="underline">
+                    <Link href="/checkout" className="underline">
                         {tr(lang, 'viewCart')}
                     </Link>
                 </p>

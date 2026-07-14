@@ -132,12 +132,16 @@ export type PaymentRule = 'prepay' | 'on_pickup' | 'either';
 /** Whether a method delivers to an address or is collected at a branch. */
 export type DeliveryMethodType = 'delivery' | 'pickup';
 
-/** aba_khqr = ABA Pay (KHQR) · khqr = generic KHQR (any bank) — both go through
- *  ABA PayWay · cod = pay on delivery / at pickup. */
-export type PaymentOptionType = 'aba_khqr' | 'khqr' | 'cod';
+/** aba_khqr = ABA KHQR (QR + ABA Mobile deeplink) · aba_ecommerce = ABA hosted
+ *  eCommerce checkout (card / ABA Pay / KHQR / wallets) · cod = pay on delivery
+ *  / at pickup. */
+export type PaymentOptionType = 'aba_khqr' | 'aba_ecommerce' | 'cod';
 
 /** Payment option types that pay online via ABA PayWay (need credentials). */
-export const ABA_PAYMENT_TYPES: PaymentOptionType[] = ['aba_khqr', 'khqr'];
+export const ABA_PAYMENT_TYPES: PaymentOptionType[] = [
+    'aba_khqr',
+    'aba_ecommerce',
+];
 
 /** A payment option (admin-configurable list). ABA credentials live privately
  *  in the ABA PayWay config, never in this public blob. */
@@ -257,20 +261,20 @@ export const DEFAULT_PAYMENTS: PaymentOption[] = [
         descEn: 'Scan with any banking app',
         descKm: 'ស្កេនដោយកម្មវិធីធនាគារណាមួយ',
         iconUrl: '',
-        color: '#00529C',
+        color: '#015f7a',
         type: 'aba_khqr',
         enabled: true,
     },
     {
-        id: 'khqr',
-        nameEn: 'KHQR',
-        nameKm: 'KHQR',
-        descEn: 'Scan with any KHQR bank app',
-        descKm: 'ស្កេនដោយកម្មវិធីធនាគារ KHQR',
+        id: 'aba_ecommerce',
+        nameEn: 'ABA KHQR E-Commerce',
+        nameKm: 'ABA KHQR E-Commerce',
+        descEn: 'Card, ABA Pay, KHQR & wallets',
+        descKm: 'កាត ABA Pay KHQR និងកាបូបអេឡិចត្រូនិច',
         iconUrl: '',
-        color: '#E1251B',
-        type: 'khqr',
-        enabled: true,
+        color: '#0ea5e9',
+        type: 'aba_ecommerce',
+        enabled: false,
     },
     {
         id: 'cod',
@@ -355,8 +359,8 @@ export function mergeDelivery(partial: unknown): StoreDelivery {
     const normalizePayType = (ty: unknown): PaymentOptionType =>
         ty === 'cod' || ty === 'cash' || ty === 'on_delivery'
             ? 'cod'
-            : ty === 'khqr'
-              ? 'khqr'
+            : ty === 'aba_ecommerce'
+              ? 'aba_ecommerce'
               : 'aba_khqr';
     // Default each option from its OWN (normalised) type, so new fields fall
     // back to the right values regardless of position in the saved array.

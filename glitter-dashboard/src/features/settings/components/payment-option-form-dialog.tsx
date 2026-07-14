@@ -36,7 +36,7 @@ const PAY_CONFIG_KEY = ['payment-config'] as const;
 
 const TYPES: { value: PaymentOptionType; labelKey: TranslationKey }[] = [
     { value: 'aba_khqr', labelKey: 'settings.delivery.typeAbaKhqr' },
-    { value: 'khqr', labelKey: 'settings.delivery.typeKhqrOnly' },
+    { value: 'aba_ecommerce', labelKey: 'settings.delivery.typeAbaEcom' },
     { value: 'cod', labelKey: 'settings.delivery.typeCod' },
 ];
 
@@ -47,11 +47,14 @@ function newId(): string {
 export function PaymentOptionFormDialog({
     open,
     option,
+    siblings = [],
     onOpenChange,
     onSave,
 }: {
     open: boolean;
     option?: PaymentOption | null;
+    /** Other existing payment options (used to enforce one-per-family). */
+    siblings?: PaymentOption[];
     onOpenChange: (open: boolean) => void;
     onSave: (option: PaymentOption) => void;
 }) {
@@ -66,11 +69,23 @@ export function PaymentOptionFormDialog({
     const [descKm, setDescKm] = useState(option?.descKm ?? '');
     const [iconUrl, setIconUrl] = useState(option?.iconUrl ?? '');
     const [file, setFile] = useState<File | null>(null);
-    const [color, setColor] = useState(option?.color || '#00529C');
+    const [color, setColor] = useState(option?.color || '#015f7a');
+    // One ABA option + one COD option max: a family is "taken" if a sibling uses
+    // it. Disable types that are already taken by another option.
+    const abaTaken = siblings.some((p) => ABA_PAYMENT_TYPES.includes(p.type));
+    const codTaken = siblings.some((p) => p.type === 'cod');
+    const typeAvailable = (v: PaymentOptionType) =>
+        v === 'cod' ? !codTaken : !abaTaken;
     const [type, setType] = useState<PaymentOptionType>(
-        option?.type ?? 'aba_khqr',
+        option?.type ??
+            (TYPES.find((ty) => typeAvailable(ty.value))?.value ?? 'aba_khqr'),
     );
     const [enabled, setEnabled] = useState(option?.enabled ?? true);
+    // Confirmation that the merchant has ABA eCommerce enabled (required for
+    // aba_ecommerce). Pre-confirmed when editing an existing eCommerce option.
+    const [ecomConfirmed, setEcomConfirmed] = useState(
+        option?.type === 'aba_ecommerce',
+    );
     const [saving, setSaving] = useState(false);
 
     const isAba = ABA_PAYMENT_TYPES.includes(type);
@@ -115,6 +130,23 @@ export function PaymentOptionFormDialog({
         if (!nameEn.trim() && !nameKm.trim()) {
             toast({
                 title: t('settings.delivery.nameRequired'),
+                variant: 'destructive',
+            });
+            return;
+        }
+        // One-per-family guard (the type dropdown already hides taken types,
+        // but re-check in case the option's own type changed).
+        if (!typeAvailable(type)) {
+            toast({
+                title: t('settings.delivery.onePerFamily'),
+                variant: 'destructive',
+            });
+            return;
+        }
+        // ABA E-Commerce requires the merchant to have hosted checkout enabled.
+        if (type === 'aba_ecommerce' && !ecomConfirmed) {
+            toast({
+                title: t('settings.delivery.ecomRequired'),
                 variant: 'destructive',
             });
             return;
@@ -246,14 +278,22 @@ export function PaymentOptionFormDialog({
                                     </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {TYPES.map((ty) => (
-                                        <SelectItem
-                                            key={ty.value}
-                                            value={ty.value}
-                                        >
-                                            {t(ty.labelKey)}
-                                        </SelectItem>
-                                    ))}
+                                    {TYPES.map((ty) => {
+                                        const taken =
+                                            !typeAvailable(ty.value) &&
+                                            ty.value !== option?.type;
+                                        return (
+                                            <SelectItem
+                                                key={ty.value}
+                                                value={ty.value}
+                                                disabled={taken}
+                                            >
+                                                {t(ty.labelKey)}
+                                                {taken &&
+                                                    ` · ${t('settings.delivery.typeTaken')}`}
+                                            </SelectItem>
+                                        );
+                                    })}
                                 </SelectContent>
                             </Select>
                         </Field>
@@ -275,6 +315,28 @@ export function PaymentOptionFormDialog({
                             </label>
                         </Field>
                     </div>
+
+                    {/* ABA E-Commerce requires a merchant with hosted checkout */}
+                    {type === 'aba_ecommerce' && (
+                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+                            <input
+                                type="checkbox"
+                                checked={ecomConfirmed}
+                                onChange={(e) =>
+                                    setEcomConfirmed(e.target.checked)
+                                }
+                                className="mt-0.5 size-4 shrink-0 accent-amber-600"
+                            />
+                            <span className="text-sm">
+                                <span className="block font-medium text-amber-800 dark:text-amber-200">
+                                    {t('settings.delivery.ecomConfirm')}
+                                </span>
+                                <span className="mt-0.5 block text-xs text-amber-700/80 dark:text-amber-300/70">
+                                    {t('settings.delivery.ecomConfirmHint')}
+                                </span>
+                            </span>
+                        </label>
+                    )}
 
                     {/* ABA credentials — only for ABA-based payment types */}
                     {isAba && (

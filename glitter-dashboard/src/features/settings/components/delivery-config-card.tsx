@@ -1,17 +1,25 @@
 'use client';
 
-import { Loader, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+    GripVertical,
+    Loader,
+    MapPin,
+    Pencil,
+    Plus,
+    Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { Switch } from '@/components/ui/switch';
 import { DeliveryMethodFormDialog } from '@/features/settings/components/delivery-method-form-dialog';
 import { PaymentOptionFormDialog } from '@/features/settings/components/payment-option-form-dialog';
 import { RegionFormDialog } from '@/features/settings/components/region-form-dialog';
-import type {
-    DeliveryMethod,
-    DeliveryRegion,
-    PaymentOption,
-    StoreDelivery,
+import {
+    ABA_PAYMENT_TYPES,
+    type DeliveryMethod,
+    type DeliveryRegion,
+    type PaymentOption,
+    type StoreDelivery,
 } from '@/features/settings/store-config';
 import { getFileUrl } from '@/lib/file-url';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
@@ -23,7 +31,7 @@ const METHOD_TYPE_LABEL: Record<DeliveryMethod['type'], TranslationKey> = {
 
 const PAYMENT_TYPE_LABEL: Record<PaymentOption['type'], TranslationKey> = {
     aba_khqr: 'settings.delivery.typeAbaKhqr',
-    khqr: 'settings.delivery.typeKhqrOnly',
+    aba_ecommerce: 'settings.delivery.typeAbaEcom',
     cod: 'settings.delivery.typeCod',
 };
 
@@ -73,6 +81,9 @@ export function DeliveryConfigCard({
         editing: PaymentOption | null;
     } | null>(null);
     const [deleting, setDeleting] = useState<DeleteTarget>(null);
+    // Drag-to-reorder state for the delivery methods list.
+    const [dragMethodId, setDragMethodId] = useState<string | null>(null);
+    const [overMethodId, setOverMethodId] = useState<string | null>(null);
 
     // ----- region mutations -----
     function upsertRegion(region: DeliveryRegion) {
@@ -120,6 +131,17 @@ export function DeliveryConfigCard({
             ...value,
             methods: methods.filter((m) => m.id !== id),
         });
+    }
+    /** Drag-reorder: move method `fromId` to `toId`'s position. */
+    function moveMethod(fromId: string, toId: string) {
+        if (fromId === toId) return;
+        const list = [...methods];
+        const from = list.findIndex((m) => m.id === fromId);
+        const to = list.findIndex((m) => m.id === toId);
+        if (from < 0 || to < 0) return;
+        const [moved] = list.splice(from, 1);
+        list.splice(to, 0, moved);
+        commit('methods', { ...value, methods: list });
     }
 
     // ----- payment option mutations -----
@@ -218,6 +240,26 @@ export function DeliveryConfigCard({
                                 name: m.nameEn || m.nameKm || m.id,
                             })
                         }
+                        drag={{
+                            dragging: dragMethodId === m.id,
+                            over:
+                                overMethodId === m.id &&
+                                dragMethodId !== null &&
+                                dragMethodId !== m.id,
+                            onStart: () => setDragMethodId(m.id),
+                            onEnter: () => {
+                                if (dragMethodId) setOverMethodId(m.id);
+                            },
+                            onDrop: () => {
+                                if (dragMethodId) moveMethod(dragMethodId, m.id);
+                                setDragMethodId(null);
+                                setOverMethodId(null);
+                            },
+                            onEnd: () => {
+                                setDragMethodId(null);
+                                setOverMethodId(null);
+                            },
+                        }}
                     />
                 ))}
             </ListCard>
@@ -229,6 +271,10 @@ export function DeliveryConfigCard({
                 addLabel={t('settings.delivery.addPayment')}
                 saving={saving && touched === 'payments'}
                 onAdd={() => setPaymentDialog({ editing: null })}
+                addDisabled={
+                    payments.some((p) => ABA_PAYMENT_TYPES.includes(p.type)) &&
+                    payments.some((p) => p.type === 'cod')
+                }
             >
                 {payments.map((p) => (
                     <Row
@@ -314,6 +360,9 @@ export function DeliveryConfigCard({
                     key={paymentDialog.editing?.id ?? 'new'}
                     open
                     option={paymentDialog.editing}
+                    siblings={payments.filter(
+                        (p) => p.id !== paymentDialog.editing?.id,
+                    )}
                     onOpenChange={(o) => !o && setPaymentDialog(null)}
                     onSave={upsertPayment}
                 />
@@ -342,6 +391,7 @@ function ListCard({
     addLabel,
     saving,
     onAdd,
+    addDisabled,
     children,
 }: {
     title: string;
@@ -349,6 +399,7 @@ function ListCard({
     addLabel: string;
     saving?: boolean;
     onAdd: () => void;
+    addDisabled?: boolean;
     children: React.ReactNode;
 }) {
     const { t } = useI18n();
@@ -372,7 +423,8 @@ function ListCard({
                 <button
                     type="button"
                     onClick={onAdd}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium hover:bg-accent"
+                    disabled={addDisabled}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     <Plus className="size-3.5" />
                     {addLabel}
@@ -391,6 +443,7 @@ function Row({
     onToggle,
     onEdit,
     onDelete,
+    drag,
 }: {
     iconUrl: string;
     title: string;
@@ -399,10 +452,54 @@ function Row({
     onToggle?: (value: boolean) => void;
     onEdit: () => void;
     onDelete?: () => void;
+    /** Enables HTML5 drag-to-reorder with a grip handle. */
+    drag?: {
+        dragging: boolean;
+        over: boolean;
+        onStart: () => void;
+        onEnter: () => void;
+        onDrop: () => void;
+        onEnd: () => void;
+    };
 }) {
     const src = getFileUrl(iconUrl);
+    // Only allow the drag to start from the grip handle (not the whole row).
+    const [handleDown, setHandleDown] = useState(false);
     return (
-        <div className="flex items-center gap-3 px-4 py-3">
+        <div
+            draggable={drag ? handleDown : undefined}
+            onDragStart={drag?.onStart}
+            onDragEnter={drag?.onEnter}
+            onDragOver={drag ? (e) => e.preventDefault() : undefined}
+            onDrop={
+                drag
+                    ? (e) => {
+                          e.preventDefault();
+                          drag.onDrop();
+                      }
+                    : undefined
+            }
+            onDragEnd={() => {
+                setHandleDown(false);
+                drag?.onEnd();
+            }}
+            className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+                drag?.dragging ? 'opacity-40' : ''
+            } ${drag?.over ? 'bg-pink-50 dark:bg-pink-950/30' : ''}`}
+        >
+            {drag && (
+                <button
+                    type="button"
+                    aria-label="Drag to reorder"
+                    onMouseDown={() => setHandleDown(true)}
+                    onMouseUp={() => setHandleDown(false)}
+                    onTouchStart={() => setHandleDown(true)}
+                    onTouchEnd={() => setHandleDown(false)}
+                    className="-ml-1 shrink-0 cursor-grab touch-none rounded p-0.5 text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing"
+                >
+                    <GripVertical className="size-4" />
+                </button>
+            )}
             <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted/30">
                 {src ? (
                     // eslint-disable-next-line @next/next/no-img-element

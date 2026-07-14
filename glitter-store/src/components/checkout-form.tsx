@@ -2,11 +2,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
+    AlertTriangle,
     Banknote,
     Check,
+    Clock,
     MapPin,
+    Minus,
+    TimerOff,
     Pencil,
     Plus,
     QrCode,
@@ -25,13 +30,21 @@ import {
 import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
 import { MapPicker } from '@/components/ui/map-picker';
+import { ResponsiveModal } from '@/components/ui/responsive-modal';
 import { BackLink } from '@/components/ui/back-link';
 import { AddressForm } from '@/components/checkout/address-form';
 import { pick, tr, type Lang } from '@/lib/locale';
-import type { DeliveryMethod, StoreDelivery } from '@/lib/store-config';
+import type {
+    DeliveryMethod,
+    PaymentOptionType,
+    StoreDelivery,
+} from '@/lib/store-config';
 import type { Address, Branch } from '@/lib/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+
+// Persist an in-progress KHQR session so a page refresh doesn't lose the QR.
+const KHQR_STORE_KEY = 'glitter_aba_khqr';
 
 // ABA's checkout.prod.js (loaded in the root layout) defines `AbaPayway` as a
 // top-level `const`, so it lives in the global lexical scope — NOT on `window`.
@@ -101,7 +114,8 @@ export function CheckoutForm({
     lang: Lang;
     delivery: StoreDelivery;
 }) {
-    const { items, hydrated, subtotal, clear } = useCart();
+    const { items, hydrated, subtotal, clear, updateQty, removeItem } =
+        useCart();
     const { user, authFetch } = useAuth();
 
     const regions = delivery.regions ?? [];
@@ -268,10 +282,31 @@ export function CheckoutForm({
     const [placed, setPlaced] = useState<string | null>(null);
 
     // ABA PayWay — while ABA's own checkout modal is open, poll for payment.
-    const [abaPay, setAbaPay] = useState<{
-        tranId: string;
-        orderNumber: string;
-    } | null>(null);
+    const [abaPay, setAbaPay] = useState<
+        | { mode: 'ecommerce'; tranId: string; orderNumber: string }
+        | {
+              mode: 'qr';
+              tranId: string;
+              orderNumber: string;
+              qrImage: string;
+              deeplink: string;
+              amount: string;
+              currency: string;
+              expiresAt: string;
+          }
+        | null
+    >(null);
+    // Cancel-confirmation step inside the locked KHQR modal.
+    const [cancelConfirm, setCancelConfirm] = useState(false);
+    // Inline confirm for clearing the whole cart.
+    const [clearConfirm, setClearConfirm] = useState(false);
+    // Portal the fixed bottom bar to <body> so a transformed ancestor (the page
+    // transition) can't trap its `position: fixed`. Client-only.
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
+    // KHQR countdown — once it hits 0 we stop polling ABA (bounded load).
+    const [khqrLeft, setKhqrLeft] = useState(0); // seconds remaining
+    const khqrExpired = abaPay?.mode === 'qr' && khqrLeft <= 0;
     // Verified receipt shown on the success screen.
     const [receipt, setReceipt] = useState<{
         tranId: string;
@@ -311,10 +346,18 @@ export function CheckoutForm({
         void loadAddresses();
     }, [user, loadAddresses]);
 
-    // Poll ABA for payment confirmation while the KHQR modal is open.
+    // Poll ABA for payment confirmation while the modal is open. We STOP once a
+    // KHQR has expired (so an abandoned popup can't inquire ABA forever) and we
+    // skip while the tab is hidden (no point polling a backgrounded checkout).
     useEffect(() => {
         if (!abaPay) return;
+        if (abaPay.mode === 'qr' && khqrExpired) return;
         const id = setInterval(async () => {
+            if (
+                typeof document !== 'undefined' &&
+                document.visibilityState === 'hidden'
+            )
+                return;
             try {
                 const r = await fetch(
                     `${API_URL}/api/payments/aba/status/${abaPay.tranId}`,
@@ -342,7 +385,80 @@ export function CheckoutForm({
             }
         }, 4000);
         return () => clearInterval(id);
-    }, [abaPay, clear]);
+    }, [abaPay, khqrExpired, clear]);
+
+    // KHQR countdown — ticks the seconds remaining and drives expiry.
+    useEffect(() => {
+        if (abaPay?.mode !== 'qr') return;
+        const end = new Date(abaPay.expiresAt).getTime();
+        const tick = () =>
+            setKhqrLeft(Math.max(0, Math.round((end - Date.now()) / 1000)));
+        tick();
+        const id = setInterval(tick, 1000);
+        return () => clearInterval(id);
+    }, [abaPay]);
+
+    // On mobile, ABA KHQR should try to open ABA Mobile via the deeplink first;
+    // the QR popup stays behind as the fallback if no app handles it. Only once
+    // per transaction — never re-open the app on a page refresh/restore.
+    const deeplinkedRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (!abaPay || abaPay.mode !== 'qr' || !abaPay.deeplink) return;
+        if (deeplinkedRef.current === abaPay.tranId) return;
+        deeplinkedRef.current = abaPay.tranId;
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(
+            navigator.userAgent,
+        );
+        if (isMobile) window.location.href = abaPay.deeplink;
+    }, [abaPay]);
+
+    // Restore a still-valid KHQR session on mount so a refresh doesn't lose it.
+    const skipPersistRef = useRef(true);
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(KHQR_STORE_KEY);
+            if (!raw) return;
+            const saved = JSON.parse(raw) as {
+                mode?: string;
+                tranId?: string;
+                expiresAt?: string;
+            } & Record<string, unknown>;
+            const secs = saved?.expiresAt
+                ? Math.round(
+                      (new Date(saved.expiresAt).getTime() - Date.now()) / 1000,
+                  )
+                : 0;
+            if (saved?.mode === 'qr' && saved.tranId && secs > 0) {
+                // Don't auto-fire the deeplink for a restored session.
+                deeplinkedRef.current = saved.tranId;
+                setKhqrLeft(secs);
+                setAbaPay(saved as unknown as typeof abaPay);
+            } else {
+                localStorage.removeItem(KHQR_STORE_KEY);
+            }
+        } catch {
+            localStorage.removeItem(KHQR_STORE_KEY);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Persist the live KHQR session (skip the first run so we don't clobber the
+    // value we just restored on mount).
+    useEffect(() => {
+        if (skipPersistRef.current) {
+            skipPersistRef.current = false;
+            return;
+        }
+        try {
+            if (abaPay?.mode === 'qr') {
+                localStorage.setItem(KHQR_STORE_KEY, JSON.stringify(abaPay));
+            } else {
+                localStorage.removeItem(KHQR_STORE_KEY);
+            }
+        } catch {
+            // ignore storage quota / privacy-mode errors
+        }
+    }, [abaPay]);
 
     async function deleteAddress(id: string) {
         try {
@@ -383,16 +499,19 @@ export function CheckoutForm({
     const allowsNow = rule === 'prepay' || rule === 'either';
     const allowsCash = rule === 'either';
 
-    // Enabled payment options from the admin's list. aba_khqr + khqr both pay
-    // online via ABA; cod is pay-on-receipt.
+    // Enabled payment options from the admin's list. aba_khqr + aba_ecommerce
+    // both pay online via ABA; cod is pay-on-receipt.
     const onlineOptions = payments.filter(
-        (p) => p.enabled && (p.type === 'aba_khqr' || p.type === 'khqr'),
+        (p) =>
+            p.enabled &&
+            (p.type === 'aba_khqr' || p.type === 'aba_ecommerce'),
     );
     const cashOption = payments.find((p) => p.enabled && p.type === 'cod');
 
     const payMethods: {
         id: string;
         now: boolean;
+        payType: PaymentOptionType;
         title: string;
         desc: string;
         color: string;
@@ -404,6 +523,7 @@ export function CheckoutForm({
             payMethods.push({
                 id: o.id,
                 now: true,
+                payType: o.type,
                 title: pick(lang, o.nameEn, o.nameKm) || tr(lang, 'payKhqrTitle'),
                 desc:
                     pick(lang, o.descEn, o.descKm) || tr(lang, 'payKhqrDesc'),
@@ -417,6 +537,7 @@ export function CheckoutForm({
         payMethods.push({
             id: cashOption.id,
             now: false,
+            payType: 'cod',
             title:
                 pick(lang, cashOption.nameEn, cashOption.nameKm) ||
                 tr(lang, 'payOnDelivery'),
@@ -604,39 +725,93 @@ export function CheckoutForm({
             const orderId = json.data?.id ?? '';
             const orderNumber = json.data?.orderNumber ?? orderId;
 
-            // ABA KHQR: get the signed checkout params, then open ABA's own
-            // checkout modal (their checkout2-0.js bridge) and poll for payment.
+            // Online ABA payment. Two modes:
+            //   aba_ecommerce → ABA's hosted checkout modal (checkout2-0.js).
+            //   aba_khqr      → our KHQR popup (QR image + ABA Mobile deeplink).
             if (useLiveKhqr && orderId) {
-                const qr = await fetch(`${API_URL}/api/payments/aba/checkout`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ orderId }),
-                });
-                if (qr.ok) {
-                    const qd = (await qr.json()) as {
-                        data?: {
-                            actionUrl: string;
-                            fields: Record<string, string>;
+                if (selectedPay?.payType === 'aba_ecommerce') {
+                    const qr = await fetch(
+                        `${API_URL}/api/payments/aba/checkout`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ orderId }),
+                        },
+                    );
+                    if (qr.ok) {
+                        const qd = (await qr.json()) as {
+                            data?: {
+                                actionUrl: string;
+                                fields: Record<string, string>;
+                            };
                         };
-                    };
-                    if (qd.data?.actionUrl && qd.data.fields?.tran_id) {
-                        await waitForAba();
-                        const opened = openAbaCheckout(
-                            qd.data.actionUrl,
-                            qd.data.fields,
-                        );
-                        if (opened) {
+                        if (qd.data?.actionUrl && qd.data.fields?.tran_id) {
+                            await waitForAba();
+                            const opened = openAbaCheckout(
+                                qd.data.actionUrl,
+                                qd.data.fields,
+                            );
+                            if (opened) {
+                                setAbaPay({
+                                    mode: 'ecommerce',
+                                    tranId: qd.data.fields.tran_id,
+                                    orderNumber,
+                                });
+                                return;
+                            }
+                        }
+                    }
+                } else {
+                    // aba_khqr — generate a dynamic KHQR (image + deeplink).
+                    const qr = await fetch(`${API_URL}/api/payments/aba/khqr`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ orderId }),
+                    });
+                    if (qr.ok) {
+                        const qd = (await qr.json()) as {
+                            data?: {
+                                tranId: string;
+                                qrImage?: string;
+                                deeplink?: string;
+                                amount?: string;
+                                currency?: string;
+                                expiresAt?: string;
+                                lifetimeMinutes?: number;
+                            };
+                        };
+                        if (qd.data?.tranId && qd.data.qrImage) {
+                            const expiresAt =
+                                qd.data.expiresAt ??
+                                new Date(Date.now() + 5 * 60_000).toISOString();
+                            setCancelConfirm(false);
+                            setKhqrLeft(
+                                Math.max(
+                                    1,
+                                    Math.round(
+                                        (new Date(expiresAt).getTime() -
+                                            Date.now()) /
+                                            1000,
+                                    ),
+                                ),
+                            );
                             setAbaPay({
-                                tranId: qd.data.fields.tran_id,
+                                mode: 'qr',
+                                tranId: qd.data.tranId,
                                 orderNumber,
+                                qrImage: qd.data.qrImage,
+                                deeplink: qd.data.deeplink ?? '',
+                                amount: qd.data.amount ?? '',
+                                currency: qd.data.currency ?? 'USD',
+                                expiresAt,
                             });
                             return;
                         }
                     }
                 }
-                // Payment couldn't be started — this is a pay-first (KHQR) order,
-                // so it is NOT placed. Keep the cart, show an error, and let the
-                // unpaid order auto-expire and release its reserved stock.
+                // Payment couldn't be started — this is a pay-first order, so it
+                // is NOT placed. Keep the cart, show an error, and let the unpaid
+                // order auto-expire and release its reserved stock.
                 setError(tr(lang, 'abaPayFailed'));
                 return;
             }
@@ -658,19 +833,161 @@ export function CheckoutForm({
             {/* Subtle premium background gradient */}
             <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-zinc-50 via-zinc-100/50 to-zinc-50 dark:from-zinc-950 dark:via-zinc-900/50 dark:to-zinc-950" />
             
-            <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
-            <BackLink lang={lang} fallbackHref="/cart" className="mb-3" />
+            <div className="mx-auto max-w-5xl px-4 pb-32 pt-8 sm:pt-12 md:pb-12">
+            <BackLink lang={lang} fallbackHref="/products" className="mb-4" />
             <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                 {tr(lang, 'checkout')}
             </h1>
 
             <form
+                id="checkoutForm"
                 onSubmit={submit}
-                className="mt-6 grid gap-6 lg:grid-cols-[1fr_340px]"
+                className="mt-6 grid gap-6 md:grid-cols-[minmax(0,1fr)_300px] lg:grid-cols-[minmax(0,1fr)_340px]"
             >
-                <div className="space-y-6">
-                    {/* 1 — Region */}
-                    <Section step={1} title={tr(lang, 'shippingRegion')}>
+                <div className="min-w-0 space-y-6">
+                    {/* 1 — Your order (editable cart) */}
+                    <Section
+                        step={1}
+                        title={tr(lang, 'yourOrder')}
+                        action={
+                            clearConfirm ? (
+                                <span className="flex items-center gap-2 text-xs">
+                                    <span className="font-medium text-zinc-500 dark:text-zinc-400">
+                                        {tr(lang, 'clearAllConfirm')}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            clear();
+                                            setClearConfirm(false);
+                                        }}
+                                        className="font-semibold text-red-600 hover:underline dark:text-red-400"
+                                    >
+                                        {tr(lang, 'remove')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setClearConfirm(false)}
+                                        className="font-medium text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                                    >
+                                        {tr(lang, 'cancel')}
+                                    </button>
+                                </span>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => setClearConfirm(true)}
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-zinc-400 transition-colors hover:text-red-600 dark:hover:text-red-400"
+                                >
+                                    <Trash2 className="size-3.5" />
+                                    {tr(lang, 'clearAll')}
+                                </button>
+                            )
+                        }
+                    >
+                        <ul className="space-y-2.5">
+                            {items.map((item) => {
+                                const img = fileUrl(item.image);
+                                const name = pick(
+                                    lang,
+                                    item.nameEn,
+                                    item.nameKm,
+                                );
+                                return (
+                                    <li
+                                        key={item.variantId}
+                                        className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-white p-2.5 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
+                                    >
+                                        <Link
+                                            href={`/products/${item.slug}`}
+                                            className="size-16 shrink-0 overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-800"
+                                        >
+                                            {img && (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img
+                                                    src={img}
+                                                    alt={name}
+                                                    className="size-full object-cover transition-transform hover:scale-105"
+                                                />
+                                            )}
+                                        </Link>
+                                        <div className="min-w-0 flex-1">
+                                            <Link
+                                                href={`/products/${item.slug}`}
+                                                className="line-clamp-1 text-sm font-semibold text-zinc-900 transition-colors hover:text-(--brand) dark:text-zinc-100"
+                                            >
+                                                {name}
+                                            </Link>
+                                            {item.variantLabel && (
+                                                <p className="truncate text-xs text-zinc-400">
+                                                    {item.variantLabel}
+                                                </p>
+                                            )}
+                                            <p className="mt-1 text-sm font-extrabold text-zinc-900 dark:text-zinc-100">
+                                                {formatPrice(
+                                                    item.unitPrice *
+                                                        item.quantity,
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    removeItem(item.variantId)
+                                                }
+                                                aria-label={tr(lang, 'remove')}
+                                                className="rounded-lg p-1.5 text-zinc-300 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
+                                            >
+                                                <Trash2 className="size-4" />
+                                            </button>
+                                            <div className="flex items-center rounded-full border border-zinc-200 dark:border-zinc-700">
+                                                <button
+                                                    type="button"
+                                                    aria-label="-"
+                                                    onClick={() =>
+                                                        updateQty(
+                                                            item.variantId,
+                                                            item.quantity - 1,
+                                                        )
+                                                    }
+                                                    className="flex size-7 items-center justify-center text-zinc-500 hover:text-(--brand) dark:text-zinc-300"
+                                                >
+                                                    <Minus className="size-3.5" />
+                                                </button>
+                                                <span className="w-6 text-center text-sm font-semibold tabular-nums">
+                                                    {item.quantity}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    aria-label="+"
+                                                    onClick={() =>
+                                                        updateQty(
+                                                            item.variantId,
+                                                            item.quantity + 1,
+                                                        )
+                                                    }
+                                                    className="flex size-7 items-center justify-center text-zinc-500 hover:text-(--brand) dark:text-zinc-300"
+                                                >
+                                                    <Plus className="size-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                        <Link
+                            href="/products"
+                            className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-500 transition-colors hover:text-(--brand) dark:text-zinc-400"
+                        >
+                            <Plus className="size-3.5" />
+                            {tr(lang, 'continueShopping')}
+                        </Link>
+                    </Section>
+
+                    {/* 2 — Region */}
+                    <Section step={2} title={tr(lang, 'shippingRegion')}>
                         <div className="flex gap-1.5 rounded-2xl bg-zinc-100 p-1.5 dark:bg-zinc-800/60">
                             {regions.map((r) => {
                                 const icon = fileUrl(r.iconUrl);
@@ -701,8 +1018,8 @@ export function CheckoutForm({
                         </div>
                     </Section>
 
-                    {/* 2 — Delivery method */}
-                    <Section step={2} title={tr(lang, 'deliveryMethod')}>
+                    {/* 3 — Delivery method */}
+                    <Section step={3} title={tr(lang, 'deliveryMethod')}>
                         <div className="space-y-2.5">
                             {available.map((m) => (
                                 <MethodCard
@@ -748,8 +1065,8 @@ export function CheckoutForm({
                         )}
                     </Section>
 
-                    {/* 3 — Payment */}
-                    <Section step={3} title={tr(lang, 'payment')}>
+                    {/* 4 — Payment */}
+                    <Section step={4} title={tr(lang, 'payment')}>
                         {payOnDeliveryOnly ? (
                             <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
                                 <Banknote className="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
@@ -836,8 +1153,8 @@ export function CheckoutForm({
                         )}
                     </Section>
 
-                    {/* 4 — Customer info / address */}
-                    <Section step={4} title={tr(lang, 'yourInfo')}>
+                    {/* 5 — Customer info / address */}
+                    <Section step={5} title={tr(lang, 'yourInfo')}>
                         {user && needsAddress ? (
                             <div className="space-y-2">
                                 {addresses.map((a) => (
@@ -1010,32 +1327,16 @@ export function CheckoutForm({
                 </div>
 
                 {/* Summary */}
-                <div className="lg:sticky lg:top-24 lg:h-fit">
+                <div className="min-w-0 md:sticky md:top-24 md:h-fit">
                     <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-xl backdrop-blur-xl dark:border-zinc-700/50 dark:bg-zinc-900/70">
-                        <h2 className="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                        <h2 className="flex items-center justify-between text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                             {tr(lang, 'orderSummary')}
+                            <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                                {items.reduce((n, i) => n + i.quantity, 0)}
+                            </span>
                         </h2>
-                        <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto pr-1">
-                            {items.map((i) => (
-                                <li
-                                    key={i.variantId}
-                                    className="flex items-center justify-between gap-2 text-sm"
-                                >
-                                    <span className="min-w-0 truncate text-zinc-600 dark:text-zinc-300">
-                                        {pick(lang, i.nameEn, i.nameKm)}
-                                        <span className="text-zinc-400">
-                                            {' '}
-                                            × {i.quantity}
-                                        </span>
-                                    </span>
-                                    <span className="shrink-0 font-medium text-zinc-900 dark:text-zinc-100">
-                                        {formatPrice(i.unitPrice * i.quantity)}
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
                         {/* Voucher / promo code */}
-                        <div className="mt-4 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+                        <div className="mt-4">
                             {appliedCode ? (
                                 <div className="flex items-center justify-between gap-2 rounded-lg bg-emerald-50 px-3 py-2 dark:bg-emerald-500/10">
                                     <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
@@ -1065,7 +1366,7 @@ export function CheckoutForm({
                                             setVoucherInput(e.target.value)
                                         }
                                         placeholder={tr(lang, 'promoCode')}
-                                        className="h-10 flex-1 rounded-lg border border-zinc-200 bg-white px-3 text-sm uppercase outline-none transition-colors focus:border-(--brand) dark:border-zinc-700 dark:bg-zinc-900"
+                                        className="h-10 w-full min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-3 text-sm uppercase outline-none transition-colors focus:border-(--brand) dark:border-zinc-700 dark:bg-zinc-900"
                                     />
                                     <button
                                         type="button"
@@ -1140,12 +1441,17 @@ export function CheckoutForm({
                             </p>
                         )}
 
+                        {/* Desktop CTA (mobile uses the fixed bottom bar) */}
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-(--brand) px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-opacity hover:opacity-90 disabled:opacity-60"
+                            className="mt-5 hidden w-full items-center justify-center gap-2 rounded-full bg-(--brand) px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-60 md:flex"
                         >
-                            {submitting && <Loader2 className="size-4 animate-spin" />}
+                            {submitting ? (
+                                <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                                <Check className="size-4" />
+                            )}
                             {submitting
                                 ? tr(lang, 'placingOrder')
                                 : tr(lang, 'placeOrder')}
@@ -1153,6 +1459,45 @@ export function CheckoutForm({
                     </div>
                 </div>
             </form>
+
+            {/* Mobile app-style fixed bottom action bar — portaled to <body> so
+                the page-transition transform can't break its fixed position. */}
+            {mounted &&
+                createPortal(
+                    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200/80 bg-white/90 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur-xl md:hidden dark:border-zinc-800 dark:bg-zinc-950/90">
+                        {error && (
+                            <p className="mb-2 text-center text-xs font-medium text-red-600 dark:text-red-400">
+                                {error}
+                            </p>
+                        )}
+                        <div className="mx-auto flex max-w-5xl items-center gap-4">
+                            <div className="shrink-0">
+                                <p className="text-[11px] font-medium text-zinc-400">
+                                    {tr(lang, 'total')}
+                                </p>
+                                <p className="text-xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
+                                    {formatPrice(grandTotal)}
+                                </p>
+                            </div>
+                            <button
+                                type="submit"
+                                form="checkoutForm"
+                                disabled={submitting}
+                                className="flex flex-1 items-center justify-center gap-2 rounded-full bg-(--brand) px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-60"
+                            >
+                                {submitting ? (
+                                    <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <Check className="size-4" />
+                                )}
+                                {submitting
+                                    ? tr(lang, 'placingOrder')
+                                    : tr(lang, 'placeOrder')}
+                            </button>
+                        </div>
+                    </div>,
+                    document.body,
+                )}
 
             {addressModal && (
                 <AddressForm
@@ -1168,13 +1513,12 @@ export function CheckoutForm({
                 />
             )}
 
-            {/* ABA renders its own checkout modal (via its JS bridge). We only
-                show a small, non-blocking pill so the customer can stop waiting
-                if they close ABA without paying. It never covers ABA's modal. */}
-            {abaPay && (
+            {/* ABA E-Commerce renders its own hosted checkout modal (JS bridge).
+                We only show a small, non-blocking waiting pill. */}
+            {abaPay?.mode === 'ecommerce' && (
                 <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
                     <div className="flex items-center gap-3 rounded-full border border-zinc-200 bg-white/95 px-4 py-2 text-sm shadow-lg backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
-                        <Loader2 className="size-4 animate-spin text-[#00529C]" />
+                        <Loader2 className="size-4 animate-spin text-[#015f7a]" />
                         <span className="text-zinc-600 dark:text-zinc-300">
                             {tr(lang, 'abaWaiting')}
                         </span>
@@ -1187,6 +1531,175 @@ export function CheckoutForm({
                         </button>
                     </div>
                 </div>
+            )}
+
+            {/* ABA KHQR — locked modal: only closable via Cancel → confirm. */}
+            {abaPay?.mode === 'qr' && (
+                <ResponsiveModal
+                    open
+                    onOpenChange={() => {}}
+                    dismissible={false}
+                    title="ABA KHQR"
+                    className="sm:max-w-sm"
+                >
+                    {/* KHQR payment step (confirmation is a separate modal on top) */}
+                    <div className="w-full">
+                            {/* Brand header with the amount */}
+                            <div className="relative overflow-hidden bg-gradient-to-br from-[#017a9c] to-[#013a4b] px-6 pb-12 pt-6 text-white">
+                                <div className="pointer-events-none absolute -right-10 -top-10 size-36 rounded-full bg-white/10 blur-2xl" />
+                                <div className="pointer-events-none absolute -bottom-16 -left-10 size-36 rounded-full bg-white/5 blur-2xl" />
+                                <div className="relative flex items-center gap-2.5">
+                                    <div className="flex size-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
+                                        <QrCode className="size-5 text-white" />
+                                    </div>
+                                    <span className="text-sm font-bold tracking-wide">
+                                        ABA PayWay
+                                    </span>
+                                    <span className="ml-auto rounded-full bg-[#E1251B] px-2.5 py-0.5 text-[10px] font-extrabold italic tracking-wider text-white shadow-sm">
+                                        KHQR
+                                    </span>
+                                </div>
+                                <p className="relative mt-5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">
+                                    {tr(lang, 'total')}
+                                </p>
+                                <p className="relative mt-1 text-3xl font-extrabold tracking-tight">
+                                    {abaPay.amount
+                                        ? `${abaPay.currency === 'KHR' ? '៛' : '$'}${abaPay.amount}`
+                                        : formatPrice(grandTotal)}
+                                </p>
+                            </div>
+
+                            {khqrExpired ? (
+                                /* Expired — the QR can no longer be scanned. */
+                                <div className="flex flex-col items-center px-6 pb-2 pt-8 text-center">
+                                    <div className="flex size-16 items-center justify-center rounded-full bg-red-50 text-red-500 dark:bg-red-500/15 dark:text-red-400">
+                                        <TimerOff className="size-8" />
+                                    </div>
+                                    <h3 className="mt-4 text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                                        {tr(lang, 'khqrExpiredTitle')}
+                                    </h3>
+                                    <p className="mt-1.5 max-w-[17rem] text-sm text-zinc-500 dark:text-zinc-400">
+                                        {tr(lang, 'khqrExpiredBody')}
+                                    </p>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* QR framed with scanner corner-brackets */}
+                                    <div className="relative -mt-8 flex justify-center px-6">
+                                        <div className="relative rounded-3xl bg-white p-5 shadow-xl ring-1 ring-black/5 dark:ring-white/10">
+                                            <span className="absolute left-3 top-3 size-5 rounded-tl-md border-l-[3px] border-t-[3px] border-[#015f7a]" />
+                                            <span className="absolute right-3 top-3 size-5 rounded-tr-md border-r-[3px] border-t-[3px] border-[#015f7a]" />
+                                            <span className="absolute bottom-3 left-3 size-5 rounded-bl-md border-b-[3px] border-l-[3px] border-[#015f7a]" />
+                                            <span className="absolute bottom-3 right-3 size-5 rounded-br-md border-b-[3px] border-r-[3px] border-[#015f7a]" />
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={abaPay.qrImage}
+                                                alt="KHQR"
+                                                className="size-44 object-contain"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col items-center gap-2.5 px-6 pt-4">
+                                        <p className="text-center text-xs text-zinc-400">
+                                            {tr(lang, 'abaScanHint')}
+                                        </p>
+                                        {/* Waiting status */}
+                                        <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
+                                            <span className="relative flex size-2">
+                                                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                                                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                                            </span>
+                                            {tr(lang, 'abaWaiting')}
+                                        </div>
+                                        {/* Countdown — separate from the status */}
+                                        <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400">
+                                            <Clock className="size-3.5" />
+                                            {tr(lang, 'khqrExpiresIn')}{' '}
+                                            <span className="tabular-nums font-semibold text-zinc-600 dark:text-zinc-300">
+                                                {Math.floor(khqrLeft / 60)}:
+                                                {String(khqrLeft % 60).padStart(
+                                                    2,
+                                                    '0',
+                                                )}
+                                            </span>
+                                        </div>
+                                        {abaPay.deeplink && (
+                                            <a
+                                                href={abaPay.deeplink}
+                                                className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-[#015f7a] px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-[#015f7a]/25 transition-colors hover:bg-[#014a5f] sm:hidden"
+                                            >
+                                                {tr(lang, 'abaOpenApp')}
+                                            </a>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+
+                            <div className="px-6 pb-6 pt-4">
+                                {khqrExpired ? (
+                                    /* Expired: no confirm needed — just close & retry. */
+                                    <button
+                                        type="button"
+                                        onClick={() => setAbaPay(null)}
+                                        className="w-full rounded-xl bg-[#015f7a] py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                                    >
+                                        {tr(lang, 'khqrMakeAnother')}
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => setCancelConfirm(true)}
+                                        className="w-full rounded-xl border border-zinc-200 py-2.5 text-sm font-semibold text-zinc-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-red-500/30 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                                    >
+                                        {tr(lang, 'khqrCancelBtn')}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                </ResponsiveModal>
+            )}
+
+            {/* Cancel confirmation — a modal stacked ABOVE the KHQR modal. */}
+            {abaPay?.mode === 'qr' && cancelConfirm && (
+                <ResponsiveModal
+                    open
+                    onOpenChange={(o) => !o && setCancelConfirm(false)}
+                    centered
+                    title={tr(lang, 'khqrCancelTitle')}
+                    className="max-w-xs"
+                >
+                    <div className="flex flex-col items-center px-6 py-8 text-center">
+                        <div className="flex size-14 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400">
+                            <AlertTriangle className="size-7" />
+                        </div>
+                        <h3 className="mt-4 text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                            {tr(lang, 'khqrCancelTitle')}
+                        </h3>
+                        <p className="mt-1.5 max-w-[16rem] text-sm text-zinc-500 dark:text-zinc-400">
+                            {tr(lang, 'khqrCancelBody')}
+                        </p>
+                        <div className="mt-6 grid w-full grid-cols-2 gap-2.5">
+                            <button
+                                type="button"
+                                onClick={() => setCancelConfirm(false)}
+                                className="rounded-xl bg-[#015f7a] py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                            >
+                                {tr(lang, 'khqrKeepPaying')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setCancelConfirm(false);
+                                    setAbaPay(null);
+                                }}
+                                className="rounded-xl border border-red-200 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
+                            >
+                                {tr(lang, 'khqrConfirmCancel')}
+                            </button>
+                        </div>
+                    </div>
+                </ResponsiveModal>
             )}
         </div>
         </div>
@@ -1291,10 +1804,13 @@ function MethodCard({
 function Section({
     step,
     title,
+    action,
     children,
 }: {
     step: number;
     title: string;
+    /** Optional control shown at the right of the section header. */
+    action?: React.ReactNode;
     children: React.ReactNode;
 }) {
     return (
@@ -1304,6 +1820,7 @@ function Section({
                     {step}
                 </span>
                 {title}
+                {action && <span className="ml-auto">{action}</span>}
             </h2>
             {children}
         </div>

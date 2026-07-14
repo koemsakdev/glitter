@@ -17,7 +17,15 @@ export interface KhqrResult {
   deeplink: string;
   amount: string;
   currency: string;
+  /** Minutes the QR is valid for. */
+  lifetimeMinutes: number;
+  /** ISO timestamp when the QR expires (the storefront stops polling then). */
+  expiresAt: string;
 }
+
+/** How long a checkout KHQR stays valid before the customer must re-generate.
+ *  Kept short so an abandoned popup can't poll ABA forever. */
+export const KHQR_LIFETIME_MIN = 5;
 
 export type AbaPaymentStatus =
   | 'APPROVED'
@@ -219,7 +227,8 @@ export class AbaPaywayService {
 
     const reqTime = this.reqTime();
     const currency = params.currency ?? 'USD';
-    const lifetime = String(params.lifetimeMinutes ?? 30);
+    const lifetimeMinutes = params.lifetimeMinutes ?? KHQR_LIFETIME_MIN;
+    const lifetime = String(lifetimeMinutes);
     const template = 'template1_color';
     const paymentOption = 'abapay_khqr';
     const purchaseType = 'purchase';
@@ -295,6 +304,10 @@ export class AbaPaywayService {
       deeplink: json.abapay_deeplink ?? '',
       amount: params.amount,
       currency,
+      lifetimeMinutes,
+      expiresAt: new Date(
+        Date.now() + lifetimeMinutes * 60_000,
+      ).toISOString(),
     };
   }
 

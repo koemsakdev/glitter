@@ -1,9 +1,7 @@
-import { CartView } from '@/components/cart-view';
-import { getLang } from '@/lib/lang';
+import { redirect } from 'next/navigation';
 
-export const metadata = { title: 'Cart' };
-
-export default async function CartPage() {
-    const lang = await getLang();
-    return <CartView lang={lang} />;
+// Cart and checkout are now a single merged page. Keep /cart working by
+// sending it to the checkout page (which shows the editable cart + confirmation).
+export default function CartPage() {
+    redirect('/checkout');
 }
