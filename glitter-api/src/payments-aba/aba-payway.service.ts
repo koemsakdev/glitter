@@ -99,10 +99,7 @@ export class AbaPaywayService {
 
   /** UTC timestamp "YYYYMMDDHHmmss" required on every request. */
   private reqTime(): string {
-    return new Date()
-      .toISOString()
-      .replace(/[-:T]/g, '')
-      .slice(0, 14);
+    return new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
   }
 
   private hash(fields: string[], apiKey: string): string {
@@ -179,30 +176,30 @@ export class AbaPaywayService {
     // every field we sign with a value must be POSTed with that same value.
     const hash = this.hash(
       [
-        reqTime,        // req_time
+        reqTime, // req_time
         creds.merchantId, // merchant_id
-        params.tranId,  // tran_id
-        params.amount,  // amount
-        '',             // items
-        '',             // shipping
-        firstname,      // firstname
-        '',             // lastname
-        '',             // email
-        phone,          // phone
-        type,           // type
-        paymentOption,  // payment_option
-        returnUrl,      // return_url
-        '',             // cancel_url
-        '',             // continue_success_url
-        '',             // return_deeplink
-        currency,       // currency
-        '',             // custom_fields
-        returnParams,   // return_params
-        '',             // payout
-        '',             // lifetime
-        '',             // additional_params
-        '',             // google_pay_token
-        '',             // skip_success_page
+        params.tranId, // tran_id
+        params.amount, // amount
+        '', // items
+        '', // shipping
+        firstname, // firstname
+        '', // lastname
+        '', // email
+        phone, // phone
+        type, // type
+        paymentOption, // payment_option
+        returnUrl, // return_url
+        '', // cancel_url
+        '', // continue_success_url
+        '', // return_deeplink
+        currency, // currency
+        '', // custom_fields
+        returnParams, // return_params
+        '', // payout
+        '', // lifetime
+        '', // additional_params
+        '', // google_pay_token
+        '', // skip_success_page
       ],
       creds.apiKey,
     );
@@ -323,9 +320,7 @@ export class AbaPaywayService {
       currency,
       merchantName: readEmvField(json.qrString, '59'),
       lifetimeMinutes,
-      expiresAt: new Date(
-        Date.now() + lifetimeMinutes * 60_000,
-      ).toISOString(),
+      expiresAt: new Date(Date.now() + lifetimeMinutes * 60_000).toISOString(),
     };
   }
 
@@ -339,10 +334,7 @@ export class AbaPaywayService {
   async checkTransactionDetail(tranId: string): Promise<AbaTransactionInfo> {
     const creds = await this.requireCreds();
     const reqTime = this.reqTime();
-    const hash = this.hash(
-      [reqTime, creds.merchantId, tranId],
-      creds.apiKey,
-    );
+    const hash = this.hash([reqTime, creds.merchantId, tranId], creds.apiKey);
 
     const json = await this.post<CheckTxnResponse>(
       `${creds.baseUrl}/api/payment-gateway/v1/payments/check-transaction-2`,
