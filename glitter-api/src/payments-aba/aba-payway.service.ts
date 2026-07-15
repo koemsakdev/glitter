@@ -17,6 +17,8 @@ export interface KhqrResult {
   deeplink: string;
   amount: string;
   currency: string;
+  /** Merchant/account name (EMV field 59), shown on the KHQR card. */
+  merchantName: string;
   /** Minutes the QR is valid for. */
   lifetimeMinutes: number;
   /** ISO timestamp when the QR expires (the storefront stops polling then). */
@@ -26,6 +28,21 @@ export interface KhqrResult {
 /** How long a checkout KHQR stays valid before the customer must re-generate.
  *  Kept short so an abandoned popup can't poll ABA forever. */
 export const KHQR_LIFETIME_MIN = 5;
+
+/** Read an EMVCo/KHQR TLV field (2-digit tag + 2-digit length + value) from the
+ *  QR payload. Field 59 = merchant name, 54 = amount, 53 = currency. */
+function readEmvField(qr: string, tag: string): string {
+  let i = 0;
+  while (i + 4 <= qr.length) {
+    const t = qr.slice(i, i + 2);
+    const len = Number(qr.slice(i + 2, i + 4));
+    if (!Number.isFinite(len) || len <= 0) break;
+    const value = qr.slice(i + 4, i + 4 + len);
+    if (t === tag) return value.trim();
+    i += 4 + len;
+  }
+  return '';
+}
 
 export type AbaPaymentStatus =
   | 'APPROVED'
@@ -304,6 +321,7 @@ export class AbaPaywayService {
       deeplink: json.abapay_deeplink ?? '',
       amount: params.amount,
       currency,
+      merchantName: readEmvField(json.qrString, '59'),
       lifetimeMinutes,
       expiresAt: new Date(
         Date.now() + lifetimeMinutes * 60_000,

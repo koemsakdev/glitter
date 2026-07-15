@@ -4,6 +4,8 @@ import localFont from 'next/font/local';
 import './globals.css';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
+import { RouteChrome } from '@/components/route-chrome';
+import { MainArea } from '@/components/main-area';
 import { MobileBottomNav } from '@/components/mobile-bottom-nav';
 import { CartToast } from '@/components/cart-toast';
 import { LiveUpdates } from '@/components/live-updates';
@@ -119,21 +121,29 @@ export default async function RootLayout({
                     <WishlistProvider>
                         <CartProvider>
                         <LiveUpdates />
-                        <SiteHeader
-                            config={config}
-                            lang={lang}
-                            menu={headerMenu}
-                            promos={promos}
-                            popular={popular}
-                        />
-                        <main className="flex-1 pb-20 max-lg:overflow-x-clip lg:pb-0">
+                        {/* Hide the store header on mobile checkout so it reads
+                            like a native app screen (kept on desktop). */}
+                        <RouteChrome hideOn={['/checkout']} mobileOnly>
+                            <SiteHeader
+                                config={config}
+                                lang={lang}
+                                menu={headerMenu}
+                                promos={promos}
+                                popular={popular}
+                            />
+                        </RouteChrome>
+                        <MainArea>
                             <PageTransition>{children}</PageTransition>
-                        </main>
-                        <SiteFooter
-                            config={config}
-                            lang={lang}
-                            menu={footerMenu}
-                        />
+                        </MainArea>
+                        {/* No footer on mobile checkout — the fixed dock owns the
+                            bottom of the screen there. */}
+                        <RouteChrome hideOn={['/checkout']} mobileOnly>
+                            <SiteFooter
+                                config={config}
+                                lang={lang}
+                                menu={footerMenu}
+                            />
+                        </RouteChrome>
                         <MobileBottomNav lang={lang} />
                         <CartToast lang={lang} />
                         </CartProvider>

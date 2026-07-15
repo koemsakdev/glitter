@@ -2,12 +2,32 @@
 
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { Drawer as DrawerPrimitive } from 'vaul';
 import { cn } from '@/lib/utils';
 
+/** True below the `md` breakpoint. Initialised synchronously (the modal only
+ *  ever mounts client-side, on open) so there's no dialog→drawer flash. */
+function useIsMobile() {
+    const [isMobile, setIsMobile] = React.useState(
+        () =>
+            typeof window !== 'undefined' &&
+            window.matchMedia('(max-width: 767px)').matches,
+    );
+    React.useEffect(() => {
+        const mq = window.matchMedia('(max-width: 767px)');
+        const onChange = () => setIsMobile(mq.matches);
+        onChange();
+        mq.addEventListener('change', onChange);
+        return () => mq.removeEventListener('change', onChange);
+    }, []);
+    return isMobile;
+}
+
 /**
- * A responsive modal — a centered dialog on desktop and a bottom sheet on
- * mobile — mirroring the dashboard's ResponsiveModal API (open / onOpenChange /
- * className). Built on Radix Dialog so focus, escape and scroll-lock are handled.
+ * A responsive modal — a swipe-to-dismiss **drawer** (vaul) on mobile and a
+ * centered **dialog** (Radix) on desktop, mirroring the dashboard's
+ * ResponsiveModal. Pass `centered` to force a centered dialog on every screen
+ * (used for small confirmations that shouldn't be a bottom sheet).
  */
 export function ResponsiveModal({
     open,
@@ -23,12 +43,45 @@ export function ResponsiveModal({
     className?: string;
     /** Accessible dialog title (visually hidden). */
     title?: string;
-    /** When false, Escape and clicking the backdrop won't close the modal. */
+    /** When false, Escape / backdrop / swipe won't close the modal. */
     dismissible?: boolean;
-    /** Force a centered dialog on every screen (no mobile bottom sheet). */
+    /** Force a centered dialog on every screen (no mobile drawer). */
     centered?: boolean;
     children: React.ReactNode;
 }) {
+    const isMobile = useIsMobile();
+
+    // Mobile bottom sheet with a native swipe-to-dismiss gesture.
+    if (isMobile && !centered) {
+        return (
+            <DrawerPrimitive.Root
+                open={open}
+                onOpenChange={onOpenChange}
+                dismissible={dismissible}
+            >
+                <DrawerPrimitive.Portal>
+                    <DrawerPrimitive.Overlay className="fixed inset-0 z-9999 bg-black/60 backdrop-blur-sm" />
+                    <DrawerPrimitive.Content
+                        className={cn(
+                            'fixed inset-x-0 bottom-0 z-9999 flex max-h-[92vh] flex-col rounded-t-3xl bg-white outline-none dark:bg-zinc-900',
+                            className,
+                        )}
+                    >
+                        <DrawerPrimitive.Title className="sr-only">
+                            {title ?? 'Dialog'}
+                        </DrawerPrimitive.Title>
+                        {/* Grab handle (only when the sheet can be swiped away) */}
+                        {dismissible && (
+                            <div className="mx-auto mt-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-300 dark:bg-zinc-700" />
+                        )}
+                        {children}
+                    </DrawerPrimitive.Content>
+                </DrawerPrimitive.Portal>
+            </DrawerPrimitive.Root>
+        );
+    }
+
+    // Desktop dialog (or a centered confirm on any screen).
     const lock = dismissible
         ? {}
         : {
@@ -43,12 +96,7 @@ export function ResponsiveModal({
                     aria-describedby={undefined}
                     {...lock}
                     className={cn(
-                        'fixed z-9999 flex flex-col overflow-y-auto bg-white shadow-2xl outline-none dark:bg-zinc-900',
-                        centered
-                            ? // Centered dialog on every screen.
-                              'left-1/2 top-1/2 max-h-[85vh] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl'
-                            : // Mobile: bottom sheet · Desktop: centered dialog.
-                              'inset-x-0 bottom-0 max-h-[90vh] rounded-t-2xl sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[85vh] sm:w-full sm:max-w-sm sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl',
+                        'fixed left-1/2 top-1/2 z-9999 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-2xl bg-white shadow-2xl outline-none dark:bg-zinc-900',
                         className,
                     )}
                 >

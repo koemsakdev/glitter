@@ -24,6 +24,7 @@ export function BackLink({
     return (
         <button
             type="button"
+            aria-label={label ?? tr(lang, 'back')}
             onClick={() => {
                 if (typeof window !== 'undefined' && window.history.length > 1) {
                     router.back();
@@ -33,12 +34,16 @@ export function BackLink({
             }}
             className={`group inline-flex items-center gap-2.5 ${className}`}
         >
-            <span className="flex size-10 items-center justify-center rounded-full border border-zinc-200 bg-white/80 text-zinc-700 shadow-sm backdrop-blur transition-all group-hover:-translate-x-0.5 group-hover:border-(--brand)/40 group-hover:text-(--brand) group-hover:shadow-md group-active:scale-95 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-200">
-                <ChevronLeft className="size-5" />
+            <span className="relative flex size-11 items-center justify-center overflow-hidden rounded-full border border-zinc-200/80 bg-white text-zinc-700 shadow-sm transition-all duration-300 group-hover:border-transparent group-hover:text-white group-hover:shadow-lg group-hover:shadow-(--brand)/30 group-active:scale-90 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
+                {/* brand fill grows from the centre on hover */}
+                <span className="absolute inset-0 scale-0 rounded-full bg-(--brand) transition-transform duration-300 ease-out group-hover:scale-100" />
+                <ChevronLeft className="relative size-5 transition-transform duration-300 group-hover:-translate-x-0.5" />
             </span>
-            <span className="text-sm font-semibold text-zinc-600 transition-colors group-hover:text-(--brand) dark:text-zinc-300">
-                {label ?? tr(lang, 'back')}
-            </span>
+            {label && (
+                <span className="text-sm font-semibold text-zinc-600 transition-colors group-hover:text-(--brand) dark:text-zinc-300">
+                    {label}
+                </span>
+            )}
         </button>
     );
 }
