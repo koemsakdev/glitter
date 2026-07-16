@@ -123,7 +123,10 @@ export default async function RootLayout({
                         <LiveUpdates />
                         {/* Hide the store header on mobile checkout so it reads
                             like a native app screen (kept on desktop). */}
-                        <RouteChrome hideOn={['/checkout']} mobileOnly>
+                        <RouteChrome
+                            hideOn={['/checkout', '/products/*']}
+                            mobileOnly
+                        >
                             <SiteHeader
                                 config={config}
                                 lang={lang}
@@ -137,7 +140,10 @@ export default async function RootLayout({
                         </MainArea>
                         {/* No footer on mobile checkout — the fixed dock owns the
                             bottom of the screen there. */}
-                        <RouteChrome hideOn={['/checkout']} mobileOnly>
+                        <RouteChrome
+                            hideOn={['/checkout', '/products/*']}
+                            mobileOnly
+                        >
                             <SiteFooter
                                 config={config}
                                 lang={lang}

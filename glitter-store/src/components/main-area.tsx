@@ -11,11 +11,14 @@ import type { ReactNode } from 'react';
  */
 export function MainArea({ children }: { children: ReactNode }) {
     const pathname = usePathname();
-    const isCheckout = pathname === '/checkout';
+    // Checkout and product detail have their own fixed bottom bar (no tab bar),
+    // so they don't need the tab-bar clearance — they manage their own spacing.
+    const ownsBottom =
+        pathname === '/checkout' || pathname.startsWith('/products/');
     return (
         <main
             className={`flex-1 max-lg:overflow-x-clip ${
-                isCheckout ? '' : 'pb-20 lg:pb-0'
+                ownsBottom ? '' : 'pb-20 lg:pb-0'
             }`}
         >
             {children}

@@ -10,6 +10,7 @@ import {
 import { AddToCart } from '@/components/add-to-cart';
 import { ProductCard } from '@/components/product-card';
 import { ProductGallery } from '@/components/product-gallery';
+import { ProductMobileAppBar } from '@/components/product-mobile-app-bar';
 import { ProductReviews } from '@/components/product-reviews';
 import { WishlistButton } from '@/components/wishlist-button';
 import {
@@ -97,9 +98,16 @@ export default async function ProductDetailPage({
     ];
 
     return (
-        <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
-            {/* Breadcrumb */}
-            <nav className="mb-6 flex items-center gap-1 text-sm text-zinc-500 dark:text-zinc-400">
+        <div className="mx-auto max-w-6xl px-4 pb-28 pt-0 md:pb-12 md:pt-8">
+            {/* Mobile app-style top bar (desktop keeps the breadcrumb below) */}
+            <ProductMobileAppBar
+                lang={lang}
+                title={name}
+                productId={product.id}
+            />
+
+            {/* Breadcrumb — desktop only */}
+            <nav className="mb-6 hidden items-center gap-1 text-sm text-zinc-500 md:flex dark:text-zinc-400">
                 <Link href="/" className="hover:text-(--brand)">
                     {tr(lang, 'home')}
                 </Link>
@@ -113,7 +121,7 @@ export default async function ProductDetailPage({
                 </span>
             </nav>
 
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,440px)_1fr] lg:gap-12">
+            <div className="grid grid-cols-1 gap-5 md:gap-8 lg:grid-cols-[minmax(0,440px)_1fr] lg:gap-12">
                 {/* Gallery */}
                 <ProductGallery images={images} name={name} />
 

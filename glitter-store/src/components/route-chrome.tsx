@@ -23,9 +23,14 @@ export function RouteChrome({
     children: ReactNode;
 }) {
     const pathname = usePathname();
-    const match = hideOn.some(
-        (r) => pathname === r || pathname.startsWith(`${r}/`),
-    );
+    const match = hideOn.some((r) => {
+        // A trailing `/*` matches sub-routes only, not the base itself — e.g.
+        // `/products/*` hides on a product detail page but not the listing.
+        if (r.endsWith('/*')) {
+            return pathname.startsWith(`${r.slice(0, -2)}/`);
+        }
+        return pathname === r || pathname.startsWith(`${r}/`);
+    });
     const cls = match
         ? mobileOnly
             ? 'hidden md:contents'

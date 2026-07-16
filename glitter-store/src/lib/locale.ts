@@ -808,3 +808,53 @@ const DICT: Record<Lang, Record<string, string>> = {
 export function tr(lang: Lang, key: string): string {
     return DICT[lang][key] ?? DICT.en[key] ?? key;
 }
+
+/** Common colour names → Khmer. Variant colours are free text (usually typed in
+ *  English), so we translate the ones we know and fall back to the original
+ *  string for anything unrecognised. */
+const COLOR_KM: Record<string, string> = {
+    black: 'ខ្មៅ',
+    white: 'ស',
+    red: 'ក្រហម',
+    pink: 'ផ្កាឈូក',
+    'hot pink': 'ផ្កាឈូកចាស់',
+    'rose gold': 'មាសផ្កាឈូក',
+    rose: 'ផ្កាកុលាប',
+    blue: 'ខៀវ',
+    'light blue': 'ខៀវខ្ចី',
+    'sky blue': 'ខៀវមេឃ',
+    navy: 'ខៀវចាស់',
+    green: 'បៃតង',
+    'light green': 'បៃតងខ្ចី',
+    'dark green': 'បៃតងចាស់',
+    yellow: 'លឿង',
+    orange: 'ទឹកក្រូច',
+    purple: 'ស្វាយ',
+    violet: 'ស្វាយ',
+    brown: 'ត្នោត',
+    grey: 'ប្រផេះ',
+    gray: 'ប្រផេះ',
+    silver: 'ប្រាក់',
+    gold: 'មាស',
+    golden: 'មាស',
+    beige: 'ពណ៌ខ្សាច់',
+    cream: 'ក្រែម',
+    ivory: 'ភ្លុក',
+    maroon: 'ក្រហមចាស់',
+    teal: 'ខៀវបៃតង',
+    turquoise: 'ខៀវបៃតង',
+    coral: 'ផ្កាថ្ម',
+    lavender: 'ស្វាយខ្ចី',
+    khaki: 'ខាគី',
+    tan: 'ត្នោតខ្ចី',
+    transparent: 'ថ្លា',
+    'multi color': 'ច្រើនពណ៌',
+    multicolor: 'ច្រើនពណ៌',
+};
+
+/** Localise a free-text colour name (translates known colours to Khmer). */
+export function colorLabel(lang: Lang, color: string | null | undefined): string {
+    const c = (color ?? '').trim();
+    if (!c || lang !== 'km') return c;
+    return COLOR_KM[c.toLowerCase()] ?? c;
+}

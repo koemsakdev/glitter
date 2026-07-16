@@ -14,9 +14,10 @@ export function MobileBottomNav({ lang }: { lang: Lang }) {
     const { itemCount, hydrated } = useCart();
     const { user } = useAuth();
 
-    // Checkout is an app-style flow with its own fixed bottom action bar —
-    // hide the tab bar there so the two don't stack.
-    if (pathname === '/checkout') return null;
+    // Checkout and product detail are app-style flows with their own fixed
+    // bottom action bar — hide the tab bar there so the two don't stack.
+    if (pathname === '/checkout' || pathname.startsWith('/products/'))
+        return null;
 
     const isActive = (href: string, exact = false) =>
         exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
@@ -29,73 +30,78 @@ export function MobileBottomNav({ lang }: { lang: Lang }) {
         Icon: typeof Home,
         active: boolean,
         avatar?: boolean,
-        badgeCount?: number
+        badgeCount?: number,
     ) => (
         <Link
             href={href}
-            className="relative flex flex-1 flex-col items-center justify-between h-full pt-2.5 pb-1 transition-all"
+            aria-label={label}
+            aria-current={active ? 'page' : undefined}
+            className="group relative flex flex-1 flex-col items-center justify-center gap-1"
         >
-            {/* Visual Icon Container */}
-            <div className="relative flex items-center justify-center size-6">
+            {/* Active indicator — a short bar hugging the top edge */}
+            <span
+                className={cn(
+                    'absolute top-0 h-0.75 w-9 rounded-full bg-(--brand) transition-all duration-300',
+                    active ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-0',
+                )}
+            />
+
+            {/* Icon sits inside a pill that tints when the tab is active */}
+            <span
+                className={cn(
+                    'relative flex items-center justify-center rounded-2xl px-5 py-1 transition-colors duration-300',
+                    active ? 'bg-(--brand)/12 dark:bg-(--brand)/20' : 'bg-transparent',
+                )}
+            >
                 {avatar && user ? (
                     <UserAvatar
                         src={user.profileImageUrl}
                         name={user.fullName}
                         className={cn(
-                            'size-5.5 rounded-full text-[9px] transition-transform duration-200 object-cover',
-                            active ? 'ring-2 ring-(--brand) scale-105' : 'opacity-80'
+                            'size-6 rounded-full text-[9px] object-cover transition-all duration-200',
+                            active
+                                ? 'ring-2 ring-(--brand) ring-offset-1 ring-offset-white dark:ring-offset-zinc-950'
+                                : 'opacity-80 group-active:scale-90',
                         )}
                     />
                 ) : (
-                    <Icon 
+                    <Icon
                         className={cn(
-                            "size-5.5 transition-all duration-200", 
-                            active 
-                                ? "text-(--brand) stroke-[2.25px] scale-105" 
-                                : "text-zinc-500 dark:text-zinc-400 stroke-[1.75px]"
-                        )} 
+                            'size-6 transition-all duration-200',
+                            active
+                                ? 'text-(--brand) stroke-[2.25px]'
+                                : 'text-zinc-500 stroke-[1.75px] group-active:scale-90 dark:text-zinc-400',
+                        )}
                     />
                 )}
 
-                {/* Inline Minimalist Notification/Cart Badges using System Colors */}
+                {/* Cart / notification badge */}
                 {hydrated && badgeCount !== undefined && badgeCount > 0 && (
-                    <span className={cn(
-                        "absolute -top-1.5 -right-1.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full text-[9px] font-bold px-1 tabular-nums transition-colors duration-300 ring-2 ring-white dark:ring-zinc-950",
-                        active 
-                            ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950" 
-                            : "bg-(--brand) text-white"
-                    )}>
-                        {badgeCount}
+                    <span className="absolute -right-0.5 -top-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-(--brand) px-1 text-[9px] font-bold tabular-nums text-white ring-2 ring-white dark:ring-zinc-950">
+                        {badgeCount > 99 ? '99+' : badgeCount}
                     </span>
                 )}
-            </div>
-            
-            {/* Typography & Active Dot matching the System Theme */}
-            <div className="flex flex-col items-center gap-0.5 w-full mt-1">
-                <span className={cn(
-                    "text-[10px] font-medium tracking-tight transition-colors duration-200 truncate px-1 max-w-full leading-none",
-                    active 
-                        ? "text-(--brand)" 
-                        : "text-zinc-500 dark:text-zinc-400"
-                )}>
-                    {label}
-                </span>
-                
-                {/* Active dot styled with System Brand Color */}
-                <span className={cn(
-                    "size-1 rounded-full bg-(--brand) transition-all duration-300",
-                    active ? "opacity-100 scale-100" : "opacity-0 scale-50"
-                )} />
-            </div>
+            </span>
+
+            {/* Label */}
+            <span
+                className={cn(
+                    'max-w-full truncate px-1 text-[10px] leading-none tracking-tight transition-colors duration-200',
+                    active
+                        ? 'font-semibold text-(--brand)'
+                        : 'font-medium text-zinc-500 dark:text-zinc-400',
+                )}
+            >
+                {label}
+            </span>
         </Link>
     );
 
     return (
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95 md:hidden">
-            <div className="mx-auto flex max-w-md items-stretch justify-between px-2 h-16 pb-[env(safe-area-inset-bottom)]">
-                
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200/80 bg-white/85 shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.15)] backdrop-blur-xl dark:border-zinc-800/80 dark:bg-zinc-950/85 md:hidden">
+            <div className="mx-auto flex h-16 max-w-md items-stretch justify-between px-1 pb-[env(safe-area-inset-bottom)]">
                 {tab('/', tr(lang, 'navHome'), Home, isActive('/', true))}
-                
+
                 {tab(
                     '/account/wishlist',
                     tr(lang, 'savedItems'),
@@ -103,26 +109,24 @@ export function MobileBottomNav({ lang }: { lang: Lang }) {
                     isActive('/account/wishlist'),
                 )}
 
-                {/* Seamless Inline Cart Tab matching the updated system styling rules */}
                 {tab(
                     '/checkout',
                     tr(lang, 'cart'),
-                    ShoppingCart, 
+                    ShoppingCart,
                     cartActive,
                     false,
-                    itemCount
+                    itemCount,
                 )}
 
                 {tab('/stores', tr(lang, 'navLocation'), MapPin, isActive('/stores'))}
-                
+
                 {tab(
                     user ? '/account' : '/account/login',
                     tr(lang, 'profile'),
                     User,
                     isActive('/account', true) || pathname === '/account/login',
-                    true
+                    true,
                 )}
-                
             </div>
         </nav>
     );

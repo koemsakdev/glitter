@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { Check } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Check, ShoppingBag } from 'lucide-react';
 import { useCart } from '@/lib/cart';
-import { tr, type Lang } from '@/lib/locale';
+import { colorLabel, tr, type Lang } from '@/lib/locale';
 import { cn } from '@/lib/utils';
 import type { Product, ProductVariant } from '@/lib/types';
 
@@ -24,10 +25,9 @@ function colorName(v: { color: string | null }) {
     return isHexLike(v.color) ? '' : (v.color ?? '');
 }
 
-function variantLabel(v: ProductVariant): string {
-    return [v.size, colorName(v) || v.color]
-        .filter(Boolean)
-        .join(' · ') || v.variantSku;
+function variantLabel(lang: Lang, v: ProductVariant): string {
+    const color = colorLabel(lang, colorName(v)) || v.color;
+    return [v.size, color].filter(Boolean).join(' · ') || v.variantSku;
 }
 
 export function AddToCart({ product, lang }: { product: Product; lang: Lang }) {
@@ -61,6 +61,10 @@ export function AddToCart({ product, lang }: { product: Product; lang: Lang }) {
     const [qty, setQty] = useState(1);
     const [error, setError] = useState('');
     const [added, setAdded] = useState(false);
+    // Portal target for the mobile fixed dock (avoids the PageTransition
+    // transform trapping `position: fixed`). Only available after mount.
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
 
     // Resolve the concrete variant from the current size/color picks.
     const selected =
@@ -130,7 +134,7 @@ export function AddToCart({ product, lang }: { product: Product; lang: Lang }) {
                 nameEn: product.nameEn,
                 nameKm: product.nameKm,
                 image: primary?.imageUrl ?? '',
-                variantLabel: variantLabel(selected),
+                variantLabel: variantLabel(lang, selected),
                 colorHex: selected.colorHex,
                 unitPrice: price,
             },
@@ -140,10 +144,49 @@ export function AddToCart({ product, lang }: { product: Product; lang: Lang }) {
         window.setTimeout(() => setAdded(false), 2500);
     }
 
-    const selectedColorName = colors.find((c) => c.key === color)?.name;
+    const selectedColorName = colorLabel(
+        lang,
+        colors.find((c) => c.key === color)?.name,
+    );
     const canAdd = !!selected && selected.quantityInStock > 0;
 
+    // Shared between the desktop inline row and the mobile fixed dock.
+    const qtyStepper = (
+        <div className="flex shrink-0 items-center rounded-full border border-zinc-200 dark:border-zinc-700">
+            <button
+                type="button"
+                aria-label="-"
+                disabled={qty <= 1}
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+                className="flex size-11 items-center justify-center text-lg text-zinc-600 disabled:opacity-40 dark:text-zinc-300"
+            >
+                −
+            </button>
+            <span className="w-8 text-center text-sm font-semibold tabular-nums">
+                {qty}
+            </span>
+            <button
+                type="button"
+                aria-label="+"
+                disabled={canAdd && qty >= maxQty}
+                onClick={() =>
+                    setQty((q) => (maxQty ? Math.min(maxQty, q + 1) : q + 1))
+                }
+                className="flex size-11 items-center justify-center text-lg text-zinc-600 disabled:opacity-40 dark:text-zinc-300"
+            >
+                +
+            </button>
+        </div>
+    );
+
+    const addLabel = added
+        ? tr(lang, 'added')
+        : canAdd
+          ? tr(lang, 'addToCart')
+          : tr(lang, 'outOfStock');
+
     return (
+        <>
         <div className="mt-6 space-y-5">
             {/* Size */}
             {hasSizes && (
@@ -196,7 +239,7 @@ export function AddToCart({ product, lang }: { product: Product; lang: Lang }) {
                                 <button
                                     key={c.key}
                                     type="button"
-                                    title={c.name || undefined}
+                                    title={colorLabel(lang, c.name) || undefined}
                                     onClick={() => pickColor(c.key)}
                                     className={cn(
                                         'relative flex size-9 items-center justify-center rounded-full border border-black/15 shadow-sm transition-all hover:scale-110 dark:border-white/30',
@@ -219,40 +262,18 @@ export function AddToCart({ product, lang }: { product: Product; lang: Lang }) {
                 </div>
             )}
 
-            {/* Quantity + add to cart */}
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-                <div className="flex items-center rounded-full border border-zinc-200 dark:border-zinc-700">
-                    <button
-                        type="button"
-                        aria-label="-"
-                        disabled={qty <= 1}
-                        onClick={() => setQty((q) => Math.max(1, q - 1))}
-                        className="flex size-11 items-center justify-center text-lg text-zinc-600 disabled:opacity-40 dark:text-zinc-300"
-                    >
-                        −
-                    </button>
-                    <span className="w-8 text-center text-sm font-semibold tabular-nums">
-                        {qty}
-                    </span>
-                    <button
-                        type="button"
-                        aria-label="+"
-                        disabled={canAdd && qty >= maxQty}
-                        onClick={() =>
-                            setQty((q) => (maxQty ? Math.min(maxQty, q + 1) : q + 1))
-                        }
-                        className="flex size-11 items-center justify-center text-lg text-zinc-600 disabled:opacity-40 dark:text-zinc-300"
-                    >
-                        +
-                    </button>
-                </div>
-
+            {/* Quantity + add to cart — inline on desktop; on mobile this row is
+                hidden and the fixed dock below takes over. */}
+            <div className="hidden flex-wrap items-center gap-3 pt-1 md:flex">
+                {qtyStepper}
                 <button
                     type="button"
                     onClick={handleAdd}
-                    className="flex-1 rounded-full bg-(--brand) px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-all hover:opacity-90 active:scale-[0.99] sm:flex-none sm:px-12"
+                    disabled={!canAdd}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-full bg-(--brand) px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-all hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:px-12"
                 >
-                    {added ? tr(lang, 'added') : tr(lang, 'addToCart')}
+                    <ShoppingBag className="size-4.5" />
+                    {addLabel}
                 </button>
             </div>
 
@@ -270,5 +291,27 @@ export function AddToCart({ product, lang }: { product: Product; lang: Lang }) {
                 </p>
             )}
         </div>
+
+        {/* Mobile fixed dock — portaled to the body so `position: fixed` isn't
+            trapped by the page-transition transform. */}
+        {mounted &&
+            createPortal(
+                <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200/80 bg-white/90 px-4 pb-[calc(env(safe-area-inset-bottom)+0.7rem)] pt-3 backdrop-blur-xl md:hidden dark:border-zinc-800/80 dark:bg-zinc-950/90">
+                    <div className="mx-auto flex max-w-md items-center gap-3">
+                        {qtyStepper}
+                        <button
+                            type="button"
+                            onClick={handleAdd}
+                            disabled={!canAdd}
+                            className="flex flex-1 items-center justify-center gap-2 rounded-full bg-(--brand) px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <ShoppingBag className="size-4.5" />
+                            {addLabel}
+                        </button>
+                    </div>
+                </div>,
+                document.body,
+            )}
+        </>
     );
 }
