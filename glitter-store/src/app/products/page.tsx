@@ -24,6 +24,7 @@ export const metadata = { title: 'Shop' };
 
 // Always render fresh from the API — never serve a cached page/badge state.
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 const PAGE_SIZE = 12;
 

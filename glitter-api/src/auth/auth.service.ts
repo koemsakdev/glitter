@@ -17,7 +17,6 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { FacebookLoginDto } from './dto/facebook-login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { TelegramLoginDto } from './dto/telegram-login.dto';
 import { verifyPassword } from './helpers/password.helper';
@@ -231,21 +230,6 @@ export class AuthService {
     });
   }
 
-  async linkFacebook(userId: string, dto: FacebookLoginDto): Promise<void> {
-    const p = await this.verifyFacebookToken(dto.accessToken);
-    await this.usersService.linkOAuthToUser(userId, {
-      provider: 'facebook',
-      providerAccountId: p.id,
-      email: p.email ?? null,
-      fullName: p.name ?? p.email ?? 'Facebook User',
-      profileImageUrl: p.picture?.data?.url ?? null,
-      accessToken: dto.accessToken,
-      refreshToken: null,
-      tokenExpiresAt: null,
-      rawProfile: p as unknown as Record<string, unknown>,
-    });
-  }
-
   async linkTelegram(userId: string, dto: TelegramLoginDto): Promise<void> {
     this.verifyTelegramAuth(dto);
     const fullName =
@@ -385,82 +369,6 @@ export class AuthService {
         'Telegram login has expired. Please try again.',
       );
     }
-  }
-
-  // ==========================================================================
-  // FACEBOOK (JS SDK — verify the user token, fetch the profile)
-  // ==========================================================================
-
-  async loginWithFacebook(dto: FacebookLoginDto): Promise<{
-    user: UserEntity;
-    tokens: AuthTokenResponse;
-    isNewUser: boolean;
-  }> {
-    const profile = await this.verifyFacebookToken(dto.accessToken);
-
-    const { user, isNewUser } = await this.usersService.findOrCreateFromOAuth({
-      provider: 'facebook',
-      providerAccountId: profile.id,
-      email: profile.email ?? null,
-      fullName: profile.name ?? profile.email ?? 'Facebook User',
-      profileImageUrl: profile.picture?.data?.url ?? null,
-      accessToken: dto.accessToken,
-      refreshToken: null,
-      tokenExpiresAt: null,
-      rawProfile: profile as unknown as Record<string, unknown>,
-    });
-
-    if (user.accountStatus !== 'active') {
-      throw new UnauthorizedException(
-        `Account is ${user.accountStatus}. Contact support.`,
-      );
-    }
-
-    const tokens = this.issueTokens(user);
-    return { user, tokens, isNewUser };
-  }
-
-  /**
-   * Verify a Facebook user access token: confirm via debug_token that it was
-   * issued for our app and is valid, then read the profile from the Graph API.
-   */
-  private async verifyFacebookToken(
-    accessToken: string,
-  ): Promise<FacebookProfile> {
-    const appId = this.configService.get<string>('FACEBOOK_APP_ID');
-    const appSecret = this.configService.get<string>('FACEBOOK_APP_SECRET');
-    if (!appId || !appSecret) {
-      throw new Error(
-        'FACEBOOK_APP_ID / FACEBOOK_APP_SECRET are not configured. Set them in .env before using Facebook login.',
-      );
-    }
-
-    // 1. Validate the token belongs to our app and isn't expired/revoked.
-    const debugUrl = `https://graph.facebook.com/debug_token?input_token=${encodeURIComponent(
-      accessToken,
-    )}&access_token=${appId}|${appSecret}`;
-    const debugRes = await fetch(debugUrl);
-    if (!debugRes.ok) {
-      throw new UnauthorizedException('Invalid Facebook token');
-    }
-    const debug = (await debugRes.json()) as {
-      data?: { app_id?: string; is_valid?: boolean };
-    };
-    if (!debug.data?.is_valid || debug.data.app_id !== appId) {
-      throw new UnauthorizedException(
-        'Facebook token is not valid for this application',
-      );
-    }
-
-    // 2. Fetch the profile.
-    const meUrl = `https://graph.facebook.com/v21.0/me?fields=id,name,email,picture.type(large)&access_token=${encodeURIComponent(
-      accessToken,
-    )}`;
-    const meRes = await fetch(meUrl);
-    if (!meRes.ok) {
-      throw new UnauthorizedException('Could not fetch Facebook profile');
-    }
-    return (await meRes.json()) as FacebookProfile;
   }
 
   /**
@@ -626,12 +534,4 @@ interface GoogleProfile {
   given_name?: string;
   family_name?: string;
   exp?: string;
-}
-
-/** Shape of the Facebook Graph /me response (subset we care about). */
-interface FacebookProfile {
-  id: string;
-  name?: string;
-  email?: string;
-  picture?: { data?: { url?: string } };
 }

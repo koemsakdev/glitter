@@ -12,6 +12,7 @@ export const metadata = { title: 'Promotions' };
 
 // Always reflect live pricing / badge state.
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 /**
  * A product is "on promotion" only when its price is genuinely reduced

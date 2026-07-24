@@ -55,7 +55,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export const viewport: Viewport = {
     width: 'device-width',
     initialScale: 1,
-    maximumScale: 1, // Prevent iOS zoom on inputs just in case
+    minimumScale: 1,
+    maximumScale: 1,
+    userScalable: false, // native-app feel: no pinch-zoom / no input auto-zoom
     viewportFit: 'cover',
 };
 

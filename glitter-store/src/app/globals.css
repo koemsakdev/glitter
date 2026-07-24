@@ -224,6 +224,31 @@ button:disabled,
   }
 }
 
+/* AI chat widget — entrance (slide up on mobile, pop from the corner on
+   desktop) plus a soft backdrop fade. */
+@keyframes chat-panel-in-mobile {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes chat-panel-in-desktop {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes chat-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+.chat-backdrop { animation: chat-backdrop-in 0.25s ease both; }
+.chat-panel {
+  animation: chat-panel-in-mobile 0.34s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@media (min-width: 768px) {
+  .chat-panel {
+    transform-origin: bottom right;
+    animation: chat-panel-in-desktop 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-backdrop, .chat-panel { animation: none; }
+}
+
 /* Mobile bottom-nav cart FAB */
 @keyframes cart-pulse {
   0% { transform: scale(1); opacity: 0.45; }

@@ -52,10 +52,9 @@ interface AuthContextValue {
     login: (email: string, password: string) => Promise<void>;
     loginWithGoogle: (idToken: string) => Promise<void>;
     loginWithTelegram: (payload: TelegramAuthData) => Promise<void>;
-    loginWithFacebook: (accessToken: string) => Promise<void>;
     /** Link an OAuth provider to the CURRENT account (Connect flow). */
     linkProvider: (
-        provider: 'google' | 'facebook' | 'telegram',
+        provider: 'google' | 'telegram',
         body: Record<string, unknown>,
     ) => Promise<void>;
     register: (values: RegisterValues) => Promise<void>;
@@ -218,26 +217,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         [],
     );
 
-    const loginWithFacebook = useCallback(async (accessToken: string) => {
-        const res = await fetch(`${API_URL}/api/auth/facebook`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessToken }),
-        });
-        if (!res.ok) {
-            const e = (await res.json().catch(() => ({}))) as {
-                message?: string;
-            };
-            throw new Error(e.message || 'Facebook sign-in failed');
-        }
-        const data = (await res.json()) as {
-            user: AuthUser;
-            tokens: { accessToken: string; refreshToken: string };
-        };
-        saveTokens(data.tokens);
-        setUser(data.user);
-    }, []);
-
     const register = useCallback(async (values: RegisterValues) => {
         const res = await fetch(`${API_URL}/api/auth/register`, {
             method: 'POST',
@@ -261,7 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const linkProvider = useCallback(
         async (
-            provider: 'google' | 'facebook' | 'telegram',
+            provider: 'google' | 'telegram',
             body: Record<string, unknown>,
         ) => {
             const res = await authFetch(`/api/auth/${provider}/link`, {
@@ -297,7 +276,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 login,
                 loginWithGoogle,
                 loginWithTelegram,
-                loginWithFacebook,
                 linkProvider,
                 register,
                 logout,

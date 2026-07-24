@@ -67,6 +67,22 @@ export function ChatWidget({
         }
     }, []);
 
+    // Close on Escape, and lock the page scroll while open (so the background
+    // can't scroll behind the panel — native-app feel).
+    useEffect(() => {
+        if (!open) return;
+        function onKey(e: KeyboardEvent) {
+            if (e.key === 'Escape') setOpen(false);
+        }
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.body.style.overflow = prevOverflow;
+            document.removeEventListener('keydown', onKey);
+        };
+    }, [open]);
+
     // Persist + autoscroll whenever the transcript changes.
     useEffect(() => {
         if (messages.length > 0) {
@@ -127,12 +143,14 @@ export function ChatWidget({
                 type="button"
                 onClick={() => setOpen(true)}
                 aria-label={tr(lang, 'chatOpen')}
-                className="fixed right-4 bottom-24 z-50 flex size-14 items-center justify-center rounded-full bg-linear-to-br from-(--brand) to-[color-mix(in_oklab,var(--brand),black_32%)] text-white shadow-lg shadow-black/30 ring-2 ring-white/70 transition-transform hover:scale-110 active:scale-95 md:right-6 md:bottom-6 dark:ring-white/20"
+                className="group fixed right-4 bottom-24 z-50 flex size-12 items-center justify-center rounded-full bg-white text-(--brand) shadow-lg shadow-zinc-900/15 ring-1 ring-zinc-900/5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl active:scale-95 md:right-6 md:bottom-6 dark:bg-zinc-900 dark:shadow-black/40 dark:ring-white/10"
             >
-                <RobotIcon className="size-8 animate-robot-bob" />
-                <span className="absolute -right-0.5 -top-0.5 flex size-3.5">
+                {/* soft brand halo on hover */}
+                <span className="pointer-events-none absolute inset-0 rounded-full bg-(--brand)/10 opacity-0 transition-opacity group-hover:opacity-100" />
+                <RobotIcon className="relative size-7 animate-robot-bob" />
+                <span className="absolute -right-0.5 -top-0.5 flex size-3">
                     <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex size-3.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-950" />
+                    <span className="relative inline-flex size-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900" />
                 </span>
             </button>
         );
@@ -169,11 +187,20 @@ export function ChatWidget({
 
     // ---- Panel (open) -------------------------------------------------------
     return (
-        <div className="fixed inset-0 z-50 flex flex-col bg-zinc-50 shadow-2xl md:inset-auto md:right-6 md:bottom-6 md:h-165 md:max-h-[85vh] md:w-96 md:overflow-hidden md:rounded-3xl md:border md:border-zinc-200 dark:bg-zinc-900 md:dark:border-zinc-800">
+        <>
+            {/* Backdrop — dims the page and closes the chat when tapped outside
+                (this is what makes "click outside to close" work on desktop). */}
+            <button
+                type="button"
+                aria-label={tr(lang, 'chatClose')}
+                onClick={() => setOpen(false)}
+                className="chat-backdrop fixed inset-0 z-50 cursor-default bg-zinc-950/40 backdrop-blur-[2px] md:bg-zinc-950/25"
+            />
+            <div className="chat-panel fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col overflow-hidden rounded-t-3xl bg-zinc-50 shadow-2xl md:inset-auto md:top-auto md:right-6 md:bottom-6 md:h-165 md:max-h-[85vh] md:w-96 md:rounded-3xl md:border md:border-zinc-200 dark:bg-zinc-900 md:dark:border-zinc-800">
             {started ? (
                 /* ---- Conversation ---- */
                 <>
-                    <div className="flex items-center gap-3 bg-linear-to-r from-[color-mix(in_oklab,var(--brand),white_10%)] to-[color-mix(in_oklab,var(--brand),black_16%)] px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white md:pt-3">
+                    <div className="flex items-center gap-3 bg-linear-to-r from-[color-mix(in_oklab,var(--brand),white_10%)] to-[color-mix(in_oklab,var(--brand),black_16%)] px-4 py-3.5 text-white">
                         <Avatar logoUrl={logoUrl} className="size-9 bg-white/25 ring-1 ring-white/40" />
                         <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-bold">
@@ -207,7 +234,13 @@ export function ChatWidget({
                         className="flex-1 space-y-3 overflow-y-auto px-3 py-4"
                     >
                         {messages.map((m, i) => (
-                            <Bubble key={i} message={m} lang={lang} logoUrl={logoUrl} />
+                            <Bubble
+                                key={i}
+                                message={m}
+                                lang={lang}
+                                logoUrl={logoUrl}
+                                onNavigate={() => setOpen(false)}
+                            />
                         ))}
                         {loading && (
                             <TypingBubble logoUrl={logoUrl} label={tr(lang, 'chatThinking')} />
@@ -224,7 +257,7 @@ export function ChatWidget({
             ) : (
                 /* ---- Home screen ---- */
                 <>
-                    <div className="relative shrink-0 overflow-hidden rounded-b-3xl bg-linear-to-br from-[color-mix(in_oklab,var(--brand),white_18%)] via-(--brand) to-[color-mix(in_oklab,var(--brand),black_18%)] px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))] text-white md:pt-5">
+                    <div className="relative shrink-0 overflow-hidden rounded-b-3xl bg-linear-to-br from-[color-mix(in_oklab,var(--brand),white_18%)] via-(--brand) to-[color-mix(in_oklab,var(--brand),black_18%)] px-5 pb-8 pt-5 text-white">
                         <div className="pointer-events-none absolute -right-12 -top-16 size-52 rounded-full bg-white/10 blur-2xl" />
                         <div className="pointer-events-none absolute -left-10 top-12 size-32 rounded-full bg-white/5 blur-2xl" />
                         <div className="relative flex items-center justify-between">
@@ -276,7 +309,8 @@ export function ChatWidget({
                     {composer}
                 </>
             )}
-        </div>
+            </div>
+        </>
     );
 }
 
@@ -311,10 +345,12 @@ function Bubble({
     message,
     lang,
     logoUrl,
+    onNavigate,
 }: {
     message: ChatMessage;
     lang: Lang;
     logoUrl?: string | null;
+    onNavigate?: () => void;
 }) {
     const isUser = message.role === 'user';
     return (
@@ -337,7 +373,12 @@ function Bubble({
                 {message.products && message.products.length > 0 && (
                     <div className="space-y-2">
                         {message.products.map((p) => (
-                            <ProductCard key={p.slug} product={p} lang={lang} />
+                            <ProductCard
+                                key={p.slug}
+                                product={p}
+                                lang={lang}
+                                onNavigate={onNavigate}
+                            />
                         ))}
                     </div>
                 )}
@@ -346,11 +387,20 @@ function Bubble({
     );
 }
 
-function ProductCard({ product, lang }: { product: ChatProduct; lang: Lang }) {
+function ProductCard({
+    product,
+    lang,
+    onNavigate,
+}: {
+    product: ChatProduct;
+    lang: Lang;
+    onNavigate?: () => void;
+}) {
     const img = fileUrl(product.imageUrl);
     return (
         <Link
             href={`/products/${product.slug}`}
+            onClick={onNavigate}
             className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-2 transition-colors hover:border-(--brand)/50 dark:border-zinc-700 dark:bg-zinc-900"
         >
             <span className="size-12 shrink-0 overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
@@ -412,64 +462,69 @@ function ChatGlyph({ className }: { className?: string }) {
 }
 
 /** A friendly little robot — bobs, blinks, and its antenna light pulses
-    (animations defined in globals.css). */
+    (animations defined in globals.css). Two-tone: solid outline/features in
+    currentColor over a soft translucent fill of the same colour. */
 function RobotIcon({ className }: { className?: string }) {
     return (
-        <svg className={className} viewBox="0 0 24 24" fill="none">
+        <svg
+            className={className}
+            viewBox="0 0 24 24"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
             {/* antenna */}
             <line
                 x1="12"
-                y1="3.6"
+                y1="2"
                 x2="12"
-                y2="6"
+                y2="4.4"
                 stroke="currentColor"
                 strokeWidth="1.7"
-                strokeLinecap="round"
             />
             <circle
                 className="robot-antenna"
                 cx="12"
-                cy="2.6"
-                r="1.5"
+                cy="1.7"
+                r="1.4"
                 fill="currentColor"
             />
-            {/* head */}
+            {/* rounded head */}
             <rect
-                x="4"
-                y="6"
-                width="16"
-                height="12.5"
-                rx="4.5"
+                x="3.6"
+                y="4.4"
+                width="16.8"
+                height="14"
+                rx="6"
                 fill="currentColor"
-                fillOpacity="0.18"
+                fillOpacity="0.14"
             />
             <rect
-                x="4"
-                y="6"
-                width="16"
-                height="12.5"
-                rx="4.5"
+                x="3.6"
+                y="4.4"
+                width="16.8"
+                height="14"
+                rx="6"
                 stroke="currentColor"
                 strokeWidth="1.7"
             />
             {/* side ears */}
             <path
-                d="M2.6 10.5v3.5M21.4 10.5v3.5"
+                d="M2.4 9.6v3.6M21.6 9.6v3.6"
                 stroke="currentColor"
                 strokeWidth="1.7"
-                strokeLinecap="round"
             />
-            {/* eyes (blink) */}
+            {/* big friendly eyes (blink) */}
             <g className="robot-eyes" fill="currentColor">
-                <circle cx="9" cy="11.6" r="1.5" />
-                <circle cx="15" cy="11.6" r="1.5" />
+                <circle cx="9" cy="11" r="1.7" />
+                <circle cx="15" cy="11" r="1.7" />
             </g>
-            {/* mouth */}
+            {/* curved smile */}
             <path
-                d="M9.5 15h5"
+                d="M9 14.4c.95.95 4.05.95 6 0"
                 stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
+                strokeWidth="1.6"
+                fill="none"
             />
         </svg>
     );

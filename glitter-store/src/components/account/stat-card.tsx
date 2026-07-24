@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 
-/** A profile summary tile: gradient icon badge · big value · label. */
+/** A profile summary tile: soft tinted icon · big value · label, with a large
+ *  faint watermark of the same icon behind it for depth. */
 export function StatCard({
     icon: Icon,
     label,
@@ -17,23 +18,27 @@ export function StatCard({
 }) {
     return (
         <div
-            className={`group rounded-2xl border border-zinc-100 bg-white p-3 shadow-sm transition-all duration-200 sm:p-4 dark:border-zinc-800 dark:bg-zinc-900 ${
+            className={`group relative overflow-hidden rounded-2xl border border-zinc-100 bg-white p-3.5 shadow-sm transition-all duration-200 sm:p-4 dark:border-zinc-800 dark:bg-zinc-900 ${
                 interactive
-                    ? 'hover:-translate-y-1 hover:border-(--brand)/40 hover:shadow-lg hover:shadow-(--brand)/5'
+                    ? 'hover:-translate-y-1 hover:border-(--brand)/40 hover:shadow-lg hover:shadow-(--brand)/10'
                     : ''
             }`}
         >
-            {/* Icon badge — gradient built from the system brand colour */}
-            <span className="flex size-10 items-center justify-center rounded-2xl bg-linear-to-br from-(--brand) to-(--brand)/60 text-white shadow-lg shadow-(--brand)/30 ring-1 ring-white/20 transition-transform duration-200 group-hover:scale-110 sm:size-11">
-                <Icon className="size-5" />
+            {/* Decorative watermark — a large, very faint icon in the corner */}
+            <Icon className="pointer-events-none absolute -bottom-4 -right-3 size-24 text-(--brand)/5 transition-transform duration-300 group-hover:scale-110 dark:text-(--brand)/10" />
+
+            {/* Soft tinted icon (not a button) */}
+            <span className="relative flex size-9 items-center justify-center rounded-xl bg-(--brand)/10 text-(--brand) sm:size-10">
+                <Icon className="size-4.5 sm:size-5" />
             </span>
+
             <p
                 title={full}
-                className="mt-2.5 truncate text-xl font-extrabold tracking-tight tabular-nums text-zinc-900 sm:mt-3 sm:text-2xl dark:text-zinc-100"
+                className="relative mt-3 truncate text-xl font-extrabold tracking-tight tabular-nums text-zinc-900 sm:text-2xl dark:text-zinc-100"
             >
                 {value}
             </p>
-            <p className="truncate text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <p className="relative truncate text-xs font-medium text-zinc-500 dark:text-zinc-400">
                 {label}
             </p>
         </div>

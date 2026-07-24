@@ -23,7 +23,6 @@ import {
 import { UserAvatar } from '@/components/user-avatar';
 import { BackLink } from '@/components/ui/back-link';
 import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
-import { FacebookLoginButton } from '@/components/auth/facebook-login-button';
 import { TelegramLoginButton } from '@/components/auth/telegram-login-button';
 import { ProfileEditSheet } from '@/components/auth/profile-edit-sheet';
 import { AddressForm } from '@/components/checkout/address-form';
@@ -50,7 +49,6 @@ import type { Address } from '@/lib/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 const HAS_GOOGLE = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
-const HAS_FACEBOOK = Boolean(process.env.NEXT_PUBLIC_FACEBOOK_APP_ID);
 const HAS_TELEGRAM = Boolean(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME);
 
 interface OrderRow {
@@ -191,7 +189,6 @@ export function AccountView({ lang: initialLang }: { lang: Lang }) {
     }
     const connectable: { provider: AuthProvider; available: boolean }[] = [
         { provider: 'google', available: HAS_GOOGLE },
-        { provider: 'facebook', available: HAS_FACEBOOK },
         { provider: 'telegram', available: HAS_TELEGRAM },
     ];
     // Compact inline "Connect" control for an unlinked provider row.
@@ -199,15 +196,6 @@ export function AccountView({ lang: initialLang }: { lang: Lang }) {
         if (provider === 'google')
             return (
                 <GoogleSignInButton
-                    lang={lang}
-                    compact
-                    mode="link"
-                    onError={setConnectError}
-                />
-            );
-        if (provider === 'facebook')
-            return (
-                <FacebookLoginButton
                     lang={lang}
                     compact
                     mode="link"

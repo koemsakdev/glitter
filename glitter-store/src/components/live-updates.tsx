@@ -75,9 +75,17 @@ export function LiveUpdates() {
         };
 
         // Free the connection when the tab is hidden; restore it when visible.
+        // On becoming visible again, also refresh once — while hidden the SSE
+        // was closed, so we may have missed change events (e.g. an edit made in
+        // the dashboard tab). This makes returning to the storefront show the
+        // latest without a manual reload.
         const onVisibility = () => {
-            if (document.visibilityState === 'hidden') disconnect();
-            else connect();
+            if (document.visibilityState === 'hidden') {
+                disconnect();
+            } else {
+                connect();
+                scheduleRefresh();
+            }
         };
 
         connect();

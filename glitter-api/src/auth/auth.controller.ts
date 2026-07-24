@@ -32,7 +32,6 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { FacebookLoginDto } from './dto/facebook-login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { TelegramLoginDto } from './dto/telegram-login.dto';
 import { UserDetailResponseDto } from '../users/dto/user-response.dto';
@@ -128,28 +127,6 @@ export class AuthController {
   async telegramLogin(@Body() dto: TelegramLoginDto) {
     const { user, tokens, isNewUser } =
       await this.authService.loginWithTelegram(dto);
-    const userResponse = await this.usersService.findOne(user.id);
-    return {
-      user: userResponse.data,
-      tokens,
-      isNewUser,
-    };
-  }
-
-  @Public()
-  @Post('facebook')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Login or signup with Facebook',
-    description:
-      'Facebook JS SDK access token. Backend verifies it via debug_token. First-time users auto-registered as customers.',
-  })
-  @ApiBody({ type: FacebookLoginDto })
-  @ApiResponse({ status: 200, type: AuthResponseDto })
-  @ApiResponse({ status: 401, description: 'Invalid Facebook token' })
-  async facebookLogin(@Body() dto: FacebookLoginDto) {
-    const { user, tokens, isNewUser } =
-      await this.authService.loginWithFacebook(dto);
     const userResponse = await this.usersService.findOne(user.id);
     return {
       user: userResponse.data,
@@ -278,19 +255,6 @@ export class AuthController {
     @Body() dto: GoogleLoginDto,
   ): Promise<{ ok: true }> {
     await this.authService.linkGoogle(userId, dto);
-    return { ok: true };
-  }
-
-  @Post('facebook/link')
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Link a Facebook account to the current user' })
-  @ApiBody({ type: FacebookLoginDto })
-  async linkFacebook(
-    @CurrentUser('id') userId: string,
-    @Body() dto: FacebookLoginDto,
-  ): Promise<{ ok: true }> {
-    await this.authService.linkFacebook(userId, dto);
     return { ok: true };
   }
 

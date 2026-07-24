@@ -22,6 +22,7 @@ import { pick, tr } from '@/lib/locale';
 export const metadata = { title: 'About us' };
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 const HL_ICONS: Record<string, LucideIcon> = {
     sparkles: Sparkles,

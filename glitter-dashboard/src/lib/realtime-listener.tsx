@@ -61,9 +61,15 @@ export function RealtimeListener() {
         };
 
         // Free the connection when the tab is hidden; restore it when visible.
+        // On becoming visible, also refetch — the SSE was closed while hidden,
+        // so we may have missed change events from another tab/admin.
         const onVisibility = () => {
-            if (document.visibilityState === 'hidden') disconnect();
-            else connect();
+            if (document.visibilityState === 'hidden') {
+                disconnect();
+            } else {
+                connect();
+                void queryClient.invalidateQueries();
+            }
         };
 
         connect();

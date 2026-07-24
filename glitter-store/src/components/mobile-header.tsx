@@ -8,12 +8,25 @@ import { MobileMenu } from '@/components/mobile-menu';
 import { BackLink } from '@/components/ui/back-link';
 import { fileUrl, type PublicPromo } from '@/lib/api';
 import { useLang } from '@/lib/lang-context';
-import { pick, type Lang } from '@/lib/locale';
+import { pick, tr, type Lang } from '@/lib/locale';
 import { DEFAULT_NAV_ITEMS, type StoreConfig } from '@/lib/store-config';
 import type { Product } from '@/lib/types';
 
 // Bottom-nav destinations — these are "roots" (no back button on mobile).
 const ROOTS = ['/', '/stores', '/account', '/account/wishlist'];
+
+// Centred app-bar title per route, native-app style. Roots (logo) and screens
+// that render their own bar are excluded; unknown routes just show the back
+// button and let the page's own heading act as the title.
+const TITLES: Record<string, string> = {
+    '/products': 'navProduct',
+    '/brands': 'brands',
+    '/cart': 'cart',
+    '/promotion': 'promoTitle',
+    '/about': 'aboutTitle',
+    '/account/login': 'login',
+    '/account/register': 'register',
+};
 
 /**
  * Native-app top bar shown on mobile/tablet in place of the web header (which is
@@ -48,9 +61,16 @@ export function MobileHeader({
     const logo = fileUrl(config.logoUrl);
     const isRoot = ROOTS.includes(pathname);
     const showSearch = pathname === '/';
+    const title = !isRoot && TITLES[pathname] ? tr(lang, TITLES[pathname]) : '';
 
     return (
         <div className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-zinc-100/80 bg-white/85 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-xl md:hidden dark:border-zinc-800/80 dark:bg-zinc-950/85">
+            {/* Dead-centre title, native app-bar style (non-root screens only) */}
+            {title && (
+                <h1 className="pointer-events-none absolute left-1/2 max-w-[60%] -translate-x-1/2 truncate text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                    {title}
+                </h1>
+            )}
             {isRoot ? (
                 <Link
                     href="/"
