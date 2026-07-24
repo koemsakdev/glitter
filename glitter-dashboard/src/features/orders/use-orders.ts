@@ -7,6 +7,7 @@ import {
 import { orderApi } from './order-api';
 import type {
     CreateOrderPayload,
+    Order,
     OrderPaymentStatus,
     OrderQuery,
     OrderStatus,
@@ -59,17 +60,41 @@ export function useCreateOrder() {
     });
 }
 
+/** Patch the cached order-detail immediately so the UI reflects a click without
+ *  waiting for the server round-trip; returns a rollback context. */
+function useOptimisticOrderPatch() {
+    const queryClient = useQueryClient();
+    return async (id: string, patch: Partial<Order>) => {
+        const key = [...ORDERS_KEY, 'detail', id];
+        await queryClient.cancelQueries({ queryKey: key });
+        const previous = queryClient.getQueryData<Order>(key);
+        if (previous) {
+            queryClient.setQueryData<Order>(key, { ...previous, ...patch });
+        }
+        return { key, previous };
+    };
+}
+
 export function useUpdateOrderStatus() {
+    const queryClient = useQueryClient();
     const invalidate = useInvalidateAfterOrder();
+    const optimistic = useOptimisticOrderPatch();
     return useMutation({
         mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
             orderApi.updateStatus(id, status),
-        onSuccess: invalidate,
+        // Move the stepper instantly on click; roll back if the server rejects.
+        onMutate: ({ id, status }) => optimistic(id, { status }),
+        onError: (_err, _vars, ctx) => {
+            if (ctx) queryClient.setQueryData(ctx.key, ctx.previous);
+        },
+        onSettled: invalidate,
     });
 }
 
 export function useUpdatePaymentStatus() {
+    const queryClient = useQueryClient();
     const invalidate = useInvalidateAfterOrder();
+    const optimistic = useOptimisticOrderPatch();
     return useMutation({
         mutationFn: ({
             id,
@@ -78,6 +103,10 @@ export function useUpdatePaymentStatus() {
             id: string;
             paymentStatus: OrderPaymentStatus;
         }) => orderApi.updatePaymentStatus(id, paymentStatus),
-        onSuccess: invalidate,
+        onMutate: ({ id, paymentStatus }) => optimistic(id, { paymentStatus }),
+        onError: (_err, _vars, ctx) => {
+            if (ctx) queryClient.setQueryData(ctx.key, ctx.previous);
+        },
+        onSettled: invalidate,
     });
 }

@@ -8,5 +8,6 @@ import { AppSettingEntity } from './entities/app-setting.entity';
   imports: [TypeOrmModule.forFeature([AppSettingEntity])],
   controllers: [AppSettingsController],
   providers: [AppSettingsService],
+  exports: [AppSettingsService],
 })
 export class AppSettingsModule {}

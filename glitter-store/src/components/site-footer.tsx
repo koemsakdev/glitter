@@ -1,7 +1,10 @@
+'use client';
+
 import Link from 'next/link';
 import { Mail, MapPin, Phone, type LucideIcon } from 'lucide-react';
 import { fileUrl } from '@/lib/api';
 import { SocialButtons } from '@/components/social-buttons';
+import { useLang } from '@/lib/lang-context';
 import { pick, tr, type Lang } from '@/lib/locale';
 import type { StoreConfig } from '@/lib/store-config';
 
@@ -52,13 +55,14 @@ function contactHref(id: string, value: string): string | undefined {
 
 export function SiteFooter({
     config,
-    lang,
+    lang: initialLang,
 }: {
     config: StoreConfig;
     lang: Lang;
     // menu kept for API compatibility; footer links are code-defined now.
     menu?: unknown;
 }) {
+    const { lang } = useLang(initialLang);
     const shopName =
         pick(lang, config.brandNameEn, config.brandNameKm) || 'Glitter';
     const tagline = pick(lang, config.taglineEn, config.taglineKm);
@@ -106,7 +110,7 @@ export function SiteFooter({
             : fallback;
 
     return (
-        <footer className="mt-16 border-t border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
+        <footer className="mt-16 border-t border-zinc-200 bg-zinc-50 max-md:hidden dark:border-zinc-800 dark:bg-zinc-950">
 
             {/* Main */}
             <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:grid-cols-2 lg:grid-cols-5">
@@ -118,7 +122,8 @@ export function SiteFooter({
                             <img
                                 src={logo}
                                 alt={shopName}
-                                className="size-10 rounded-xl object-cover ring-1 ring-zinc-200 dark:ring-zinc-700"
+                                style={{ borderRadius: `${config.logoRadius}%` }}
+                                className="size-10 object-contain"
                             />
                         ) : (
                             <span className="flex size-10 items-center justify-center rounded-xl bg-(--brand) text-sm font-bold text-white">

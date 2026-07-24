@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Camera, Loader2, MapPin, Trash2, UserRound } from 'lucide-react';
+import { Camera, Loader2, Mail, Phone, Trash2, UserRound } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -57,9 +57,17 @@ interface CustomerFormProps {
     customer?: User | null;
     /** The customer's saved delivery addresses (edit mode). */
     addresses?: Address[];
+    /** Page title shown in the form header. */
+    title: string;
+    subtitle?: string;
 }
 
-export function CustomerForm({ customer, addresses }: CustomerFormProps) {
+export function CustomerForm({
+    customer,
+    addresses,
+    title,
+    subtitle,
+}: CustomerFormProps) {
     const { t } = useI18n();
     const { toast } = useToast();
     const router = useRouter();
@@ -103,14 +111,13 @@ export function CustomerForm({ customer, addresses }: CustomerFormProps) {
 
     const currentAvatar = getFileUrl(customer?.profileImageUrl);
     const shownAvatar = avatarPreview ?? (removeFlag ? null : currentAvatar);
-    const initials =
-        fullName
-            .split(' ')
-            .map((p) => p[0])
-            .filter(Boolean)
-            .slice(0, 2)
-            .join('')
-            .toUpperCase() || '?';
+    const initials = fullName
+        .split(' ')
+        .map((p) => p[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join('')
+        .toUpperCase();
 
     function pickAvatar(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
@@ -271,118 +278,141 @@ export function CustomerForm({ customer, addresses }: CustomerFormProps) {
         >
             <SavingOverlay open={submitting} label={t('common.saving')} />
 
-            <div className="flex justify-end gap-2">
-                <Button
-                    type="button"
-                    variant="outline"
-                    disabled={submitting}
-                    onClick={() => router.back()}
-                >
-                    {t('common.cancel')}
-                </Button>
-                <Button
-                    type="submit"
-                    disabled={submitting}
-                    className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
-                >
-                    {submitting && (
-                        <Loader2 className="mr-2 size-4 animate-spin" />
+            {/* Header — matches the product form: title + actions, no back button */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                    <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                        {title}
+                    </h1>
+                    {subtitle && (
+                        <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+                            {subtitle}
+                        </p>
                     )}
-                    {isEdit
-                        ? t('user.edit.submit')
-                        : t('customer.create.submit')}
-                </Button>
+                </div>
+
+                <div className="flex gap-2 sm:shrink-0">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={submitting}
+                        onClick={() => router.back()}
+                    >
+                        {t('common.cancel')}
+                    </Button>
+                    <Button
+                        type="submit"
+                        disabled={submitting}
+                        className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
+                    >
+                        {submitting && (
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                        )}
+                        {isEdit
+                            ? t('user.edit.submit')
+                            : t('customer.create.submit')}
+                    </Button>
+                </div>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-5">
                 {/* Left: photo + details */}
                 <div className="space-y-6 lg:col-span-2">
-                    <Section
-                        icon={<Camera className="size-4" />}
-                        title={t('profile.title')}
-                    >
-                        <div className="flex items-center gap-5">
-                            <div className="flex size-24 items-center justify-center overflow-hidden rounded-full bg-pink-100 text-2xl font-semibold text-pink-700 ring-4 ring-pink-100/60 dark:bg-pink-500/15 dark:text-pink-300 dark:ring-pink-500/10">
-                                {shownAvatar ? (
-                                    <Image
-                                        src={shownAvatar}
-                                        alt={fullName || 'avatar'}
-                                        width={96}
-                                        height={96}
-                                        className="size-full object-cover"
-                                        unoptimized
-                                    />
-                                ) : (
-                                    initials
-                                )}
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <input
-                                    ref={fileRef}
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={pickAvatar}
-                                />
-                                <div className="flex gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => fileRef.current?.click()}
-                                    >
-                                        <Camera className="mr-2 size-4" />
-                                        {t('profile.avatar.change')}
-                                    </Button>
-                                    {shownAvatar && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={clearAvatar}
-                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                        >
-                                            <Trash2 className="mr-2 size-4" />
-                                            {t('profile.avatar.remove')}
-                                        </Button>
+                    <Section title={t('profile.title')}>
+                        <input
+                            ref={fileRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={pickAvatar}
+                        />
+                        <div className="flex flex-col items-center gap-3 py-2">
+                            <button
+                                type="button"
+                                onClick={() => fileRef.current?.click()}
+                                className="group relative size-28 rounded-full outline-none"
+                                aria-label={t('profile.avatar.change')}
+                            >
+                                <span className="flex size-full items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-pink-100 to-pink-50 text-3xl font-bold text-pink-600 shadow-lg shadow-pink-500/10 ring-4 ring-white transition group-hover:ring-pink-200 dark:from-pink-500/20 dark:to-pink-500/5 dark:text-pink-300 dark:ring-zinc-900 dark:group-hover:ring-pink-500/30">
+                                    {shownAvatar ? (
+                                        <Image
+                                            src={shownAvatar}
+                                            alt={fullName || 'avatar'}
+                                            width={112}
+                                            height={112}
+                                            className="size-full object-cover"
+                                            unoptimized
+                                        />
+                                    ) : initials ? (
+                                        initials
+                                    ) : (
+                                        <UserRound className="size-10" />
                                     )}
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    {t('customer.create.photoHint')}
-                                </p>
-                            </div>
+                                </span>
+                                {/* Hover overlay */}
+                                <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition group-hover:opacity-100">
+                                    <Camera className="size-6 text-white" />
+                                </span>
+                                {/* Camera badge */}
+                                <span className="absolute bottom-1 right-1 flex size-8 items-center justify-center rounded-full bg-pink-500 text-white shadow-md ring-2 ring-white transition group-hover:bg-pink-600 dark:ring-zinc-900">
+                                    <Camera className="size-4" />
+                                </span>
+                            </button>
+
+                            {shownAvatar && (
+                                <button
+                                    type="button"
+                                    onClick={clearAvatar}
+                                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+                                >
+                                    <Trash2 className="size-3.5" />
+                                    {t('profile.avatar.remove')}
+                                </button>
+                            )}
+                            <p className="max-w-[16rem] text-center text-xs text-muted-foreground">
+                                {t('customer.create.photoHint')}
+                            </p>
                         </div>
                     </Section>
 
-                    <Section
-                        icon={<UserRound className="size-4" />}
-                        title={t('user.detail.information')}
-                    >
+                    <Section title={t('user.detail.information')}>
                         <div className="space-y-4">
                             <Field label={t('user.field.fullName')}>
-                                <Input
-                                    value={fullName}
-                                    onChange={(e) => setFullName(e.target.value)}
-                                    placeholder="Sok Dara"
-                                    className={inputClass}
-                                />
+                                <IconInput icon={<UserRound className="size-4" />}>
+                                    <Input
+                                        value={fullName}
+                                        onChange={(e) =>
+                                            setFullName(e.target.value)
+                                        }
+                                        placeholder="Sok Dara"
+                                        className={`${inputClass} pl-10`}
+                                    />
+                                </IconInput>
                             </Field>
                             <Field label={t('user.field.email')}>
-                                <Input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="name@example.com"
-                                    className={inputClass}
-                                />
+                                <IconInput icon={<Mail className="size-4" />}>
+                                    <Input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) =>
+                                            setEmail(e.target.value)
+                                        }
+                                        placeholder="name@example.com"
+                                        className={`${inputClass} pl-10`}
+                                    />
+                                </IconInput>
                             </Field>
                             <Field label={t('user.field.phone')}>
-                                <Input
-                                    value={phone}
-                                    onChange={(e) => setPhone(e.target.value)}
-                                    placeholder="+85512345678"
-                                    className={inputClass}
-                                />
+                                <IconInput icon={<Phone className="size-4" />}>
+                                    <Input
+                                        value={phone}
+                                        onChange={(e) =>
+                                            setPhone(e.target.value)
+                                        }
+                                        placeholder="+85512345678"
+                                        className={`${inputClass} pl-10`}
+                                    />
+                                </IconInput>
                             </Field>
                             <Field label={t('user.field.status')}>
                                 <Select
@@ -418,9 +448,8 @@ export function CustomerForm({ customer, addresses }: CustomerFormProps) {
                 {/* Right: delivery addresses (many) */}
                 <div className="lg:col-span-3">
                     <Section
-                        icon={<MapPin className="size-4" />}
                         title={t('address.section.title')}
-                        hint={t('customer.create.addressOptional')}
+                        description={t('customer.create.addressOptional')}
                     >
                         <CustomerAddressesField
                             value={addressDrafts}
@@ -435,33 +464,27 @@ export function CustomerForm({ customer, addresses }: CustomerFormProps) {
     );
 }
 
+/** Matches the product form's FormSection for a consistent look across pages. */
 function Section({
-    icon,
     title,
-    hint,
+    description,
     children,
 }: {
-    icon?: React.ReactNode;
     title: string;
-    hint?: string;
+    description?: string;
     children: React.ReactNode;
 }) {
     return (
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-            <div className="mb-4 flex items-start gap-2.5">
-                {icon && (
-                    <span className="mt-0.5 flex size-7 items-center justify-center rounded-lg bg-pink-100 text-pink-600 dark:bg-pink-500/15 dark:text-pink-300">
-                        {icon}
-                    </span>
+        <div className="rounded-lg border bg-card">
+            <div className="border-b px-6 py-4">
+                <h2 className="text-base font-semibold">{title}</h2>
+                {description && (
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                        {description}
+                    </p>
                 )}
-                <div>
-                    <h2 className="text-base font-semibold">{title}</h2>
-                    {hint && (
-                        <p className="text-sm text-muted-foreground">{hint}</p>
-                    )}
-                </div>
             </div>
-            {children}
+            <div className="p-6">{children}</div>
         </div>
     );
 }
@@ -476,6 +499,24 @@ function Field({
     return (
         <div className="space-y-1.5">
             <label className="text-sm font-medium">{label}</label>
+            {children}
+        </div>
+    );
+}
+
+/** Wraps an input with a leading icon. */
+function IconInput({
+    icon,
+    children,
+}: {
+    icon: React.ReactNode;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                {icon}
+            </span>
             {children}
         </div>
     );

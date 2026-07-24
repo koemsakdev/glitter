@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { SocialAuth } from '@/components/auth/social-auth';
 import { useAuth } from '@/lib/auth';
+import { isValidPhone } from '@/lib/phone';
+import { useLang } from '@/lib/lang-context';
 import { tr, type Lang } from '@/lib/locale';
 
 const inputCls =
     'w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm outline-none transition focus:border-(--brand) focus:ring-2 focus:ring-(--brand)/20';
 
-export function RegisterForm({ lang }: { lang: Lang }) {
+export function RegisterForm({ lang: initialLang }: { lang: Lang }) {
+    const { lang } = useLang(initialLang);
     const router = useRouter();
     const { register } = useAuth();
     const [fullName, setFullName] = useState('');
@@ -27,6 +30,8 @@ export function RegisterForm({ lang }: { lang: Lang }) {
         if (!email.trim()) return setError(tr(lang, 'emailRequired'));
         if (password.length < 8)
             return setError(tr(lang, 'passwordTooShort'));
+        if (phone.trim() && !isValidPhone(phone))
+            return setError(tr(lang, 'invalidPhone'));
         setSubmitting(true);
         try {
             await register({

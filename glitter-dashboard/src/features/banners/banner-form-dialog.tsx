@@ -137,7 +137,12 @@ export function BannerFormDialog({
                 </div>
 
                 <div className="space-y-4 px-6 pb-2">
-                    <AdImageField value={imageUrl} onChange={setImageUrl} />
+                    <AdImageField
+                        value={imageUrl}
+                        onChange={setImageUrl}
+                        minAspect={2.5}
+                        maxAspect={4}
+                    />
 
                     <BilingualField
                         label={`${t('banner.tagline')} (${t('common.optional')})`}

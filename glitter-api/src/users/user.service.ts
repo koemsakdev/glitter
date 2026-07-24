@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -83,6 +84,13 @@ export class UsersService {
       }
     }
 
+    // A login password needs an email to sign in with.
+    if (dto.password && !dto.email) {
+      throw new BadRequestException(
+        'An email is required when setting a login password',
+      );
+    }
+
     const role: UserRole = dto.role ?? 'customer';
     await this.validateRoleBranchCombination(role, dto.branchId ?? null);
     if (role === 'super_admin') {
@@ -105,6 +113,19 @@ export class UsersService {
     entity.isProfileComplete = this.computeProfileComplete(entity);
 
     const saved = await this.userRepository.save(entity);
+
+    // Set up email/password sign-in so a created staff member can log in.
+    if (dto.password && saved.email) {
+      const passwordHash = await hashPassword(dto.password);
+      const authAccount = this.authAccountRepository.create({
+        userId: saved.id,
+        provider: 'email',
+        providerAccountId: saved.email,
+        passwordHash,
+      });
+      await this.authAccountRepository.save(authAccount);
+    }
+
     return { data: await this.toResponseWithRelations(saved) };
   }
 
@@ -127,6 +148,10 @@ export class UsersService {
       qb.andWhere('user.accountStatus = :accountStatus', {
         accountStatus: query.accountStatus,
       });
+    } else {
+      // Hide deleted (anonymized) accounts from the default list — they're kept
+      // only so past orders still resolve. Ask for them explicitly to see them.
+      qb.andWhere('user.accountStatus != :deleted', { deleted: 'deleted' });
     }
 
     if (query.role) {
@@ -330,15 +355,27 @@ export class UsersService {
   // ==========================================================================
 
   async softDelete(id: string): Promise<void> {
-    const user = await this.userRepository.findOne({ where: { id } });
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: ['authAccounts'],
+    });
 
     if (user === null) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
+    // Release the unique identifiers so the same email/phone can be used to
+    // register again, and drop the sign-in methods so the account can no longer
+    // log in. The (anonymized) row is kept so past orders still reference it.
+    user.email = null;
+    user.phoneNumber = null;
     user.accountStatus = 'deleted';
     user.tokenVersion += 1;
     await this.userRepository.save(user);
+
+    if (user.authAccounts && user.authAccounts.length > 0) {
+      await this.authAccountRepository.remove(user.authAccounts);
+    }
   }
 
   async hardDelete(id: string): Promise<void> {
@@ -380,11 +417,22 @@ export class UsersService {
 
       const existingUser = await userRepo.findOne({
         where: { email: normalizedEmail },
+        relations: ['authAccounts'],
       });
       if (existingUser !== null) {
-        throw new ConflictException(
-          `Email "${params.email}" is already registered`,
-        );
+        if (existingUser.accountStatus === 'deleted') {
+          // A previously-deleted account still holds this email — free it so
+          // the address can be registered again.
+          existingUser.email = null;
+          if (existingUser.authAccounts?.length) {
+            await authRepo.remove(existingUser.authAccounts);
+          }
+          await userRepo.save(existingUser);
+        } else {
+          throw new ConflictException(
+            `Email "${params.email}" is already registered`,
+          );
+        }
       }
 
       if (params.phoneNumber) {
@@ -392,9 +440,14 @@ export class UsersService {
           where: { phoneNumber: params.phoneNumber },
         });
         if (existingPhone !== null) {
-          throw new ConflictException(
-            `Phone "${params.phoneNumber}" is already registered`,
-          );
+          if (existingPhone.accountStatus === 'deleted') {
+            existingPhone.phoneNumber = null;
+            await userRepo.save(existingPhone);
+          } else {
+            throw new ConflictException(
+              `Phone "${params.phoneNumber}" is already registered`,
+            );
+          }
         }
       }
 
@@ -560,6 +613,58 @@ export class UsersService {
     return { user: authAccount.user, authAccount };
   }
 
+  /**
+   * ADMIN — set or reset a user's email/password sign-in. Works whether or not
+   * the user already has a password (used to give existing staff credentials or
+   * reset a forgotten one). Requires the user to have an email. Only a
+   * super_admin may reset an admin/super_admin's password. Existing sessions are
+   * invalidated afterwards.
+   */
+  async setUserPassword(
+    userId: string,
+    password: string,
+    actor: UserEntity,
+  ): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (user === null) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+    if (user.email === null) {
+      throw new BadRequestException(
+        'This user has no email address to sign in with',
+      );
+    }
+    if (
+      (user.role === 'admin' || user.role === 'super_admin') &&
+      actor.role !== 'super_admin'
+    ) {
+      throw new ForbiddenException(
+        "Only a super_admin can reset an admin's password",
+      );
+    }
+
+    const passwordHash = await hashPassword(password);
+    const existing = await this.authAccountRepository.findOne({
+      where: { userId, provider: 'email' },
+    });
+    if (existing !== null) {
+      existing.passwordHash = passwordHash;
+      existing.providerAccountId = user.email;
+      await this.authAccountRepository.save(existing);
+    } else {
+      const authAccount = this.authAccountRepository.create({
+        userId,
+        provider: 'email',
+        providerAccountId: user.email,
+        passwordHash,
+      });
+      await this.authAccountRepository.save(authAccount);
+    }
+
+    // Force re-login everywhere after a credential change.
+    await this.invalidateTokens(userId);
+  }
+
   async addEmailPassword(userId: string, password: string): Promise<void> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (user === null) {
@@ -607,6 +712,55 @@ export class UsersService {
       await authRepo.save(emailAuth);
 
       await userRepo.increment({ id: userId }, 'tokenVersion', 1);
+    });
+  }
+
+  /**
+   * Link an OAuth provider to the CURRENTLY logged-in user (Connect flow).
+   * Unlike findOrCreateFromOAuth (login), this never creates or switches
+   * accounts — it attaches the provider to `userId`, even if the provider's
+   * email differs. Rejects a provider account already tied to someone else,
+   * or a second account of the same provider.
+   */
+  async linkOAuthToUser(
+    userId: string,
+    profile: OAuthProfileData,
+  ): Promise<void> {
+    return this.dataSource.transaction(async (manager) => {
+      const authRepo = manager.getRepository(AuthAccountEntity);
+
+      const existing = await authRepo.findOne({
+        where: {
+          provider: profile.provider,
+          providerAccountId: profile.providerAccountId,
+        },
+      });
+      if (existing !== null) {
+        if (existing.userId === userId) return; // already linked to me
+        throw new ConflictException(
+          `This ${profile.provider} account is already connected to another account`,
+        );
+      }
+
+      const already = await authRepo.findOne({
+        where: { userId, provider: profile.provider },
+      });
+      if (already !== null) {
+        throw new ConflictException(
+          `You already have a ${profile.provider} account connected`,
+        );
+      }
+
+      const newAuth = authRepo.create({
+        userId,
+        provider: profile.provider,
+        providerAccountId: profile.providerAccountId,
+        accessToken: profile.accessToken,
+        refreshToken: profile.refreshToken,
+        tokenExpiresAt: profile.tokenExpiresAt,
+        providerProfile: profile.rawProfile,
+      });
+      await authRepo.save(newAuth);
     });
   }
 

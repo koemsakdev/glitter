@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { fileUrl } from '@/lib/api';
+import { useLang } from '@/lib/lang-context';
 import { pick, type Lang } from '@/lib/locale';
 import type { Advertisement } from '@/lib/types';
 
@@ -10,13 +11,14 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 /** Renders active ads for a placement location and records views/clicks. */
 export function AdSlot({
     location,
-    lang,
+    lang: initialLang,
     className,
 }: {
     location: string;
     lang: Lang;
     className?: string;
 }) {
+    const { lang } = useLang(initialLang);
     const [ads, setAds] = useState<Advertisement[]>([]);
 
     useEffect(() => {

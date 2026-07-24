@@ -12,7 +12,6 @@ import { OrdersController } from './orders.controller';
 import { OrdersPublicController } from './orders-public.controller';
 import { OrdersCustomerController } from './orders-customer.controller';
 import { OrdersService } from './orders.service';
-import { OrdersExpiryService } from './orders-expiry.service';
 
 @Module({
   imports: [
@@ -32,7 +31,7 @@ import { OrdersExpiryService } from './orders-expiry.service';
     OrdersPublicController,
     OrdersCustomerController,
   ],
-  providers: [OrdersService, OrdersExpiryService],
+  providers: [OrdersService],
   exports: [OrdersService],
 })
 export class OrdersModule {}

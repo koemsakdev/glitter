@@ -69,6 +69,27 @@ export class UserEntity {
   })
   phoneVerifiedAt!: Date | null;
 
+  // ----- Email verification (one-time code) -----
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'email_otp_hash' })
+  emailOtpHash!: string | null;
+
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    name: 'email_otp_expires_at',
+  })
+  emailOtpExpiresAt!: Date | null;
+
+  @Column({ type: 'int', default: 0, name: 'email_otp_attempts' })
+  emailOtpAttempts!: number;
+
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    name: 'email_otp_sent_at',
+  })
+  emailOtpSentAt!: Date | null;
+
   @Column({ type: 'varchar', length: 255, name: 'full_name' })
   fullName!: string;
 

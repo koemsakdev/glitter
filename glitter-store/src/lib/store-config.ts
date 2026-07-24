@@ -262,6 +262,8 @@ export interface StoreConfig {
     logos: StoreLogo[];
     activeLogoId: string;
     logoUrl: string;
+    /** Logo corner rounding across the store, as a percent (0 = square, 50 = circle). */
+    logoRadius: number;
     taglineEn: string;
     taglineKm: string;
     themeColor: string;
@@ -301,8 +303,10 @@ export interface StoreConfig {
     banners: StoreBanner[];
     sections: HomeSection[];
     delivery: StoreDelivery;
-    /** Display order of the fixed header nav items (by id). */
+    /** Display order of the fixed header nav items (by id). @deprecated navItems */
     navOrder: string[];
+    /** Header nav config: order + per-item label/icon override + enabled. */
+    navItems: StoreNavItem[];
 }
 
 /** The fixed storefront nav ids, in their default order. */
@@ -315,10 +319,47 @@ export const DEFAULT_NAV_ORDER = [
     'social',
 ];
 
+/** A configurable header nav item. Empty `labelEn`/`labelKm`/`icon` means fall
+ *  back to the built-in default for that id (see nav-config). `id` maps to the
+ *  fixed destination (href). */
+export interface StoreNavItem {
+    id: string;
+    labelEn: string;
+    labelKm: string;
+    icon: string;
+    enabled: boolean;
+}
+
+/** Built-in defaults per nav id (label + icon name). These seed each item so
+ *  the config always carries an explicit value the storefront reads directly —
+ *  no "blank means fall back" guesswork. */
+export const NAV_DEFAULTS: Record<
+    string,
+    { labelEn: string; labelKm: string; icon: string }
+> = {
+    home: { labelEn: 'Home', labelKm: 'ទំព័រដើម', icon: 'home' },
+    promotion: {
+        labelEn: 'Promotion',
+        labelKm: 'ការផ្សព្វផ្សាយ',
+        icon: 'badge-percent',
+    },
+    product: { labelEn: 'Product', labelKm: 'ផលិតផល', icon: 'shopping-bag' },
+    brand: { labelEn: 'Brand', labelKm: 'ម៉ាកយីហោ', icon: 'gem' },
+    location: { labelEn: 'Location', labelKm: 'ទីតាំង', icon: 'map-pin' },
+    social: { labelEn: 'Social Media', labelKm: 'បណ្តាញសង្គម', icon: 'share' },
+};
+
+export const DEFAULT_NAV_ITEMS: StoreNavItem[] = DEFAULT_NAV_ORDER.map((id) => ({
+    id,
+    ...NAV_DEFAULTS[id],
+    enabled: true,
+}));
+
 export const DEFAULT_STORE_CONFIG: StoreConfig = {
     logos: [],
     activeLogoId: '',
     logoUrl: '',
+    logoRadius: 50,
     brandNameEn: 'Glitter',
     brandNameKm: 'Glitter',
     taglineEn: 'Beauty & glitter, Phnom Penh.',
@@ -339,6 +380,7 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
     announcementKm: '',
     announcements: [],
     navOrder: DEFAULT_NAV_ORDER,
+    navItems: DEFAULT_NAV_ITEMS,
     heroTitleEn: 'Sparkle in every shade.',
     heroTitleKm: 'ភ្លឺចែងចាំងគ្រប់ពណ៌។',
     heroSubtitleEn:
@@ -508,6 +550,43 @@ function mergeNavOrder(value: unknown): string[] {
     return ordered;
 }
 
+/** Merge saved nav items with the fixed defaults: keep known ids in the saved
+ *  order (with their overrides), migrate from the legacy `navOrder`, then append
+ *  any ids that weren't stored. */
+function mergeNavItems(saved: unknown, legacyOrder: unknown): StoreNavItem[] {
+    const known = new Set(DEFAULT_NAV_ORDER);
+    const out: StoreNavItem[] = [];
+    const seen = new Set<string>();
+
+    const push = (o: Record<string, unknown>) => {
+        const id = typeof o.id === 'string' ? o.id : '';
+        if (!known.has(id) || seen.has(id)) return;
+        seen.add(id);
+        const d = NAV_DEFAULTS[id];
+        out.push({
+            id,
+            labelEn: (typeof o.labelEn === 'string' && o.labelEn) || d.labelEn,
+            labelKm: (typeof o.labelKm === 'string' && o.labelKm) || d.labelKm,
+            icon: (typeof o.icon === 'string' && o.icon) || d.icon,
+            enabled: o.enabled !== false,
+        });
+    };
+
+    if (Array.isArray(saved) && saved.length) {
+        for (const it of saved) {
+            if (it && typeof it === 'object')
+                push(it as Record<string, unknown>);
+        }
+    } else if (Array.isArray(legacyOrder)) {
+        for (const id of legacyOrder) if (typeof id === 'string') push({ id });
+    }
+
+    for (const id of DEFAULT_NAV_ORDER) {
+        if (!seen.has(id)) out.push({ id, ...NAV_DEFAULTS[id], enabled: true });
+    }
+    return out;
+}
+
 export function mergeStoreConfig(partial: unknown): StoreConfig {
     const p = (partial ?? {}) as Partial<StoreConfig>;
 
@@ -579,6 +658,10 @@ export function mergeStoreConfig(partial: unknown): StoreConfig {
         ? (p.activeLogoId as string)
         : (logos[0]?.id ?? '');
     const logoUrl = logos.find((l) => l.id === activeLogoId)?.url ?? '';
+    const logoRadius =
+        typeof p.logoRadius === 'number'
+            ? Math.max(0, Math.min(50, p.logoRadius))
+            : DEFAULT_STORE_CONFIG.logoRadius;
 
     const announcements = Array.isArray(p.announcements)
         ? p.announcements
@@ -604,6 +687,7 @@ export function mergeStoreConfig(partial: unknown): StoreConfig {
         logos,
         activeLogoId,
         logoUrl,
+        logoRadius,
         contacts,
         socials,
         announcements,
@@ -613,6 +697,10 @@ export function mergeStoreConfig(partial: unknown): StoreConfig {
         },
         delivery: mergeDelivery(p.delivery),
         navOrder: mergeNavOrder(p.navOrder),
+        navItems: mergeNavItems(
+            p.navItems,
+            (p as { navOrder?: unknown }).navOrder,
+        ),
         aboutStats: Array.isArray(p.aboutStats) ? p.aboutStats : [],
         aboutHighlights: Array.isArray(p.aboutHighlights)
             ? p.aboutHighlights

@@ -35,6 +35,7 @@ import {
   isAdmin,
 } from '../common/helpers/ownership.helper';
 import { CreateUserDto } from './dto/create-user.dto';
+import { SetPasswordDto } from './dto/set-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
 import { UsersService } from './user.service';
@@ -284,6 +285,32 @@ export class UsersController {
   ): Promise<UserDetailResponse> {
     assertOwnerOrAdmin(currentUser, id, 'You can only change your own avatar');
     return this.usersService.removeAvatar(id);
+  }
+
+  /**
+   * ADMIN ONLY — set or reset a user's login password (e.g. to give existing
+   * staff credentials, or reset a forgotten password).
+   */
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'super_admin')
+  @Patch(':id/password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Set or reset a user's login password (admin only)",
+    description:
+      'Creates the email/password sign-in if the user has none, or replaces ' +
+      'the existing one. The user must have an email. Existing sessions are ' +
+      'invalidated.',
+  })
+  @ApiParam({ name: 'id', type: String })
+  @ApiBody({ type: SetPasswordDto })
+  async setPassword(
+    @Param('id') id: string,
+    @Body() dto: SetPasswordDto,
+    @CurrentUser() currentUser: UserEntity,
+  ): Promise<{ ok: true }> {
+    await this.usersService.setUserPassword(id, dto.password, currentUser);
+    return { ok: true };
   }
 
   /**

@@ -62,6 +62,20 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethod, TranslationKey> = {
     aba: 'order.payment.method.aba',
 };
 
+/** True for any ABA / KHQR payment (real-API confirmed; no proof involved). */
+function isAbaKhqr(
+    paymentMethod: string | null,
+    paymentMethodName: string | null,
+): boolean {
+    const m = paymentMethod ?? '';
+    return (
+        m === 'khqr' ||
+        m === 'aba_khqr' ||
+        m === 'aba_ecommerce' ||
+        /khqr|aba/i.test(paymentMethodName ?? '')
+    );
+}
+
 function formatDate(value: string | null): string {
     if (!value) return '—';
     const d = new Date(value);
@@ -122,17 +136,21 @@ export function OrderDetailView({ id }: { id: string }) {
         'completed',
     ];
     const STEP_POS: Record<OrderStatus, number> = {
+        awaiting_payment: 0,
         pending: 0,
         paid: 0,
         processing: 1,
         shipped: 2,
         completed: 3,
         cancelled: -1,
+        expired: -1,
         refunded: -1,
     };
     const currentPos = STEP_POS[order.status];
     const terminated =
-        order.status === 'cancelled' || order.status === 'refunded';
+        order.status === 'cancelled' ||
+        order.status === 'expired' ||
+        order.status === 'refunded';
 
     function handleStatusChange(next: OrderStatus) {
         updateStatus.mutate(
@@ -406,16 +424,47 @@ export function OrderDetailView({ id }: { id: string }) {
                                     <DetailField
                                         label={t('order.delivery.payVia')}
                                     >
-                                        {order.paymentMethodName ||
-                                            (ORDER_PAYMENT_METHOD_LABELS[
-                                                order.paymentMethod
-                                            ]
-                                                ? t(
-                                                      ORDER_PAYMENT_METHOD_LABELS[
+                                        <span className="inline-flex items-center gap-2">
+                                            {isAbaKhqr(
+                                                order.paymentMethod,
+                                                order.paymentMethodName,
+                                            ) && (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img
+                                                    src="/khqr.png"
+                                                    alt="KHQR"
+                                                    className="h-5 w-auto shrink-0 rounded"
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display =
+                                                            'none';
+                                                    }}
+                                                />
+                                            )}
+                                            <span>
+                                                {isAbaKhqr(
+                                                    order.paymentMethod,
+                                                    order.paymentMethodName,
+                                                )
+                                                    ? 'ABA KHQR'
+                                                    : (order.paymentMethodName ??
+                                                          '')
+                                                          .replace(
+                                                              /\s*\([^)]*\)\s*$/,
+                                                              '',
+                                                          )
+                                                          .trim() ||
+                                                      (ORDER_PAYMENT_METHOD_LABELS[
                                                           order.paymentMethod
-                                                      ],
-                                                  )
-                                                : order.paymentMethod)}
+                                                      ]
+                                                          ? t(
+                                                                ORDER_PAYMENT_METHOD_LABELS[
+                                                                    order
+                                                                        .paymentMethod
+                                                                ],
+                                                            )
+                                                          : order.paymentMethod)}
+                                            </span>
+                                        </span>
                                     </DetailField>
                                 )}
                                 {order.deliveryAddress && (

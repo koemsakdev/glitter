@@ -42,10 +42,12 @@ export const navigation: NavGroup[] = [
         labelKey: 'nav.main',
         items: [
             {
+                // Analytics home — cashiers don't have access to the stats it
+                // shows, so it's manager+ only (cashiers land on Orders).
                 href: '/dashboard',
                 labelKey: 'nav.dashboard',
                 icon: LayoutDashboard,
-                roles: ALL_STAFF,
+                roles: MANAGER_PLUS,
             },
         ],
     },

@@ -5,9 +5,11 @@ import { useEffect, useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { fileUrl, formatPrice } from '@/lib/api';
 import { useCart } from '@/lib/cart';
+import { useLang } from '@/lib/lang-context';
 import { pick, tr, type Lang } from '@/lib/locale';
 
-export function CartToast({ lang }: { lang: Lang }) {
+export function CartToast({ lang: initialLang }: { lang: Lang }) {
+    const { lang } = useLang(initialLang);
     const { lastAdded } = useCart();
     const [show, setShow] = useState(false);
 

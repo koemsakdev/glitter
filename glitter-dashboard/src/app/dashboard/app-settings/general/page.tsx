@@ -58,13 +58,6 @@ const FIELDS: IdentityField[] = [
   },
 ];
 
-const CHECKER = {
-  backgroundImage:
-    "linear-gradient(45deg,rgba(120,120,120,0.10) 25%,transparent 25%,transparent 75%,rgba(120,120,120,0.10) 75%),linear-gradient(45deg,rgba(120,120,120,0.10) 25%,transparent 25%,transparent 75%,rgba(120,120,120,0.10) 75%)",
-  backgroundSize: "16px 16px",
-  backgroundPosition: "0 0,8px 8px",
-};
-
 export default function GeneralSettingsPage() {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -120,6 +113,10 @@ export default function GeneralSettingsPage() {
   if (isLoading || !config) return <LoadingScreen variant="page" />;
 
   const logos = config.logos;
+  const activeLogo =
+    logos.find((l) => l.id === config.activeLogoId) ?? logos[0] ?? null;
+  const activeLogoSrc = activeLogo ? getFileUrl(activeLogo.url) : null;
+  const brandInitial = (config.brandNameEn || "G").charAt(0).toUpperCase();
 
   function upsertLogo(logo: StoreLogo) {
     persistLogos(
@@ -165,6 +162,15 @@ export default function GeneralSettingsPage() {
           </Button>
         </div>
 
+        {logos.length > 0 && (
+          <LogoShapeControl
+            radius={config.logoRadius}
+            logoSrc={activeLogoSrc}
+            initial={brandInitial}
+            onCommit={(logoRadius) => persist({ logoRadius })}
+          />
+        )}
+
         {logos.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
             <ImageOff className="size-7 text-muted-foreground" />
@@ -173,7 +179,7 @@ export default function GeneralSettingsPage() {
             </p>
           </div>
         ) : (
-          <div className="stagger grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <div className="stagger grid grid-cols-3 gap-2.5 p-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
             {logos.map((logo) => {
               const active = logo.id === config.activeLogoId;
               const src = getFileUrl(logo.url);
@@ -184,21 +190,28 @@ export default function GeneralSettingsPage() {
                       if (!active) persistLogos(logos, logo.id);
                     }}
                     title={active ? undefined : t("settings.theme.setActive")}
-                    className={`relative aspect-square cursor-pointer overflow-hidden rounded-xl border transition-all ${
-                      active
-                        ? "border-pink-400 ring-2 ring-pink-300 dark:border-pink-600 dark:ring-pink-700"
-                        : "border-border hover:border-pink-300 dark:hover:border-pink-700"
-                    }`}
-                    style={CHECKER}
+                    className="relative aspect-square cursor-pointer"
                   >
-                    {src && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={src}
-                        alt={logo.name}
-                        className="size-full object-contain"
-                      />
-                    )}
+                    {/* Only the logo image is clipped to the shape — the
+                        controls below sit outside so the rounding can't hide
+                        them (e.g. at the corners when it's a full circle). */}
+                    <div
+                      style={{ borderRadius: `${config.logoRadius}%` }}
+                      className={`size-full overflow-hidden transition-all ${
+                        active
+                          ? "ring-2 ring-pink-400 dark:ring-pink-600"
+                          : "ring-1 ring-transparent group-hover:ring-pink-200 dark:group-hover:ring-pink-800"
+                      }`}
+                    >
+                      {src && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={src}
+                          alt={logo.name}
+                          className="size-full object-contain"
+                        />
+                      )}
+                    </div>
 
                     {active && (
                       <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-pink-500 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow">
@@ -402,5 +415,111 @@ function EditDialog({
         </div>
       </div>
     </ResponsiveModal>
+  );
+}
+
+/**
+ * Corner-rounding control for the store logo: a live preview avatar + a slider
+ * (0 = square … 50 = full circle) and quick presets. Owns a local value for a
+ * responsive drag; commits (persists) only on release / preset click.
+ */
+function LogoShapeControl({
+  radius,
+  logoSrc,
+  initial,
+  onCommit,
+}: {
+  radius: number;
+  logoSrc: string | null;
+  initial: string;
+  onCommit: (value: number) => void;
+}) {
+  const { t } = useI18n();
+  const [value, setValue] = useState(radius);
+
+  const presets = [
+    { key: "settings.general.shapeSquare" as const, v: 0 },
+    { key: "settings.general.shapeRounded" as const, v: 25 },
+    { key: "settings.general.shapeCircle" as const, v: 50 },
+  ];
+
+  return (
+    <div className="flex flex-col gap-4 border-b px-5 py-4 sm:flex-row sm:items-center">
+      {/* Live preview */}
+      <div className="flex items-center gap-3">
+        <div
+          className={`flex size-14 shrink-0 items-center justify-center overflow-hidden transition-[border-radius] ${
+            logoSrc ? "" : "bg-pink-100 dark:bg-pink-950/40"
+          }`}
+          style={{ borderRadius: `${value}%` }}
+        >
+          {logoSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoSrc} alt="" className="size-full object-contain" />
+          ) : (
+            <span className="text-lg font-bold text-pink-500">{initial}</span>
+          )}
+        </div>
+        <div className="sm:hidden">
+          <p className="text-sm font-semibold">
+            {t("settings.general.logoShape")}
+          </p>
+          <p className="text-xs tabular-nums text-muted-foreground">
+            {value * 2}%
+          </p>
+        </div>
+      </div>
+
+      {/* Slider + presets */}
+      <div className="min-w-0 flex-1">
+        <div className="mb-2 hidden items-start justify-between gap-3 sm:flex">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">
+              {t("settings.general.logoShape")}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t("settings.general.logoShapeNote")}
+            </p>
+          </div>
+          <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
+            {value * 2}%
+          </span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={50}
+          step={1}
+          value={value}
+          onChange={(e) => setValue(Number(e.target.value))}
+          onPointerUp={() => onCommit(value)}
+          onKeyUp={() => onCommit(value)}
+          aria-label={t("settings.general.logoShape")}
+          className="w-full cursor-pointer accent-pink-500"
+        />
+        <div className="mt-2 flex gap-1.5">
+          {presets.map((p) => {
+            const active = value === p.v;
+            return (
+              <button
+                key={p.v}
+                type="button"
+                onClick={() => {
+                  setValue(p.v);
+                  onCommit(p.v);
+                }}
+                className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                  active
+                    ? "border-pink-400 bg-pink-50 text-pink-600 dark:border-pink-600 dark:bg-pink-950/40 dark:text-pink-300"
+                    : "border-border text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {t(p.key)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }

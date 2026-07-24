@@ -1,6 +1,7 @@
 import { CheckoutForm } from '@/components/checkout-form';
-import { getActiveBranches, getStoreConfig } from '@/lib/api';
+import { fileUrl, getActiveBranches, getStoreConfig } from '@/lib/api';
 import { getLang } from '@/lib/lang';
+import { pick } from '@/lib/locale';
 
 export const metadata = { title: 'Checkout' };
 
@@ -19,6 +20,9 @@ export default async function CheckoutPage() {
             branches={branches}
             lang={lang}
             delivery={config.delivery}
+            telegramUrl={config.telegramUrl}
+            brandName={pick(lang, config.brandNameEn, config.brandNameKm)}
+            logoUrl={fileUrl(config.logoUrl)}
         />
     );
 }

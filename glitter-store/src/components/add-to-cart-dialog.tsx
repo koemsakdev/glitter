@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowRight, Check, Star } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import { useCart } from '@/lib/cart';
 import { fileUrl, formatPrice } from '@/lib/api';
 import { colorLabel, pick, tr, type Lang } from '@/lib/locale';
 import { cn } from '@/lib/utils';
 import { ResponsiveModal } from '@/components/ui/responsive-modal';
+import { StarRating } from '@/components/ui/star-rating';
 import type { Product, ProductVariant } from '@/lib/types';
 
 /** A color string that's really a hex code shouldn't be shown to customers. */
@@ -29,24 +30,6 @@ function colorName(v: { color: string | null }) {
 function variantLabel(lang: Lang, v: ProductVariant): string {
     const color = colorLabel(lang, colorName(v)) || v.color;
     return [v.size, color].filter(Boolean).join(' · ') || v.variantSku;
-}
-
-function Stars({ value }: { value: number }) {
-    const rounded = Math.round(value);
-    return (
-        <span className="inline-flex">
-            {Array.from({ length: 5 }, (_, i) => (
-                <Star
-                    key={i}
-                    className={
-                        i < rounded
-                            ? 'size-3.5 fill-amber-400 text-amber-400'
-                            : 'size-3.5 fill-zinc-200 text-zinc-200 dark:fill-zinc-700 dark:text-zinc-700'
-                    }
-                />
-            ))}
-        </span>
-    );
 }
 
 /**
@@ -237,7 +220,7 @@ export function AddToCartDialog({
                                     </span>
                                 ) : (
                                     <>
-                                        <Stars value={product.averageRating} />
+                                        <StarRating value={product.averageRating} />
                                         <span className="text-xs text-zinc-400">
                                             ({product.reviewCount})
                                         </span>

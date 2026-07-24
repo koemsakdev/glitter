@@ -53,6 +53,8 @@ export interface UserFormValues {
     role?: UserRole;
     branchId?: string;
     accountStatus?: AccountStatus;
+    /** Initial login password — only sent when creating a staff member. */
+    password?: string;
 }
 
 export const USER_ROLES: UserRole[] = [

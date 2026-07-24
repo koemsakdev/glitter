@@ -3,6 +3,8 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
+import {useMemo, useState} from 'react';
+import {Search, X} from 'lucide-react';
 import {
     Sidebar,
     SidebarContent,
@@ -23,10 +25,28 @@ export function DashboardSidebar() {
     const pathname = usePathname();
     const user = useAuthStore((s) => s.user);
     const {t} = useI18n();
+    const [query, setQuery] = useState('');
+
+    const allGroups = useMemo(
+        () => (user ? filterNavigationByRole(user.role) : []),
+        [user],
+    );
+
+    // Filter nav items by their (translated) label; drop empty groups.
+    const navGroups = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return allGroups;
+        return allGroups
+            .map((group) => ({
+                ...group,
+                items: group.items.filter((item) =>
+                    t(item.labelKey).toLowerCase().includes(q),
+                ),
+            }))
+            .filter((group) => group.items.length > 0);
+    }, [allGroups, query, t]);
 
     if (!user) return null;
-
-    const navGroups = filterNavigationByRole(user.role);
 
     return (
         <Sidebar collapsible="icon" className="border-r">
@@ -63,6 +83,36 @@ export function DashboardSidebar() {
             </SidebarHeader>
 
             <SidebarContent className="gap-0">
+                {/* Search — filters the menu; hidden when collapsed to icons */}
+                <div className="px-2 pt-2 group-data-[collapsible=icon]:hidden">
+                    <div className="relative">
+                        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                            type="text"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder={t('nav.searchMenu')}
+                            className="h-9 w-full rounded-md border border-sidebar-border bg-sidebar-accent/40 pl-8 pr-8 text-sm outline-none transition focus:border-pink-300 focus:ring-2 focus:ring-pink-200/40 dark:focus:border-pink-500/40 dark:focus:ring-pink-500/15"
+                        />
+                        {query && (
+                            <button
+                                type="button"
+                                onClick={() => setQuery('')}
+                                aria-label="Clear"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
+                            >
+                                <X className="size-4" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {navGroups.length === 0 && (
+                    <p className="px-4 py-6 text-center text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+                        {t('nav.noResults')}
+                    </p>
+                )}
+
                 {navGroups.map((group, idx) => (
                     <SidebarGroup key={idx} className="py-2">
                         {group.labelKey && (

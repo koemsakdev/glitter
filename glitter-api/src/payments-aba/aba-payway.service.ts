@@ -59,8 +59,9 @@ interface GenerateQrResponse {
   abapay_deeplink?: string;
 }
 
-interface CheckTxnResponse {
-  status?: { code?: string | number; message?: string };
+/** The transaction fields — ABA nests these under `data` on check-transaction-2,
+ *  but we also read them at the top level as a defensive fallback. */
+interface CheckTxnData {
   payment_status?: string;
   payment_status_code?: string | number;
   apv?: string;
@@ -73,6 +74,12 @@ interface CheckTxnResponse {
   payment_date?: string;
   payer_account_name?: string;
   bank_ref?: string;
+}
+
+interface CheckTxnResponse extends CheckTxnData {
+  status?: { code?: string | number; message?: string; tran_id?: string };
+  /** ABA wraps the payment fields here (e.g. { data: { payment_status } }). */
+  data?: CheckTxnData;
 }
 
 /** Verified transaction details shown on the payment-success screen. */
@@ -346,7 +353,10 @@ export class AbaPaywayService {
       },
     );
 
-    const raw = (json.payment_status ?? '').toUpperCase();
+    // ABA nests the transaction fields under `data` — read there first, then
+    // fall back to the top level for resilience against API shape changes.
+    const d = json.data ?? json;
+    const raw = (d.payment_status ?? '').toUpperCase();
     const status: AbaPaymentStatus =
       raw === 'APPROVED' ||
       raw === 'PENDING' ||
@@ -357,14 +367,14 @@ export class AbaPaywayService {
         : 'UNKNOWN';
 
     const amount =
-      json.total_amount ?? json.payment_amount ?? json.original_amount ?? '';
+      d.payment_amount || d.total_amount || d.original_amount || '';
     return {
       status,
-      apv: String(json.apv ?? ''),
+      apv: String(d.apv ?? ''),
       amount: amount === '' ? '' : String(amount),
-      currency: String(json.payment_currency ?? json.original_currency ?? ''),
-      date: String(json.transaction_date ?? json.payment_date ?? ''),
-      payer: String(json.payer_account_name ?? ''),
+      currency: String(d.payment_currency ?? d.original_currency ?? ''),
+      date: String(d.transaction_date ?? d.payment_date ?? ''),
+      payer: String(d.payer_account_name ?? ''),
     };
   }
 

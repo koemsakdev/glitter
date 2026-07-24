@@ -1,13 +1,18 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { createHash, createHmac } from 'crypto';
+import { MailService } from '../common/services/mail.service';
 import { UsersService } from '../users/user.service';
 import { UserEntity } from '../users/entities/user.entity';
+import { AuthAccountEntity } from '../users/entities/auth-account.entity';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginDto } from './dto/login.dto';
@@ -24,7 +29,106 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly mail: MailService,
+    @InjectRepository(UserEntity)
+    private readonly userRepo: Repository<UserEntity>,
+    @InjectRepository(AuthAccountEntity)
+    private readonly authAccountRepo: Repository<AuthAccountEntity>,
   ) {}
+
+  // ==========================================================================
+  // EMAIL VERIFICATION (one-time code)
+  // ==========================================================================
+
+  /** Hash a code, peppered with the JWT secret + user id (short-lived + rate
+   *  limited, so a fast hash is fine — we never store the code itself). */
+  private hashOtp(code: string, userId: string): string {
+    const secret = this.configService.getOrThrow<string>('JWT_SECRET');
+    return createHash('sha256')
+      .update(`${code}:${userId}:${secret}`)
+      .digest('hex');
+  }
+
+  /** Send a 6-digit verification code to the user's email on file. */
+  async sendEmailVerification(userId: string): Promise<{ sent: true }> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (user === null) throw new NotFoundException('User not found');
+    if (!user.email) {
+      throw new BadRequestException('No email address on this account');
+    }
+    if (user.emailVerifiedAt) {
+      throw new BadRequestException('Email is already verified');
+    }
+    if (!this.mail.isConfigured) {
+      throw new BadRequestException('Email sending is not configured');
+    }
+    // Rate limit: one code per minute.
+    if (
+      user.emailOtpSentAt &&
+      Date.now() - user.emailOtpSentAt.getTime() < 60_000
+    ) {
+      throw new BadRequestException(
+        'Please wait a moment before requesting another code',
+      );
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    user.emailOtpHash = this.hashOtp(code, user.id);
+    user.emailOtpExpiresAt = new Date(Date.now() + 10 * 60_000);
+    user.emailOtpAttempts = 0;
+    user.emailOtpSentAt = new Date();
+    await this.userRepo.save(user);
+
+    await this.mail.sendVerificationCode(user.email, code);
+    return { sent: true };
+  }
+
+  /** Verify the code; on success stamp emailVerifiedAt + sync the email login. */
+  async verifyEmail(
+    userId: string,
+    code: string,
+  ): Promise<{ verified: true }> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (user === null) throw new NotFoundException('User not found');
+    if (user.emailVerifiedAt) return { verified: true };
+
+    if (!user.emailOtpHash || !user.emailOtpExpiresAt) {
+      throw new BadRequestException('No verification in progress');
+    }
+    if (Date.now() > user.emailOtpExpiresAt.getTime()) {
+      throw new BadRequestException('The code has expired — request a new one');
+    }
+    if (user.emailOtpAttempts >= 5) {
+      throw new BadRequestException(
+        'Too many attempts — request a new code',
+      );
+    }
+    if (this.hashOtp(code.trim(), user.id) !== user.emailOtpHash) {
+      user.emailOtpAttempts += 1;
+      await this.userRepo.save(user);
+      throw new BadRequestException('Incorrect code');
+    }
+
+    user.emailVerifiedAt = new Date();
+    user.emailOtpHash = null;
+    user.emailOtpExpiresAt = null;
+    user.emailOtpAttempts = 0;
+    user.emailOtpSentAt = null;
+    await this.userRepo.save(user);
+
+    // Keep the email/password sign-in in step with the verified address.
+    if (user.email) {
+      const acct = await this.authAccountRepo.findOne({
+        where: { userId: user.id, provider: 'email' },
+      });
+      if (acct && acct.providerAccountId !== user.email) {
+        acct.providerAccountId = user.email;
+        await this.authAccountRepo.save(acct);
+      }
+    }
+
+    return { verified: true };
+  }
 
   // ==========================================================================
   // EMAIL + PASSWORD
@@ -106,6 +210,59 @@ export class AuthService {
 
     await this.usersService.changePassword(userId, dto.newPassword);
     // tokenVersion is bumped by the service — existing JWTs for this user are now invalid
+  }
+
+  // ==========================================================================
+  // LINK a provider to the currently logged-in user (Connect accounts)
+  // ==========================================================================
+
+  async linkGoogle(userId: string, dto: GoogleLoginDto): Promise<void> {
+    const p = await this.verifyGoogleIdToken(dto.idToken);
+    await this.usersService.linkOAuthToUser(userId, {
+      provider: 'google',
+      providerAccountId: p.sub,
+      email: p.email ?? null,
+      fullName: p.name ?? p.email ?? 'Google User',
+      profileImageUrl: p.picture ?? null,
+      accessToken: null,
+      refreshToken: null,
+      tokenExpiresAt: null,
+      rawProfile: p as unknown as Record<string, unknown>,
+    });
+  }
+
+  async linkFacebook(userId: string, dto: FacebookLoginDto): Promise<void> {
+    const p = await this.verifyFacebookToken(dto.accessToken);
+    await this.usersService.linkOAuthToUser(userId, {
+      provider: 'facebook',
+      providerAccountId: p.id,
+      email: p.email ?? null,
+      fullName: p.name ?? p.email ?? 'Facebook User',
+      profileImageUrl: p.picture?.data?.url ?? null,
+      accessToken: dto.accessToken,
+      refreshToken: null,
+      tokenExpiresAt: null,
+      rawProfile: p as unknown as Record<string, unknown>,
+    });
+  }
+
+  async linkTelegram(userId: string, dto: TelegramLoginDto): Promise<void> {
+    this.verifyTelegramAuth(dto);
+    const fullName =
+      [dto.first_name, dto.last_name].filter(Boolean).join(' ').trim() ||
+      dto.username ||
+      'Telegram User';
+    await this.usersService.linkOAuthToUser(userId, {
+      provider: 'telegram',
+      providerAccountId: String(dto.id),
+      email: null,
+      fullName,
+      profileImageUrl: dto.photo_url ?? null,
+      accessToken: null,
+      refreshToken: null,
+      tokenExpiresAt: null,
+      rawProfile: dto as unknown as Record<string, unknown>,
+    });
   }
 
   // ==========================================================================

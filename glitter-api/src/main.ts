@@ -8,13 +8,19 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
-  // Enable CORS for the dashboard + storefront. Allow any localhost port so
-  // the browser's SSE (live updates) connects no matter which port Next picks
-  // in dev (3000, 3001, 3002…).
+  // Enable CORS for the dashboard + storefront. Any localhost port is allowed
+  // in dev (Next picks 3000/3001/3002…); production domains come from the
+  // ALLOWED_ORIGINS env var (comma-separated), e.g.
+  //   ALLOWED_ORIGINS=https://glitter-store.vercel.app,https://glitter-dashboard.vercel.app
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
   app.enableCors({
     origin: [
       /^http:\/\/localhost:\d+$/,
       /^http:\/\/127\.0\.0\.1:\d+$/,
+      ...allowedOrigins,
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],

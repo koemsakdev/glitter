@@ -34,19 +34,45 @@ export function RealtimeListener() {
     const queryClient = useQueryClient();
 
     useEffect(() => {
-        const source = new EventSource(`${API_URL}/api/realtime/events`);
-        source.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data) as { entity?: string };
-                const key = data.entity ? KEY_MAP[data.entity] : undefined;
-                if (key) {
-                    void queryClient.invalidateQueries({ queryKey: key });
+        let source: EventSource | null = null;
+
+        const connect = () => {
+            // One stream max, and none while the tab is hidden — a browser
+            // allows only ~6 connections per host, so background tabs holding a
+            // stream can starve real requests (like login) in the active tab.
+            if (source || document.visibilityState === 'hidden') return;
+            source = new EventSource(`${API_URL}/api/realtime/events`);
+            source.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data) as { entity?: string };
+                    const key = data.entity ? KEY_MAP[data.entity] : undefined;
+                    if (key) {
+                        void queryClient.invalidateQueries({ queryKey: key });
+                    }
+                } catch {
+                    // ignore malformed events
                 }
-            } catch {
-                // ignore malformed events
-            }
+            };
         };
-        return () => source.close();
+
+        const disconnect = () => {
+            source?.close();
+            source = null;
+        };
+
+        // Free the connection when the tab is hidden; restore it when visible.
+        const onVisibility = () => {
+            if (document.visibilityState === 'hidden') disconnect();
+            else connect();
+        };
+
+        connect();
+        document.addEventListener('visibilitychange', onVisibility);
+
+        return () => {
+            document.removeEventListener('visibilitychange', onVisibility);
+            disconnect();
+        };
     }, [queryClient]);
 
     return null;

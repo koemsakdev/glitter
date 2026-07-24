@@ -8,6 +8,7 @@ import {
   IsUUID,
   Matches,
   MaxLength,
+  MinLength,
 } from 'class-validator';
 import type { AccountStatus, UserRole } from '../entities/user.entity';
 
@@ -76,4 +77,17 @@ export class CreateUserDto {
   @IsOptional()
   @IsEnum(['active', 'suspended', 'deleted'])
   accountStatus?: AccountStatus;
+
+  @ApiPropertyOptional({
+    description:
+      'Initial login password for a staff member. Requires an email — ' +
+      'creates the email/password sign-in so the staff can log into the dashboard.',
+    minLength: 8,
+    maxLength: 128,
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  password?: string;
 }

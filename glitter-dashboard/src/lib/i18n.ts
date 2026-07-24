@@ -167,6 +167,11 @@ const translations = {
         'ad.image.uploadFailed': 'Upload failed. Please try again.',
         'ad.image.libraryEmpty': 'No uploaded images yet.',
         'ad.image.formats': 'JPG, PNG or WEBP',
+        'ad.image.aspectHint': 'Use a wide banner, 2.5:1 to 4:1 (e.g. 1920×640).',
+        'ad.image.aspectError':
+            'Banner must be a wide 2.5:1–4:1 image (e.g. 1920×640). This one is {size}.',
+        'ad.image.aspectWarn':
+            'Heads up: {size} is outside the ideal 2.5:1–4:1 banner range — it may look too tall or short.',
         'ad.link': 'Link URL',
         'ad.placements': 'Placements',
         'ad.status': 'Status',
@@ -208,6 +213,8 @@ const translations = {
         'banner.placement.category_top': 'Category top',
         'banner.placement.checkout': 'Checkout',
         'nav.comingSoon': 'Soon',
+        'nav.searchMenu': 'Search menu…',
+        'nav.noResults': 'No menu found',
 
         // App settings
         'settings.subtitle': 'Configure how your storefront looks and its contact details.',
@@ -332,8 +339,23 @@ const translations = {
         'settings.nav.social': 'Social Media',
         'settings.nav.moveUp': 'Move up',
         'settings.nav.moveDown': 'Move down',
+        'settings.nav.reorderHint':
+            'Drag to reorder, toggle to show or hide, and rename or change the icon of each menu.',
+        'settings.nav.drag': 'Drag to reorder',
+        'settings.nav.chooseIcon': 'Choose icon',
+        'settings.nav.defaultIcon': 'Default icon',
+        'settings.nav.khmerName': 'Khmer name',
+        'settings.nav.editTitle': 'Edit menu',
+        'settings.nav.editSubtitle': 'Rename it or pick a different icon.',
+        'settings.nav.name': 'Menu name',
+        'settings.nav.previewTitle': 'Header preview',
+        'settings.nav.previewNote':
+            'A live preview of your storefront header menu — hidden items are excluded.',
+        'settings.nav.previewEmpty': 'No menus are visible.',
+        'settings.nav.show': 'Show in menu',
+        'settings.nav.unsaved': 'You have unsaved changes — click Save to apply.',
         'settings.nav.barNote':
-            'This order applies to the desktop header and the mobile menu drawer (hamburger). The mobile bottom bar has fixed shortcuts: Home, Wishlist, Cart, Location and Profile.',
+            'This applies to the desktop header and the mobile menu drawer (hamburger). The mobile bottom bar has fixed shortcuts: Home, Wishlist, Cart, Location and Profile.',
         'settings.tab.menu': 'Menu',
         'settings.tab.pages': 'Pages',
 
@@ -493,6 +515,13 @@ const translations = {
         'settings.general.logoNamePlaceholder': 'e.g. Primary, Dark, Icon',
         'settings.general.logoHint':
             'PNG or SVG with a transparent background works best.',
+        'settings.general.logoShape': 'Logo shape',
+        'settings.general.logoShapeNote':
+            'Corner rounding applied to the logo across the storefront.',
+        'settings.general.shapeSquare': 'Square',
+        'settings.general.shapeRounded': 'Rounded',
+        'settings.general.shapeCircle': 'Circle',
+        'settings.general.preview': 'Preview',
 
         // App settings — appearance tab
         'settings.appearance.title': 'Appearance',
@@ -678,12 +707,14 @@ const translations = {
         'order.source.in_store': 'In-store',
         'order.source.online': 'Online',
         'order.status.all': 'All statuses',
+        'order.status.awaiting_payment': 'Awaiting payment',
         'order.status.pending': 'Pending',
         'order.status.paid': 'Paid',
         'order.status.processing': 'Processing',
         'order.status.shipped': 'Shipped',
         'order.status.completed': 'Completed',
         'order.status.cancelled': 'Cancelled',
+        'order.status.expired': 'Expired',
         'order.status.refunded': 'Refunded',
         'order.col.orderNumber': 'Order #',
         'order.col.source': 'Source',
@@ -965,6 +996,19 @@ const translations = {
         'user.delete.confirm': 'Yes, delete',
         'user.delete.success': 'User deleted',
         'user.validation.nameRequired': 'Full name is required',
+        'user.field.password': 'Login password',
+        'user.field.password.placeholder': 'At least 8 characters',
+        'user.field.setNewPassword': 'Set new password',
+        'user.field.setNewPassword.placeholder':
+            'Leave blank to keep current',
+        'user.form.passwordHint':
+            'The staff member signs into the dashboard with this email and password. Share it with them securely.',
+        'user.form.resetPasswordHint':
+            'Set or reset this staff member’s sign-in password. Leave blank to keep their current one; they’ll be signed out everywhere after a change.',
+        'user.validation.passwordMin':
+            'Password must be at least 8 characters',
+        'user.validation.emailRequiredForLogin':
+            'An email is required so the staff member can sign in',
         'user.action.edit': 'Edit',
         'user.action.delete': 'Delete',
         'user.detail.information': 'Information',
@@ -1084,6 +1128,10 @@ const translations = {
         'changePassword.current': 'Current password',
         'changePassword.new': 'New password',
         'changePassword.confirm': 'Confirm new password',
+        'changePassword.back': 'Back',
+        'changePassword.current.placeholder': 'Enter your current password',
+        'changePassword.new.placeholder': 'At least 8 characters',
+        'changePassword.confirm.placeholder': 'Re-enter the new password',
         'changePassword.show': 'Show passwords',
         'changePassword.hide': 'Hide passwords',
         'changePassword.submit': 'Update Password',
@@ -1952,6 +2000,11 @@ const translations = {
         'ad.image.uploadFailed': 'អាប់ឡូតបរាជ័យ។ សូមព្យាយាមម្ដងទៀត។',
         'ad.image.libraryEmpty': 'មិនទាន់មានរូបភាពបានអាប់ឡូតទេ។',
         'ad.image.formats': 'JPG, PNG ឬ WEBP',
+        'ad.image.aspectHint': 'ប្រើរូបភាពទទឹង 2.5:1 ដល់ 4:1 (ឧ. 1920×640)។',
+        'ad.image.aspectError':
+            'បដាត្រូវតែជារូបភាពទទឹង 2.5:1–4:1 (ឧ. 1920×640)។ រូបភាពនេះគឺ {size}។',
+        'ad.image.aspectWarn':
+            'ចំណាំ៖ {size} ស្ថិតនៅក្រៅចន្លោះ 2.5:1–4:1 — វាអាចមើលទៅខ្ពស់ ឬទាបពេក។',
         'ad.link': 'URL តំណ',
         'ad.placements': 'ទីតាំងបង្ហាញ',
         'ad.status': 'ស្ថានភាព',
@@ -1993,6 +2046,8 @@ const translations = {
         'banner.placement.category_top': 'លើប្រភេទ',
         'banner.placement.checkout': 'ទំព័រទូទាត់',
         'nav.comingSoon': 'ឆាប់ៗ',
+        'nav.searchMenu': 'ស្វែងរកម៉ឺនុយ…',
+        'nav.noResults': 'រកមិនឃើញម៉ឺនុយ',
 
         // App settings
         'settings.subtitle': 'កំណត់រូបរាង និងព័ត៌មានទំនាក់ទំនងនៃហាងអនឡាញរបស់អ្នក។',
@@ -2116,8 +2171,24 @@ const translations = {
         'settings.nav.social': 'បណ្តាញសង្គម',
         'settings.nav.moveUp': 'ផ្លាស់ឡើងលើ',
         'settings.nav.moveDown': 'ផ្លាស់ចុះក្រោម',
+        'settings.nav.reorderHint':
+            'អូសដើម្បីរៀបលំដាប់ បិទ/បើកដើម្បីបង្ហាញ ឬលាក់ ហើយប្ដូរឈ្មោះ ឬរូបតំណាងនៃម៉ឺនុយនីមួយៗ។',
+        'settings.nav.drag': 'អូសដើម្បីរៀបលំដាប់',
+        'settings.nav.chooseIcon': 'ជ្រើសរូបតំណាង',
+        'settings.nav.defaultIcon': 'រូបតំណាងលំនាំដើម',
+        'settings.nav.khmerName': 'ឈ្មោះជាភាសាខ្មែរ',
+        'settings.nav.editTitle': 'កែម៉ឺនុយ',
+        'settings.nav.editSubtitle': 'ប្ដូរឈ្មោះ ឬជ្រើសរូបតំណាងផ្សេង។',
+        'settings.nav.name': 'ឈ្មោះម៉ឺនុយ',
+        'settings.nav.previewTitle': 'មើលរបារខាងលើ',
+        'settings.nav.previewNote':
+            'ការមើលជាមុននៃរបារម៉ឺនុយហាងរបស់អ្នក — ម៉ឺនុយដែលលាក់មិនបង្ហាញទេ។',
+        'settings.nav.previewEmpty': 'គ្មានម៉ឺនុយបង្ហាញទេ។',
+        'settings.nav.show': 'បង្ហាញក្នុងម៉ឺនុយ',
+        'settings.nav.unsaved':
+            'អ្នកមានការផ្លាស់ប្ដូរដែលមិនទាន់រក្សាទុក — ចុចរក្សាទុកដើម្បីអនុវត្ត។',
         'settings.nav.barNote':
-            'លំដាប់នេះអនុវត្តលើរបារខាងលើកុំព្យូទ័រ និងម៉ឺនុយទូរស័ព្ទ (hamburger)។ របារខាងក្រោមទូរស័ព្ទមានផ្លូវកាត់ថេរ៖ ទំព័រដើម បញ្ជីចង់បាន កន្ត្រក ទីតាំង និងប្រវត្តិរូប។',
+            'នេះអនុវត្តលើរបារខាងលើកុំព្យូទ័រ និងម៉ឺនុយទូរស័ព្ទ (hamburger)។ របារខាងក្រោមទូរស័ព្ទមានផ្លូវកាត់ថេរ៖ ទំព័រដើម បញ្ជីចង់បាន កន្ត្រក ទីតាំង និងប្រវត្តិរូប។',
         'settings.tab.menu': 'ម៉ឺនុយ',
         'settings.tab.pages': 'ទំព័រ',
 
@@ -2275,6 +2346,13 @@ const translations = {
         'settings.general.logoNamePlaceholder': 'ឧ. មេ, ងងឹត, រូបតំណាង',
         'settings.general.logoHint':
             'PNG ឬ SVG ដែលមានផ្ទៃខាងក្រោយថ្លា គឺល្អបំផុត។',
+        'settings.general.logoShape': 'រាងឡូហ្គោ',
+        'settings.general.logoShapeNote':
+            'កម្រិតកោងជ្រុងដែលអនុវត្តលើឡូហ្គោនៅទូទាំងហាង។',
+        'settings.general.shapeSquare': 'ការេ',
+        'settings.general.shapeRounded': 'កោងបន្តិច',
+        'settings.general.shapeCircle': 'រង្វង់',
+        'settings.general.preview': 'មើលជាមុន',
 
         // App settings — appearance tab
         'settings.appearance.title': 'រូបរាង',
@@ -2456,12 +2534,14 @@ const translations = {
         'order.source.in_store': 'ក្នុងហាង',
         'order.source.online': 'អនឡាញ',
         'order.status.all': 'គ្រប់ស្ថានភាព',
+        'order.status.awaiting_payment': 'កំពុងរង់ចាំការទូទាត់',
         'order.status.pending': 'កំពុងរង់ចាំ',
         'order.status.paid': 'បានបង់ប្រាក់',
         'order.status.processing': 'កំពុងដំណើរការ',
         'order.status.shipped': 'បានដឹកជញ្ជូន',
         'order.status.completed': 'បានបញ្ចប់',
         'order.status.cancelled': 'បានលុបចោល',
+        'order.status.expired': 'ផុតកំណត់',
         'order.status.refunded': 'បានសងប្រាក់វិញ',
         'order.col.orderNumber': 'លេខបញ្ជាទិញ',
         'order.col.source': 'ប្រភព',
@@ -2744,6 +2824,19 @@ const translations = {
         'user.delete.confirm': 'បាទ/ចាស លុប',
         'user.delete.success': 'បានលុបអ្នកប្រើប្រាស់',
         'user.validation.nameRequired': 'តម្រូវឱ្យមានឈ្មោះពេញ',
+        'user.field.password': 'ពាក្យសម្ងាត់ចូល',
+        'user.field.password.placeholder': 'យ៉ាងតិច ៨ តួអក្សរ',
+        'user.field.setNewPassword': 'កំណត់ពាក្យសម្ងាត់ថ្មី',
+        'user.field.setNewPassword.placeholder':
+            'ទុកទទេ ដើម្បីរក្សាដដែល',
+        'user.form.passwordHint':
+            'បុគ្គលិកនឹងចូលប្រើផ្ទាំងគ្រប់គ្រងដោយប្រើអ៊ីមែល និងពាក្យសម្ងាត់នេះ។ សូមប្រគល់ជូនដោយសុវត្ថិភាព។',
+        'user.form.resetPasswordHint':
+            'កំណត់ ឬកំណត់ឡើងវិញនូវពាក្យសម្ងាត់ចូលរបស់បុគ្គលិកនេះ។ ទុកទទេ ដើម្បីរក្សាដដែល។ ពួកគេនឹងត្រូវចាកចេញពីគ្រប់ឧបករណ៍បន្ទាប់ពីការផ្លាស់ប្ដូរ។',
+        'user.validation.passwordMin':
+            'ពាក្យសម្ងាត់ត្រូវមានយ៉ាងតិច ៨ តួអក្សរ',
+        'user.validation.emailRequiredForLogin':
+            'តម្រូវឱ្យមានអ៊ីមែល ដើម្បីឱ្យបុគ្គលិកអាចចូលប្រើបាន',
         'user.action.edit': 'កែសម្រួល',
         'user.action.delete': 'លុប',
         'user.detail.information': 'ព័ត៌មាន',
@@ -2861,6 +2954,10 @@ const translations = {
         'changePassword.title': 'ប្ដូរពាក្យសម្ងាត់',
         'changePassword.subtitle': 'ធ្វើបច្ចុប្បន្នភាពពាក្យសម្ងាត់គណនីរបស់អ្នក',
         'changePassword.current': 'ពាក្យសម្ងាត់បច្ចុប្បន្ន',
+        'changePassword.back': 'ថយក្រោយ',
+        'changePassword.current.placeholder': 'បញ្ចូលពាក្យសម្ងាត់បច្ចុប្បន្ន',
+        'changePassword.new.placeholder': 'យ៉ាងតិច ៨ តួអក្សរ',
+        'changePassword.confirm.placeholder': 'បញ្ចូលពាក្យសម្ងាត់ថ្មីម្ដងទៀត',
         'changePassword.new': 'ពាក្យសម្ងាត់ថ្មី',
         'changePassword.confirm': 'បញ្ជាក់ពាក្យសម្ងាត់ថ្មី',
         'changePassword.show': 'បង្ហាញពាក្យសម្ងាត់',

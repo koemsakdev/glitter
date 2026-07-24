@@ -111,6 +111,46 @@ button:disabled,
   animation: fade-in-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Native-app style directional page transition — the incoming page slides in
+   from the right on a forward navigation and from the left on a back/pop. */
+@keyframes page-slide-forward {
+  from { opacity: 0; transform: translateX(2.25rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes page-slide-back {
+  from { opacity: 0; transform: translateX(-2.25rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.page-slide-forward {
+  animation: page-slide-forward 0.32s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.page-slide-back {
+  animation: page-slide-back 0.32s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+/* On desktop the movement is gentler (no full native push there). */
+@media (min-width: 768px) {
+  .page-slide-forward { animation-name: fade-in-up; }
+  .page-slide-back { animation-name: fade-in-up; }
+}
+
+/* Chat launcher robot — a lively little bot: it gently bobs, blinks its eyes,
+   and its antenna light pulses. */
+@keyframes robot-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-2px) rotate(-4deg); }
+}
+@keyframes robot-blink {
+  0%, 88%, 100% { transform: scaleY(1); }
+  93% { transform: scaleY(0.1); }
+}
+@keyframes robot-antenna {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.animate-robot-bob { animation: robot-bob 2.8s ease-in-out infinite; }
+.robot-eyes { transform-origin: center; animation: robot-blink 4.5s ease-in-out infinite; }
+.robot-antenna { animation: robot-antenna 1.6s ease-in-out infinite; }
+
 /* Staggered list entrance — apply `.stagger` to a grid/list container. */
 .stagger > * {
   animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -184,6 +224,8 @@ button:disabled,
 
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in-up,
+  .page-slide-forward,
+  .page-slide-back,
   .stagger > *,
   .cart-pulse,
   .cart-bob,

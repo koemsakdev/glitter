@@ -1,14 +1,18 @@
+'use client';
+
 import { Headphones, RotateCcw, ShieldCheck, Truck } from 'lucide-react';
 import { formatPrice } from '@/lib/api';
+import { useLang } from '@/lib/lang-context';
 import { tr, type Lang } from '@/lib/locale';
 
 export function FeaturesStrip({
-    lang,
+    lang: initialLang,
     freeOver,
 }: {
     lang: Lang;
     freeOver: number;
 }) {
+    const { lang } = useLang(initialLang);
     const items = [
         {
             Icon: Truck,

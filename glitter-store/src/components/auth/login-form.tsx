@@ -7,12 +7,14 @@ import { Eye, EyeOff, Loader2, Lock, Mail, Sparkles } from 'lucide-react';
 import { SocialAuth } from '@/components/auth/social-auth';
 import { BackLink } from '@/components/ui/back-link';
 import { useAuth } from '@/lib/auth';
+import { useLang } from '@/lib/lang-context';
 import { tr, type Lang } from '@/lib/locale';
 
 const inputCls =
     'h-11 w-full rounded-xl border border-zinc-200 bg-white pl-10 pr-3 text-sm text-zinc-900 outline-none transition focus:border-(--brand) focus:ring-2 focus:ring-(--brand)/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100';
 
-export function LoginForm({ lang }: { lang: Lang }) {
+export function LoginForm({ lang: initialLang }: { lang: Lang }) {
+    const { lang } = useLang(initialLang);
     const router = useRouter();
     const { login } = useAuth();
     const [email, setEmail] = useState('');
@@ -41,7 +43,7 @@ export function LoginForm({ lang }: { lang: Lang }) {
 
     return (
         <div className="mx-auto flex min-h-[78vh] max-w-md flex-col justify-center px-4 py-10">
-            <BackLink lang={lang} fallbackHref="/" className="mb-4" />
+            <BackLink lang={lang} fallbackHref="/" className="mb-4 max-md:hidden" />
 
             <div className="rounded-3xl border border-zinc-100 bg-white p-6 shadow-xl shadow-zinc-200/50 dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-none sm:p-8">
                 {/* Header */}

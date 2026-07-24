@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ShoppingBag } from 'lucide-react';
 import { useCart } from '@/lib/cart';
+import { useLang } from '@/lib/lang-context';
 import { colorLabel, tr, type Lang } from '@/lib/locale';
 import { cn } from '@/lib/utils';
 import type { Product, ProductVariant } from '@/lib/types';
@@ -30,7 +31,14 @@ function variantLabel(lang: Lang, v: ProductVariant): string {
     return [v.size, color].filter(Boolean).join(' · ') || v.variantSku;
 }
 
-export function AddToCart({ product, lang }: { product: Product; lang: Lang }) {
+export function AddToCart({
+    product,
+    lang: initialLang,
+}: {
+    product: Product;
+    lang: Lang;
+}) {
+    const { lang } = useLang(initialLang);
     const { addItem } = useCart();
     const variants = product.variants ?? [];
 

@@ -27,6 +27,15 @@ export function PromoOffers({
     const [copied, setCopied] = useState<string | null>(null);
     if (promos.length === 0) return null;
 
+    // Column count follows how many coupons there are: 1 → full width,
+    // 2 → two columns, 3+ → three columns (stacked on mobile).
+    const gridCols =
+        promos.length === 1
+            ? 'grid-cols-1'
+            : promos.length === 2
+              ? 'grid-cols-1 sm:grid-cols-2'
+              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+
     function copy(code: string) {
         navigator.clipboard?.writeText(code);
         setCopied(code);
@@ -42,7 +51,7 @@ export function PromoOffers({
                 {subtitle ?? tr(lang, 'offersSubtitle')}
             </p>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className={`mt-4 grid gap-3 ${gridCols}`}>
                 {promos.map((p, i) => {
                     const amount =
                         p.discountType === 'percent'

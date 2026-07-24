@@ -29,7 +29,7 @@ export default async function CustomPage({ params }: Params) {
                 {title}
             </h1>
             {body && (
-                <div className="mt-6 whitespace-pre-line leading-relaxed text-zinc-600 dark:text-zinc-300">
+                <div className="mt-6 whitespace-pre-line wrap-break-word leading-relaxed text-zinc-600 dark:text-zinc-300">
                     {body}
                 </div>
             )}

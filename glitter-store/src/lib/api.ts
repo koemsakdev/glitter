@@ -174,6 +174,8 @@ export interface ProductQuery {
     categoryId?: string;
     brandId?: string;
     brandIds?: string;
+    minPrice?: number;
+    maxPrice?: number;
     sortBy?: string;
     sortOrder?: 'ASC' | 'DESC';
 }
@@ -189,6 +191,10 @@ export async function getProducts(
     if (query.categoryId) params.set('categoryId', query.categoryId);
     if (query.brandId) params.set('brandId', query.brandId);
     if (query.brandIds) params.set('brandIds', query.brandIds);
+    if (query.minPrice !== undefined)
+        params.set('minPrice', String(query.minPrice));
+    if (query.maxPrice !== undefined)
+        params.set('maxPrice', String(query.maxPrice));
     if (query.sortBy) params.set('sortBy', query.sortBy);
     if (query.sortOrder) params.set('sortOrder', query.sortOrder);
     // Cache briefly so toggling language / re-renders don't re-hit the API.

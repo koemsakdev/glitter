@@ -6,19 +6,26 @@ import { tr, type Lang } from '@/lib/locale';
 
 /**
  * A small "Back" control for pages that aren't in the main nav (cart, checkout,
- * account, product detail…). Goes back in history when possible, otherwise
- * falls back to a sensible link.
+ * account, product detail…). By default it navigates UP to the page's logical
+ * parent (`fallbackHref`), which is predictable — e.g. checkout always goes back
+ * to the shop, not to whatever page you happened to arrive from.
+ *
+ * Pass `useHistory` for pages where returning to the exact previous page is
+ * better (e.g. a product detail returning to the listing you scrolled); it falls
+ * back to `fallbackHref` when there's no in-app history.
  */
 export function BackLink({
     lang,
     fallbackHref = '/products',
     label,
     className = '',
+    useHistory = false,
 }: {
     lang: Lang;
     fallbackHref?: string;
     label?: string;
     className?: string;
+    useHistory?: boolean;
 }) {
     const router = useRouter();
     return (
@@ -26,7 +33,11 @@ export function BackLink({
             type="button"
             aria-label={label ?? tr(lang, 'back')}
             onClick={() => {
-                if (typeof window !== 'undefined' && window.history.length > 1) {
+                if (
+                    useHistory &&
+                    typeof window !== 'undefined' &&
+                    window.history.length > 1
+                ) {
                     router.back();
                 } else {
                     router.push(fallbackHref);

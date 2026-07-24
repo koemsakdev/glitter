@@ -44,6 +44,13 @@ export function useUpdateUser() {
     });
 }
 
+export function useSetUserPassword() {
+    return useMutation({
+        mutationFn: ({ id, password }: { id: string; password: string }) =>
+            userApi.setPassword(id, password),
+    });
+}
+
 export function useDeleteUser() {
     const queryClient = useQueryClient();
     return useMutation({

@@ -6,6 +6,7 @@ import { fileUrl } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { UserAvatar } from '@/components/user-avatar';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { isValidPhone } from '@/lib/phone';
 import { tr, type Lang } from '@/lib/locale';
 
 export function ProfileEditSheet({
@@ -59,6 +60,8 @@ export function ProfileEditSheet({
     async function save() {
         setError('');
         if (!name.trim()) return setError(tr(lang, 'nameRequired'));
+        if (phone.trim() && !isValidPhone(phone))
+            return setError(tr(lang, 'invalidPhone'));
         setSaving(true);
         try {
             // 1) Apply the staged avatar change first.
@@ -82,7 +85,7 @@ export function ProfileEditSheet({
                 method: 'PATCH',
                 body: JSON.stringify({
                     fullName: name.trim(),
-                    email: email.trim() || undefined,
+                    // Email is immutable (it's the login identity) — never sent.
                     phoneNumber: phone.trim() || undefined,
                 }),
             });
@@ -214,6 +217,7 @@ export function ProfileEditSheet({
                                     value={email}
                                     onChange={setEmail}
                                     type="email"
+                                    readOnly
                                 />
                                 <p className="mt-1.5 text-xs text-zinc-400">
                                     {tr(lang, 'emailNote')}
@@ -252,6 +256,7 @@ function Field({
     onChange,
     type = 'text',
     inputMode,
+    readOnly = false,
 }: {
     icon: typeof User;
     label: string;
@@ -259,6 +264,7 @@ function Field({
     onChange: (v: string) => void;
     type?: string;
     inputMode?: 'tel' | 'text' | 'email';
+    readOnly?: boolean;
 }) {
     return (
         <div>
@@ -271,8 +277,13 @@ function Field({
                     type={type}
                     value={value}
                     inputMode={inputMode}
+                    readOnly={readOnly}
                     onChange={(e) => onChange(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-zinc-200 bg-white pl-10 pr-3 text-sm text-zinc-900 outline-none transition focus:border-(--brand) focus:ring-2 focus:ring-(--brand)/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                    className={`h-11 w-full rounded-xl border border-zinc-200 pl-10 pr-3 text-sm text-zinc-900 outline-none transition focus:border-(--brand) focus:ring-2 focus:ring-(--brand)/20 dark:border-zinc-700 dark:text-zinc-100 ${
+                        readOnly
+                            ? 'cursor-not-allowed bg-zinc-100 text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400'
+                            : 'bg-white dark:bg-zinc-950'
+                    }`}
                 />
             </div>
         </div>

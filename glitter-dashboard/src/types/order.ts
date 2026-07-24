@@ -1,12 +1,14 @@
 export type OrderSource = 'in_store' | 'online';
 
 export type OrderStatus =
+    | 'awaiting_payment'
     | 'pending'
     | 'paid'
     | 'processing'
     | 'shipped'
     | 'completed'
     | 'cancelled'
+    | 'expired'
     | 'refunded';
 
 export type PaymentMethod = 'cash' | 'khqr' | 'aba';

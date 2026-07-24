@@ -53,6 +53,11 @@ interface AuthContextValue {
     loginWithGoogle: (idToken: string) => Promise<void>;
     loginWithTelegram: (payload: TelegramAuthData) => Promise<void>;
     loginWithFacebook: (accessToken: string) => Promise<void>;
+    /** Link an OAuth provider to the CURRENT account (Connect flow). */
+    linkProvider: (
+        provider: 'google' | 'facebook' | 'telegram',
+        body: Record<string, unknown>,
+    ) => Promise<void>;
     register: (values: RegisterValues) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
@@ -254,6 +259,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(data.user);
     }, []);
 
+    const linkProvider = useCallback(
+        async (
+            provider: 'google' | 'facebook' | 'telegram',
+            body: Record<string, unknown>,
+        ) => {
+            const res = await authFetch(`/api/auth/${provider}/link`, {
+                method: 'POST',
+                body: JSON.stringify(body),
+            });
+            if (!res.ok) {
+                const e = (await res.json().catch(() => ({}))) as {
+                    message?: string;
+                };
+                throw new Error(e.message || 'Could not connect account');
+            }
+            await refreshUser();
+        },
+        [authFetch, refreshUser],
+    );
+
     const logout = useCallback(async () => {
         try {
             await authFetch('/api/auth/logout', { method: 'POST' });
@@ -273,6 +298,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 loginWithGoogle,
                 loginWithTelegram,
                 loginWithFacebook,
+                linkProvider,
                 register,
                 logout,
                 refreshUser,

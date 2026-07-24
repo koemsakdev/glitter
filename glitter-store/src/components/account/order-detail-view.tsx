@@ -1,12 +1,14 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { MapPin, Package, Store } from 'lucide-react';
+import { MapPin, Package, Receipt, Store } from 'lucide-react';
 import { BackLink } from '@/components/ui/back-link';
+import { MobileAppBar } from '@/components/ui/mobile-app-bar';
+import { ReceiptModal } from '@/components/account/receipt-modal';
 import { useAuth } from '@/lib/auth';
 import { fileUrl, formatPrice } from '@/lib/api';
+import { useLang } from '@/lib/lang-context';
 import { tr, type Lang } from '@/lib/locale';
 import {
     ORDER_STATUS_STYLE,
@@ -14,17 +16,83 @@ import {
     orderStatusLabel,
     paymentStatusLabel,
 } from '@/lib/order-ui';
+import type { OrderInfo } from '@/components/checkout/receipt-card';
 import type { OrderDetail } from '@/lib/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 
-export function OrderDetailView({ lang, id }: { lang: Lang; id: string }) {
+/** A clean, consistent payment label. ABA/KHQR always reads "ABA KHQR"
+ *  (regardless of what was stored — some old orders have a "(proof uploaded)"
+ *  suffix or no name at all), and any stale "(…)" note is stripped otherwise. */
+function cleanPaymentName(
+    paymentMethod: string | null,
+    paymentMethodName: string | null,
+): string {
+    const m = paymentMethod ?? '';
+    if (m === 'khqr' || m === 'aba_khqr' || m === 'aba_ecommerce') {
+        return 'ABA KHQR';
+    }
+    if (/khqr|aba/i.test(paymentMethodName ?? '')) return 'ABA KHQR';
+    return (
+        (paymentMethodName ?? '').replace(/\s*\([^)]*\)\s*$/, '').trim() || m
+    );
+}
+
+/** Build the printable-receipt snapshot from a fetched order. */
+function toOrderInfo(order: OrderDetail): OrderInfo {
+    const online =
+        order.paymentMethod !== 'cod' && order.paymentMethod !== 'on_pickup';
+    return {
+        orderNumber: order.orderNumber,
+        date: order.createdAt,
+        customerName: order.customerName ?? '',
+        subtotal: order.subtotal,
+        fee: order.shippingCost,
+        discount: order.discountTotal,
+        total: order.grandTotal,
+        paymentName: cleanPaymentName(
+            order.paymentMethod,
+            order.paymentMethodName,
+        ),
+        deliveryName: order.deliveryMethodName ?? '',
+        payNow: order.paymentStatus !== 'paid' && online,
+        paid: order.paymentStatus === 'paid',
+        items: order.items.map((it) => {
+            const colorName =
+                it.color && !it.color.startsWith('#') ? it.color : null;
+            return {
+                name: it.productName,
+                variant: [it.size, colorName].filter(Boolean).join(' · '),
+                colorHex: it.color?.startsWith('#') ? it.color : null,
+                qty: it.quantity,
+                unitPrice: it.unitPrice,
+                lineTotal: it.lineTotal,
+            };
+        }),
+    };
+}
+
+export function OrderDetailView({
+    lang: initialLang,
+    id,
+    brandName,
+    logoUrl,
+    telegramUrl,
+}: {
+    lang: Lang;
+    id: string;
+    brandName?: string;
+    logoUrl?: string | null;
+    telegramUrl?: string;
+}) {
+    const { lang } = useLang(initialLang);
     const router = useRouter();
     const { user, loading, authFetch } = useAuth();
     const [order, setOrder] = useState<OrderDetail | null>(null);
     const [state, setState] = useState<'loading' | 'ready' | 'notfound'>(
         'loading',
     );
+    const [receiptOpen, setReceiptOpen] = useState(false);
 
     useEffect(() => {
         if (!loading && !user) router.replace('/account/login');
@@ -68,7 +136,7 @@ export function OrderDetailView({ lang, id }: { lang: Lang; id: string }) {
 
     if (state === 'loading') {
         return (
-            <div className="mx-auto max-w-3xl animate-pulse px-4 py-10">
+            <div className="mx-auto max-w-3xl animate-pulse px-4 pb-10 pt-[calc(env(safe-area-inset-top)+1.5rem)] md:pt-10">
                 <div className="mb-4 h-4 w-16 rounded bg-zinc-200 dark:bg-zinc-800" />
                 <div className="h-28 rounded-2xl border border-zinc-100 bg-white dark:border-zinc-800 dark:bg-zinc-900" />
                 <div className="mt-4 h-48 rounded-2xl border border-zinc-100 bg-white dark:border-zinc-800 dark:bg-zinc-900" />
@@ -78,8 +146,19 @@ export function OrderDetailView({ lang, id }: { lang: Lang; id: string }) {
 
     if (state === 'notfound' || !order) {
         return (
-            <div className="mx-auto max-w-3xl px-4 py-10">
-                <BackLink lang={lang} fallbackHref="/account/orders" className="mb-6" />
+            <div className="mx-auto max-w-3xl px-4 pb-4 pt-0 md:p-8">
+                <MobileAppBar
+                    lang={lang}
+                    title={tr(lang, 'orderDetails')}
+                    fallbackHref="/account/orders"
+                />
+                <div className="hidden md:block">
+                    <BackLink
+                        lang={lang}
+                        fallbackHref="/account/orders"
+                        className="mb-6"
+                    />
+                </div>
                 <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-zinc-200 py-16 text-center dark:border-zinc-700">
                     <Package className="size-8 text-zinc-300 dark:text-zinc-600" />
                     <p className="text-sm text-zinc-400">
@@ -95,10 +174,45 @@ export function OrderDetailView({ lang, id }: { lang: Lang; id: string }) {
         lang === 'km' ? 'km-KH' : 'en-US',
         { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' },
     );
+    const orderInfo = toOrderInfo(order);
+    // Show the ABA KHQR mark for ABA/KHQR payments.
+    const isKhqrPayment =
+        order.paymentMethod === 'khqr' ||
+        order.paymentMethod === 'aba_khqr' ||
+        order.paymentMethod === 'aba_ecommerce' ||
+        /khqr|aba/i.test(order.paymentMethodName ?? '');
 
     return (
-        <div className="stagger mx-auto max-w-3xl px-4 py-10">
-            <BackLink lang={lang} fallbackHref="/account/orders" className="mb-4" />
+        <div className="stagger mx-auto max-w-3xl px-4 pb-4 pt-0 md:p-8">
+            {/* Native-app top bar on mobile: back · title · receipt shortcut. */}
+            <MobileAppBar
+                lang={lang}
+                title={tr(lang, 'orderDetails')}
+                fallbackHref="/account/orders"
+                action={
+                    <button
+                        type="button"
+                        onClick={() => setReceiptOpen(true)}
+                        aria-label={tr(lang, 'orderReceipt')}
+                        className="flex size-9 items-center justify-center rounded-full border border-zinc-200/80 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                    >
+                        <Receipt className="size-[1.15rem]" />
+                    </button>
+                }
+            />
+
+            {/* Desktop back + download-receipt action. */}
+            <div className="mb-4 hidden items-center justify-between md:flex">
+                <BackLink lang={lang} fallbackHref="/account/orders" />
+                <button
+                    type="button"
+                    onClick={() => setReceiptOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-full bg-(--brand) px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-opacity hover:opacity-90"
+                >
+                    <Receipt className="size-4" />
+                    {tr(lang, 'downloadReceipt')}
+                </button>
+            </div>
 
             {/* Header */}
             <div className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
@@ -224,11 +338,25 @@ export function OrderDetailView({ lang, id }: { lang: Lang; id: string }) {
             {/* Payment */}
             <Section title={tr(lang, 'paymentInfo')}>
                 <div className="space-y-3 px-5 py-4 text-sm">
-                    <div className="flex items-center justify-between">
-                        <span className="text-zinc-500 dark:text-zinc-400">
-                            {order.paymentMethodName ??
-                                order.paymentMethod ??
-                                '—'}
+                    <div className="flex items-center justify-between gap-3">
+                        <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                            {isKhqrPayment && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                    src="/khqr.png"
+                                    alt="KHQR"
+                                    className="h-6 w-auto shrink-0 rounded-md"
+                                    onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                    }}
+                                />
+                            )}
+                            <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                                {cleanPaymentName(
+                                    order.paymentMethod,
+                                    order.paymentMethodName,
+                                ) || '—'}
+                            </span>
                         </span>
                         <span
                             className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
@@ -300,6 +428,26 @@ export function OrderDetailView({ lang, id }: { lang: Lang; id: string }) {
                     </p>
                 </Section>
             )}
+
+            {/* Prominent receipt action on mobile (desktop uses the top button). */}
+            <button
+                type="button"
+                onClick={() => setReceiptOpen(true)}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-(--brand) py-3.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-opacity hover:opacity-90 md:hidden"
+            >
+                <Receipt className="size-4.5" />
+                {tr(lang, 'downloadReceipt')}
+            </button>
+
+            <ReceiptModal
+                lang={lang}
+                orderInfo={orderInfo}
+                brandName={brandName}
+                logoUrl={logoUrl}
+                telegramUrl={telegramUrl}
+                open={receiptOpen}
+                onClose={() => setReceiptOpen(false)}
+            />
         </div>
     );
 }

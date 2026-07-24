@@ -1,6 +1,6 @@
 'use client';
 
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -73,6 +73,15 @@ export function ChangePasswordView() {
 
     return (
         <div className="mx-auto max-w-lg space-y-6">
+            <button
+                type="button"
+                onClick={() => router.back()}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+                <ArrowLeft className="size-4" />
+                {t('changePassword.back')}
+            </button>
+
             <div>
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
                     {t('changePassword.title')}
@@ -94,6 +103,7 @@ export function ChangePasswordView() {
                         type={show ? 'text' : 'password'}
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder={t('changePassword.current.placeholder')}
                         className={inputClass}
                         autoComplete="current-password"
                     />
@@ -103,6 +113,7 @@ export function ChangePasswordView() {
                         type={show ? 'text' : 'password'}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder={t('changePassword.new.placeholder')}
                         className={inputClass}
                         autoComplete="new-password"
                     />
@@ -112,6 +123,7 @@ export function ChangePasswordView() {
                         type={show ? 'text' : 'password'}
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder={t('changePassword.confirm.placeholder')}
                         className={inputClass}
                         autoComplete="new-password"
                     />

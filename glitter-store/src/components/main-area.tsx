@@ -17,8 +17,8 @@ export function MainArea({ children }: { children: ReactNode }) {
         pathname === '/checkout' || pathname.startsWith('/products/');
     return (
         <main
-            className={`flex-1 max-lg:overflow-x-clip ${
-                ownsBottom ? '' : 'pb-20 lg:pb-0'
+            className={`flex-1 max-md:overflow-x-clip ${
+                ownsBottom ? '' : 'pb-20 md:pb-0'
             }`}
         >
             {children}

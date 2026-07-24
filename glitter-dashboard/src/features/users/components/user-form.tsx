@@ -1,6 +1,6 @@
 'use client';
 
-import { Camera, Loader2, Trash2 } from 'lucide-react';
+import { Camera, Eye, EyeOff, Loader2, Trash2, UserRound } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SavingOverlay } from '@/components/feedback/saving-overlay';
@@ -19,6 +19,7 @@ import { useActiveBranches } from '@/features/branches/use-branches';
 import {
     useCreateUser,
     useRemoveUserAvatar,
+    useSetUserPassword,
     useUpdateUser,
     useUploadUserAvatar,
 } from '@/features/users/use-users';
@@ -76,11 +77,13 @@ export function UserForm({
 
     const createUser = useCreateUser();
     const updateUser = useUpdateUser();
+    const setUserPassword = useSetUserPassword();
     const uploadAvatar = useUploadUserAvatar();
     const removeAvatar = useRemoveUserAvatar();
     const pending =
         createUser.isPending ||
         updateUser.isPending ||
+        setUserPassword.isPending ||
         uploadAvatar.isPending ||
         removeAvatar.isPending;
 
@@ -97,6 +100,15 @@ export function UserForm({
     const [accountStatus, setAccountStatus] = useState<AccountStatus>(
         user?.accountStatus ?? 'active',
     );
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+
+    // Staff get a dashboard login password. On create it's required; when an
+    // admin edits another staff member they can set/reset it (optional). Hidden
+    // for your OWN account — use the Change Password page (needs your current
+    // password) — and for customers (they sign in on the storefront).
+    const canSetPassword = !isCustomerMode && !isSelf;
+    const passwordRequired = canSetPassword && !isEdit;
 
     // Avatar — staged; applied after the user is saved.
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -168,6 +180,30 @@ export function UserForm({
             return;
         }
 
+        // Staff need an email + password to sign into the dashboard. On create
+        // the password is required; on edit it's only validated when the admin
+        // actually types a new one (blank = keep current).
+        const wantsPassword =
+            canSetPassword && (passwordRequired || password.trim().length > 0);
+        if (wantsPassword) {
+            if (!email.trim()) {
+                toast({
+                    title: t('common.toast.error'),
+                    description: t('user.validation.emailRequiredForLogin'),
+                    variant: 'destructive',
+                });
+                return;
+            }
+            if (password.trim().length < 8) {
+                toast({
+                    title: t('common.toast.error'),
+                    description: t('user.validation.passwordMin'),
+                    variant: 'destructive',
+                });
+                return;
+            }
+        }
+
         const payload: UserFormValues = {
             fullName: fullName.trim(),
             email: email.trim() || undefined,
@@ -175,6 +211,9 @@ export function UserForm({
             role: isCustomerMode ? 'customer' : role,
             branchId: isStaff ? branchId || undefined : undefined,
             accountStatus,
+            // On create, the password goes with the create call. On edit it's
+            // applied separately via the reset endpoint (see below).
+            password: passwordRequired ? password.trim() : undefined,
         };
 
         try {
@@ -182,6 +221,13 @@ export function UserForm({
             if (isEdit && user) {
                 await updateUser.mutateAsync({ id: user.id, payload });
                 id = user.id;
+                // Editing another staff member: apply a new password if typed.
+                if (canSetPassword && password.trim().length >= 8) {
+                    await setUserPassword.mutateAsync({
+                        id,
+                        password: password.trim(),
+                    });
+                }
             } else {
                 const created = await createUser.mutateAsync(payload);
                 id = created.id;
@@ -222,18 +268,20 @@ export function UserForm({
             <div className="space-y-4 px-6 pb-2">
                 {/* Avatar */}
                 <div className="flex items-center gap-4">
-                    <div className="flex size-16 items-center justify-center overflow-hidden rounded-full bg-pink-100 text-base font-semibold text-pink-700 dark:bg-pink-500/15 dark:text-pink-300">
+                    <div className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-pink-100 to-pink-50 text-xl font-semibold text-pink-600 ring-2 ring-pink-200/70 dark:from-pink-500/20 dark:to-pink-500/5 dark:text-pink-300 dark:ring-pink-500/25">
                         {shownAvatar ? (
                             <Image
                                 src={shownAvatar}
                                 alt={fullName || 'avatar'}
-                                width={64}
-                                height={64}
+                                width={80}
+                                height={80}
                                 className="size-full object-cover"
                                 unoptimized
                             />
-                        ) : (
+                        ) : initials !== '?' ? (
                             initials
+                        ) : (
+                            <UserRound className="size-9 text-pink-400 dark:text-pink-300/70" />
                         )}
                     </div>
                     <div className="flex gap-2">
@@ -298,6 +346,51 @@ export function UserForm({
                         />
                     </Field>
                 </div>
+
+                {canSetPassword && (
+                    <Field
+                        label={
+                            isEdit
+                                ? t('user.field.setNewPassword')
+                                : t('user.field.password')
+                        }
+                    >
+                        <div className="relative">
+                            <Input
+                                type={showPassword ? 'text' : 'password'}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder={
+                                    isEdit
+                                        ? t(
+                                              'user.field.setNewPassword.placeholder',
+                                          )
+                                        : t('user.field.password.placeholder')
+                                }
+                                autoComplete="new-password"
+                                className={`${inputClass} pr-11`}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword((v) => !v)}
+                                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground hover:text-foreground"
+                                tabIndex={-1}
+                                aria-label={showPassword ? 'Hide' : 'Show'}
+                            >
+                                {showPassword ? (
+                                    <EyeOff className="size-4" />
+                                ) : (
+                                    <Eye className="size-4" />
+                                )}
+                            </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            {isEdit
+                                ? t('user.form.resetPasswordHint')
+                                : t('user.form.passwordHint')}
+                        </p>
+                    </Field>
+                )}
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {!isCustomerMode && (

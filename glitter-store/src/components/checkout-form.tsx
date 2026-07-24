@@ -16,11 +16,10 @@ import {
   TimerOff,
   Pencil,
   Plus,
+  ChevronsUpDown,
   QrCode,
   Sparkles,
-  Store,
   Trash2,
-  Truck,
   Loader2,
 } from "lucide-react";
 import {
@@ -31,18 +30,38 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
+import { cn } from "@/lib/utils";
 import { MapPicker } from "@/components/ui/map-picker";
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
 import { BackLink } from "@/components/ui/back-link";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AddressForm } from "@/components/checkout/address-form";
+import { Section } from "@/components/checkout/section";
+import { MethodCard } from "@/components/checkout/method-card";
+import { PayIcon } from "@/components/checkout/pay-icon";
+import {
+  OrderReceiptScreen,
+  type OrderInfo,
+  type VerifiedReceipt,
+} from "@/components/checkout/order-receipt";
+import { waitForAba, openAbaCheckout } from "@/lib/aba-payway";
+import { useLang } from "@/lib/lang-context";
 import { pick, tr, type Lang } from "@/lib/locale";
-import type {
-  DeliveryMethod,
-  PaymentOptionType,
-  StoreDelivery,
-} from "@/lib/store-config";
+import type { PaymentOptionType, StoreDelivery } from "@/lib/store-config";
 import type { Address, Branch } from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
@@ -50,74 +69,33 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 // Persist an in-progress KHQR session so a page refresh doesn't lose the QR.
 const KHQR_STORE_KEY = "glitter_aba_khqr";
 
-// ABA's checkout.prod.js (loaded in the root layout) defines `AbaPayway` as a
-// top-level `const`, so it lives in the global lexical scope — NOT on `window`.
-// Reference it as a bare global, guarded by `typeof` so it can't throw before
-// the script has loaded.
-declare const AbaPayway: { checkout: () => void } | undefined;
-
-function getAbaPayway(): { checkout: () => void } | undefined {
-  return typeof AbaPayway === "undefined" ? undefined : AbaPayway;
-}
-
-/** Resolve once ABA's bridge is ready (script may still be loading), or false. */
-function waitForAba(timeoutMs = 8000): Promise<boolean> {
-  return new Promise<boolean>((resolve) => {
-    if (getAbaPayway()?.checkout) return resolve(true);
-    let waited = 0;
-    const step = 100;
-    const t = setInterval(() => {
-      if (getAbaPayway()?.checkout) {
-        clearInterval(t);
-        resolve(true);
-      } else if ((waited += step) >= timeoutMs) {
-        clearInterval(t);
-        resolve(false);
-      }
-    }, step);
-  });
-}
-
-/**
- * Build the signed hidden <form id="aba_merchant_request" target="aba_webservice">
- * and call `AbaPayway.checkout()`, which finds that form and opens ABA's own
- * checkout modal/iframe. Returns false if the bridge isn't available.
- */
-function openAbaCheckout(
-  actionUrl: string,
-  fields: Record<string, string>,
-): boolean {
-  const aba = getAbaPayway();
-  if (!aba?.checkout) return false;
-
-  document.getElementById("aba_merchant_request")?.remove();
-  const form = document.createElement("form");
-  form.id = "aba_merchant_request";
-  form.method = "POST";
-  form.action = actionUrl;
-  form.target = "aba_webservice";
-  form.style.display = "none";
-  for (const [name, value] of Object.entries(fields)) {
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = name;
-    input.value = value ?? "";
-    form.appendChild(input);
-  }
-  document.body.appendChild(form);
-  aba.checkout();
-  return true;
+/** Drop raw hex colour codes from a variant label (e.g. "L · #FFFFFF" → "L"),
+ *  since a hex string isn't meaningful to a customer on a receipt. */
+function cleanVariantLabel(label: string): string {
+  return label
+    .split("·")
+    .map((t) => t.trim())
+    .filter((t) => t && !/^#?[0-9a-fA-F]{3,8}$/.test(t))
+    .join(" · ");
 }
 
 export function CheckoutForm({
   branches,
-  lang,
+  lang: initialLang,
   delivery,
+  telegramUrl,
+  brandName,
+  logoUrl,
 }: {
   branches: Branch[];
   lang: Lang;
   delivery: StoreDelivery;
+  telegramUrl?: string;
+  brandName?: string;
+  logoUrl?: string | null;
 }) {
+  // Read the language from the client context so switching is instant.
+  const { lang } = useLang(initialLang);
   const { items, hydrated, subtotal, clear, updateQty, removeItem } = useCart();
   const { user, authFetch } = useAuth();
 
@@ -133,6 +111,8 @@ export function CheckoutForm({
     );
   });
   const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
+  const [branchOpen, setBranchOpen] = useState(false);
+  const selectedBranch = branches.find((b) => b.id === branchId);
   // Which payment method the customer picked ('khqr' | 'cod').
   const [payMethodId, setPayMethodId] = useState<string>("");
 
@@ -309,14 +289,10 @@ export function CheckoutForm({
   const [khqrLeft, setKhqrLeft] = useState(0); // seconds remaining
   const khqrExpired = abaPay?.mode === "qr" && khqrLeft <= 0;
   // Verified receipt shown on the success screen.
-  const [receipt, setReceipt] = useState<{
-    tranId: string;
-    apv: string;
-    amount: string;
-    currency: string;
-    date: string;
-    payer: string;
-  } | null>(null);
+  const [receipt, setReceipt] = useState<VerifiedReceipt | null>(null);
+  // Snapshot of the placed order, shown as a receipt on the success screen
+  // (survives the cart being cleared). `paid` flips true once ABA confirms.
+  const [orderInfo, setOrderInfo] = useState<OrderInfo | null>(null);
 
   const loadAddresses = useCallback(
     async (selectId?: string) => {
@@ -377,6 +353,7 @@ export function CheckoutForm({
           clearInterval(id);
           clear();
           if (d.detail) setReceipt(d.detail);
+          setOrderInfo((o) => (o ? { ...o, paid: true } : o));
           setAbaPay(null);
           setPlaced(abaPay.orderNumber);
         }
@@ -607,96 +584,27 @@ export function CheckoutForm({
   );
 
   if (!hydrated) {
-    return <div className="mx-auto max-w-5xl px-4 py-16" />;
+    return <div className="mx-auto max-w-6xl px-4 py-16" />;
   }
 
   if (placed !== null) {
     return (
-      <div className="mx-auto max-w-xl px-4 py-20 text-center">
-        <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15">
-          <Check className="size-8" />
-        </div>
-        <h1 className="mt-5 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-          {tr(lang, "orderPlaced")}
-        </h1>
-        {placed && (
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-            {tr(lang, "orderNumber")}:{" "}
-            <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-              {placed}
-            </span>
-          </p>
-        )}
-        <p className="mx-auto mt-3 max-w-md text-sm text-zinc-500 dark:text-zinc-400">
-          {tr(lang, "orderPlacedHelp")}
-        </p>
-        {receipt && (
-          <div className="mx-auto mt-6 max-w-sm overflow-hidden rounded-2xl border border-emerald-200 text-left dark:border-emerald-500/25">
-            <div className="flex items-center gap-2 bg-emerald-50 px-5 py-3 dark:bg-emerald-500/10">
-              <Check className="size-4 text-emerald-600 dark:text-emerald-400" />
-              <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-                {tr(lang, "paymentReceived")}
-              </span>
-              <span className="ml-auto rounded-full bg-[#00529C] px-2 py-0.5 text-[10px] font-bold text-white">
-                ABA KHQR
-              </span>
-            </div>
-            <dl className="divide-y divide-zinc-100 px-5 dark:divide-zinc-800">
-              {(
-                [
-                  [
-                    tr(lang, "receiptAmount"),
-                    receipt.amount
-                      ? `${receipt.currency === "KHR" ? "៛" : "$"}${receipt.amount}`
-                      : formatPrice(grandTotal),
-                  ],
-                  [tr(lang, "receiptTxn"), receipt.tranId],
-                  [tr(lang, "receiptApproval"), receipt.apv],
-                  [tr(lang, "receiptPayer"), receipt.payer],
-                  [tr(lang, "receiptDate"), receipt.date],
-                ] as [string, string][]
-              )
-                .filter(([, v]) => v)
-                .map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="flex items-center justify-between gap-4 py-2.5 text-sm"
-                  >
-                    <dt className="text-zinc-500 dark:text-zinc-400">
-                      {label}
-                    </dt>
-                    <dd className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {value}
-                    </dd>
-                  </div>
-                ))}
-            </dl>
-          </div>
-        )}
-        <div className="mt-7 flex justify-center gap-3">
-          <Link
-            href="/products"
-            className="rounded-full bg-(--brand) px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
-          >
-            {tr(lang, "continueShopping")}
-          </Link>
-          {user && (
-            <Link
-              href="/account"
-              className="rounded-full border border-zinc-200 px-6 py-3 text-sm font-semibold text-zinc-700 hover:border-(--brand) dark:border-zinc-700 dark:text-zinc-200"
-            >
-              {tr(lang, "myOrders")}
-            </Link>
-          )}
-        </div>
-      </div>
+      <OrderReceiptScreen
+        lang={lang}
+        placed={placed}
+        orderInfo={orderInfo}
+        receipt={receipt}
+        brandName={brandName}
+        logoUrl={logoUrl}
+        telegramUrl={telegramUrl}
+        showMyOrders={!!user}
+      />
     );
   }
 
   if (items.length === 0) {
     return (
-      <div className="relative flex min-h-screen flex-col">
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-zinc-50 via-zinc-100/50 to-zinc-50 dark:from-zinc-950 dark:via-zinc-900/50 dark:to-zinc-950" />
+      <div className="flex min-h-screen flex-col">
         <div className="px-4 pt-4 max-md:pt-[calc(env(safe-area-inset-top)+0.85rem)]">
           <BackLink lang={lang} fallbackHref="/products" />
         </div>
@@ -813,6 +721,35 @@ export function CheckoutForm({
       const orderId = json.data?.id ?? "";
       const orderNumber = json.data?.orderNumber ?? orderId;
 
+      // Snapshot the order so the success screen has data even after the cart
+      // is cleared (and for COD, which has no ABA receipt).
+      setOrderInfo({
+        orderNumber,
+        date: new Date().toISOString(),
+        customerName: name.trim(),
+        subtotal,
+        fee,
+        discount,
+        total: grandTotal,
+        paymentName: usesKhqr
+          ? (selectedPay?.title ?? "ABA KHQR")
+          : isPickup
+            ? tr(lang, "payAtStore")
+            : tr(lang, "payOnDelivery"),
+        deliveryName:
+          pick(lang, method?.nameEn ?? "", method?.nameKm ?? "") || methodId,
+        payNow: usesKhqr,
+        paid: false,
+        items: items.map((i) => ({
+          name: pick(lang, i.nameEn, i.nameKm),
+          variant: cleanVariantLabel(i.variantLabel ?? ""),
+          colorHex: i.colorHex ?? null,
+          qty: i.quantity,
+          unitPrice: i.unitPrice,
+          lineTotal: i.unitPrice * i.quantity,
+        })),
+      });
+
       // Online ABA payment. Two modes:
       //   aba_ecommerce → ABA's hosted checkout modal (checkout2-0.js).
       //   aba_khqr      → our KHQR popup (QR image + ABA Mobile deeplink).
@@ -914,11 +851,8 @@ export function CheckoutForm({
     "h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors focus:border-(--brand) dark:border-zinc-700 dark:bg-zinc-900";
 
   return (
-    <div className="relative min-h-screen">
-      {/* Subtle premium background gradient */}
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-linear-to-br from-zinc-50 via-zinc-100/50 to-zinc-50 dark:from-zinc-950 dark:via-zinc-900/50 dark:to-zinc-950" />
-
-      <div className="mx-auto max-w-5xl px-4 pb-28 pt-0 md:pb-12 md:pt-8">
+    <div className="min-h-screen">
+      <div className="mx-auto max-w-6xl px-4 pb-28 pt-0 md:pb-12 md:pt-8">
         {/* App-style header bar: back (left) · title (centre) · clear-all
                 (right). Sticks to the top on mobile so it stays in view. */}
         <div className="relative mb-6 flex items-center justify-between gap-2 max-md:sticky max-md:top-0 max-md:z-30 max-md:-mx-4 max-md:border-b max-md:border-zinc-200/60 max-md:bg-white/85 max-md:px-4 max-md:pb-3 max-md:pt-[calc(env(safe-area-inset-top)+0.85rem)] max-md:backdrop-blur-lg dark:max-md:border-zinc-800/60 dark:max-md:bg-zinc-950/85">
@@ -1147,19 +1081,88 @@ export function CheckoutForm({
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-400">
                     {tr(lang, "pickupBranch")}
                   </label>
-                  <select
-                    value={branchId}
-                    onChange={(e) => setBranchId(e.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="">{tr(lang, "selectBranch")}</option>
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {pick(lang, b.branchNameEn, b.branchNameKm)} —{" "}
-                        {b.streetAddress}
-                      </option>
-                    ))}
-                  </select>
+                  <Popover open={branchOpen} onOpenChange={setBranchOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        role="combobox"
+                        aria-expanded={branchOpen}
+                        className={cn(
+                          inputClass,
+                          "flex items-center justify-between gap-2 text-left",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "truncate",
+                            !selectedBranch &&
+                              "text-zinc-400 dark:text-zinc-500",
+                          )}
+                        >
+                          {selectedBranch
+                            ? pick(
+                                lang,
+                                selectedBranch.branchNameEn,
+                                selectedBranch.branchNameKm,
+                              )
+                            : tr(lang, "selectBranch")}
+                        </span>
+                        <ChevronsUpDown className="size-4 shrink-0 text-zinc-400" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="start"
+                      className="w-(--radix-popover-trigger-width) p-0"
+                    >
+                      <Command>
+                        <CommandInput
+                          placeholder={tr(lang, "searchBranch")}
+                        />
+                        <CommandList>
+                          <CommandEmpty>
+                            {tr(lang, "noBranchFound")}
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {branches.map((b) => {
+                              const name = pick(
+                                lang,
+                                b.branchNameEn,
+                                b.branchNameKm,
+                              );
+                              return (
+                                <CommandItem
+                                  key={b.id}
+                                  value={`${name} ${b.streetAddress}`}
+                                  onSelect={() => {
+                                    setBranchId(b.id);
+                                    setBranchOpen(false);
+                                  }}
+                                  className="gap-2"
+                                >
+                                  <Check
+                                    className={cn(
+                                      "size-4 shrink-0 text-(--brand)",
+                                      branchId === b.id
+                                        ? "opacity-100"
+                                        : "opacity-0",
+                                    )}
+                                  />
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                      {name}
+                                    </span>
+                                    <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">
+                                      {b.streetAddress}
+                                    </span>
+                                  </span>
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               )}
             </Section>
@@ -1452,11 +1455,11 @@ export function CheckoutForm({
           createPortal(
             <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+0.6rem)] pt-2 md:hidden">
               {error && (
-                <div className="mx-auto mb-2 max-w-md rounded-xl bg-red-50 px-3 py-2 text-center text-xs font-semibold text-red-600 shadow-sm dark:bg-red-950/70 dark:text-red-400">
+                <div className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-center text-xs font-semibold text-red-600 shadow-sm dark:bg-red-950/70 dark:text-red-400">
                   {error}
                 </div>
               )}
-              <div className="mx-auto flex max-w-md items-center gap-3 rounded-[1.4rem] border border-zinc-200/70 bg-white/95 p-2 pl-4 shadow-[0_10px_40px_-8px_rgba(0,0,0,0.25)] backdrop-blur-xl dark:border-zinc-700/60 dark:bg-zinc-900/95">
+              <div className="flex items-center gap-3 rounded-[1.4rem] border border-zinc-200/70 bg-white/95 p-2 pl-4 shadow-[0_10px_40px_-8px_rgba(0,0,0,0.25)] backdrop-blur-xl dark:border-zinc-700/60 dark:bg-zinc-900/95">
                 <div className="min-w-0 shrink-0">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
                     {tr(lang, "total")}
@@ -1707,123 +1710,6 @@ export function CheckoutForm({
           </ResponsiveModal>
         )}
       </div>
-    </div>
-  );
-}
-
-/** Payment-method icon: the uploaded logo, falling back to a default icon if
- *  the image is missing or fails to load. */
-function PayIcon({
-  iconUrl,
-  Icon,
-}: {
-  iconUrl: string | null;
-  Icon: typeof QrCode;
-}) {
-  const [failed, setFailed] = useState(false);
-  if (iconUrl && !failed) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={iconUrl}
-        alt=""
-        className="size-full object-contain rounded-lg"
-        onError={() => setFailed(true)}
-      />
-    );
-  }
-  return <Icon className="size-6" />;
-}
-
-function MethodCard({
-  method,
-  lang,
-  active,
-  onSelect,
-}: {
-  method: DeliveryMethod;
-  lang: Lang;
-  active: boolean;
-  onSelect: () => void;
-}) {
-  const icon = fileUrl(method.iconUrl);
-  const Fallback = method.type === "pickup" ? Store : Truck;
-  const free = method.fee <= 0;
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`group flex w-full items-center gap-3.5 rounded-2xl border p-3.5 text-left transition-all ${
-        active
-          ? "border-(--brand) bg-(--brand)/5 ring-1 ring-(--brand)/30"
-          : "border-zinc-200 hover:border-(--brand)/40 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800/50"
-      }`}
-    >
-      <span
-        className={`flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border transition-colors ${
-          icon
-            ? "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
-            : active
-              ? "border-transparent bg-(--brand)/10 text-(--brand)"
-              : "border-transparent bg-zinc-100 text-zinc-400 dark:bg-zinc-800"
-        }`}
-      >
-        {icon ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={icon} alt="" className="size-full object-contain" />
-        ) : (
-          <Fallback className="size-6" />
-        )}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-          {pick(lang, method.nameEn, method.nameKm)}
-        </span>
-        <span
-          className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold ${
-            free
-              ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
-              : "bg-(--brand)/10 text-(--brand)"
-          }`}
-        >
-          {free ? tr(lang, "free") : formatPrice(method.fee)}
-        </span>
-      </span>
-      <span
-        className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-          active
-            ? "border-(--brand) bg-(--brand)"
-            : "border-zinc-300 dark:border-zinc-600"
-        }`}
-      >
-        {active && <Check className="size-3 text-white" />}
-      </span>
-    </button>
-  );
-}
-
-function Section({
-  step,
-  title,
-  action,
-  children,
-}: {
-  step: number;
-  title: string;
-  /** Optional control shown at the right of the section header. */
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-3xl border border-white/60 bg-white/60 p-6 shadow-sm backdrop-blur-md dark:border-zinc-800/60 dark:bg-zinc-900/50">
-      <h2 className="mb-5 flex items-center gap-3 text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-        <span className="flex size-7 items-center justify-center rounded-full bg-(--brand) text-sm font-bold text-white shadow-sm shadow-(--brand)/30">
-          {step}
-        </span>
-        {title}
-        {action && <span className="ml-auto">{action}</span>}
-      </h2>
-      {children}
     </div>
   );
 }

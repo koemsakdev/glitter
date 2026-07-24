@@ -24,6 +24,52 @@ import { listUploadedImages, uploadImage } from '@/lib/uploads';
 
 type Mode = 'upload' | 'url' | 'library';
 
+/** Load an image and read its natural pixel dimensions (never hangs). */
+function readImageSize(
+    src: string,
+): Promise<{ width: number; height: number }> {
+    return new Promise((resolve, reject) => {
+        const img = new window.Image();
+        // Safety net: if the image neither loads nor errors (e.g. a bad URL),
+        // reject after 10s so callers never wait forever.
+        const timer = setTimeout(() => reject(new Error('Image load timed out')), 10000);
+        img.onload = () => {
+            clearTimeout(timer);
+            resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        };
+        img.onerror = () => {
+            clearTimeout(timer);
+            reject(new Error('Could not load image'));
+        };
+        img.src = src;
+    });
+}
+
+async function readFileSize(
+    file: File,
+): Promise<{ width: number; height: number }> {
+    const url = URL.createObjectURL(file);
+    try {
+        return await readImageSize(url);
+    } finally {
+        URL.revokeObjectURL(url);
+    }
+}
+
+/** Whether the image's width:height ratio falls within [min, max]. */
+function withinAspectRange(
+    width: number,
+    height: number,
+    min: number,
+    max: number,
+): boolean {
+    if (!width || !height) return false;
+    const ratio = width / height;
+    // Small tolerance so an exactly-on-the-edge image (e.g. 3.00) isn't rejected
+    // by float rounding.
+    return ratio >= min - 0.02 && ratio <= max + 0.02;
+}
+
 const MODES: { value: Mode; key: TranslationKey; icon: typeof Upload }[] = [
     { value: 'upload', key: 'ad.image.upload', icon: Upload },
     { value: 'url', key: 'ad.image.url', icon: Link2 },
@@ -33,9 +79,18 @@ const MODES: { value: Mode; key: TranslationKey; icon: typeof Upload }[] = [
 export function AdImageField({
     value,
     onChange,
+    minAspect,
+    maxAspect,
 }: {
     value: string;
     onChange: (url: string) => void;
+    /**
+     * Optional width:height range an uploaded/library image must fall within
+     * (e.g. minAspect=2.5, maxAspect=4 for a wide banner). Either bound alone
+     * works; leave both unset to skip the check.
+     */
+    minAspect?: number;
+    maxAspect?: number;
 }) {
     const { t } = useI18n();
     const { toast } = useToast();
@@ -53,8 +108,46 @@ export function AdImageField({
 
     const preview = getFileUrl(value);
 
+    // Aspect-ratio range (only enforced when a bound is provided).
+    const hasAspect = minAspect !== undefined || maxAspect !== undefined;
+    const aMin = minAspect ?? 0;
+    const aMax = maxAspect ?? Infinity;
+
     function openPicker() {
         fileRef.current?.click();
+    }
+
+    async function selectFromLibrary(url: string) {
+        // Reusing an existing image is always allowed — the admin is picking it
+        // deliberately. We still *warn* (not block) if it's outside the banner
+        // range, since only brand-new uploads are hard-required to match.
+        onChange(url);
+        if (hasAspect) {
+            const src = getFileUrl(url);
+            try {
+                const { width, height } = await readImageSize(src ?? url);
+                if (!withinAspectRange(width, height, aMin, aMax)) {
+                    toast({
+                        title: t('ad.image.aspectWarn').replace(
+                            '{size}',
+                            `${width}×${height}`,
+                        ),
+                    });
+                }
+            } catch {
+                // Couldn't read dimensions — never block a deliberate reuse.
+            }
+        }
+    }
+
+    function rejectAspect(width: number, height: number) {
+        toast({
+            title: t('ad.image.aspectError').replace(
+                '{size}',
+                `${width}×${height}`,
+            ),
+            variant: 'destructive',
+        });
     }
 
     async function handleFile(file: File | undefined) {
@@ -65,6 +158,17 @@ export function AdImageField({
                 variant: 'destructive',
             });
             return;
+        }
+        if (hasAspect) {
+            try {
+                const { width, height } = await readFileSize(file);
+                if (!withinAspectRange(width, height, aMin, aMax)) {
+                    rejectAspect(width, height);
+                    return;
+                }
+            } catch {
+                // Couldn't read dimensions — let the upload proceed.
+            }
         }
         setUploading(true);
         try {
@@ -95,7 +199,14 @@ export function AdImageField({
                 }}
             />
 
-            <label className="text-sm font-medium">{t('ad.image')}</label>
+            <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">{t('ad.image')}</label>
+                {hasAspect && (
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                        {t('ad.image.aspectHint')}
+                    </span>
+                )}
+            </div>
 
             {/* Mode switch */}
             <div className="flex gap-1 rounded-lg border border-input bg-muted/40 p-1 dark:bg-input/20">
@@ -235,7 +346,9 @@ export function AdImageField({
                                     <button
                                         key={img.url}
                                         type="button"
-                                        onClick={() => onChange(img.url)}
+                                        onClick={() =>
+                                            void selectFromLibrary(img.url)
+                                        }
                                         className={cn(
                                             'relative aspect-square overflow-hidden rounded-lg border-2 transition-colors',
                                             selected

@@ -51,7 +51,7 @@ export function ProductGallery({
     }
 
     return (
-        <div className="w-full min-w-0 lg:sticky lg:top-24">
+        <div className="w-full min-w-0 sm:mx-auto sm:max-w-md lg:mx-0 lg:max-w-none lg:sticky lg:top-24">
             {/* Swipeable image viewer */}
             <div className="group relative overflow-hidden rounded-2xl bg-zinc-100 shadow-sm md:rounded-3xl dark:bg-zinc-800">
                 {count > 0 ? (
@@ -75,7 +75,7 @@ export function ProductGallery({
                                         <img
                                             src={u}
                                             alt={name}
-                                            className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                            className="size-full object-cover transition-transform duration-500 group-hover:scale-102"
                                         />
                                     )}
                                 </button>

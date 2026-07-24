@@ -1,39 +1,24 @@
+'use client';
+
 import Link from 'next/link';
 import { QuickAddButton } from '@/components/quick-add-button';
 import { WishlistButton } from '@/components/wishlist-button';
+import { StarRating } from '@/components/ui/star-rating';
 import { fileUrl, formatPrice } from '@/lib/api';
+import { useLang } from '@/lib/lang-context';
 import { pick, tr, type Lang } from '@/lib/locale';
 import type { Product } from '@/lib/types';
 
-function Stars({ rating }: { rating: number }) {
-    const rounded = Math.round(rating);
-    return (
-        <div className="flex items-center gap-0.5">
-            {[1, 2, 3, 4, 5].map((i) => (
-                <svg
-                    key={i}
-                    className={
-                        i <= rounded
-                            ? 'size-3.5 text-amber-400'
-                            : 'size-3.5 text-zinc-300 dark:text-zinc-600'
-                    }
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                >
-                    <path d="M12 2.5l2.9 5.9 6.6 1-4.7 4.6 1.1 6.5L12 17.8 6.1 20.5l1.1-6.5L2.5 9.4l6.6-1z" />
-                </svg>
-            ))}
-        </div>
-    );
-}
-
 export function ProductCard({
     product,
-    lang,
+    lang: initialLang,
 }: {
     product: Product;
     lang: Lang;
 }) {
+    // Read from the language context so switching re-renders instantly (the
+    // component is still server-rendered on first load, so SEO is preserved).
+    const { lang } = useLang(initialLang);
     const name = pick(lang, product.nameEn, product.nameKm);
     const primary =
         product.images?.find((i) => i.imageType === 'primary') ??
@@ -181,7 +166,7 @@ export function ProductCard({
                         {name}
                     </h3>
                     <div className="mt-1 flex items-center gap-1.5">
-                        <Stars rating={product.averageRating} />
+                        <StarRating value={product.averageRating} />
                         {product.reviewCount > 0 && (
                             <span className="text-[11px] text-zinc-400">
                                 ({product.reviewCount})

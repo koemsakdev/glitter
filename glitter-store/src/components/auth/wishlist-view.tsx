@@ -6,9 +6,11 @@ import { ProductCard } from '@/components/product-card';
 import { BackLink } from '@/components/ui/back-link';
 import { useAuth } from '@/lib/auth';
 import { useWishlist } from '@/lib/wishlist';
+import { useLang } from '@/lib/lang-context';
 import { tr, type Lang } from '@/lib/locale';
 
-export function WishlistView({ lang }: { lang: Lang }) {
+export function WishlistView({ lang: initialLang }: { lang: Lang }) {
+    const { lang } = useLang(initialLang);
     const router = useRouter();
     const { user, loading } = useAuth();
     const { products, loading: wlLoading } = useWishlist();
@@ -27,7 +29,7 @@ export function WishlistView({ lang }: { lang: Lang }) {
 
     return (
         <div className="mx-auto max-w-6xl px-4 py-12">
-            <BackLink lang={lang} fallbackHref="/account" className="mb-3" />
+            <BackLink lang={lang} fallbackHref="/account" className="mb-3 max-md:hidden" />
             <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                 {tr(lang, 'myWishlist')}
             </h1>

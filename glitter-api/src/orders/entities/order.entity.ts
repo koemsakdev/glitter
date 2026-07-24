@@ -21,16 +21,22 @@ export type OrderSource = 'in_store' | 'online';
 /**
  * Order lifecycle.
  * - in_store: created `completed` (paid at the counter).
- * - online: pending → paid → processing → shipped → completed.
+ * - online (pay-first / KHQR): awaiting_payment → paid → processing → shipped →
+ *   completed. An `awaiting_payment` order holds no stock and is hidden from the
+ *   dashboard, customer history and stats until it's paid; if the customer never
+ *   pays it is swept to `expired` (nothing to release, no cancel notice).
+ * - online (COD / pickup): pending → paid → processing → shipped → completed.
  * - either: cancelled (pre-fulfilment) or refunded (post-fulfilment).
  */
 export type OrderStatus =
+  | 'awaiting_payment'
   | 'pending'
   | 'paid'
   | 'processing'
   | 'shipped'
   | 'completed'
   | 'cancelled'
+  | 'expired'
   | 'refunded';
 
 /** Whether the order has been paid for. */
@@ -75,12 +81,14 @@ export class OrderEntity {
   @Column({
     type: 'enum',
     enum: [
+      'awaiting_payment',
       'pending',
       'paid',
       'processing',
       'shipped',
       'completed',
       'cancelled',
+      'expired',
       'refunded',
     ],
     default: 'pending',

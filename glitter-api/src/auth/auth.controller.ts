@@ -1,11 +1,15 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
 } from '@nestjs/common';
+import type { AuthProvider } from '../users/entities/auth-account.entity';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -24,6 +28,7 @@ import {
   RefreshResponseDto,
 } from './dto/auth-response.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -216,6 +221,89 @@ export class AuthController {
     @Body() dto: ChangePasswordDto,
   ): Promise<{ ok: true }> {
     await this.authService.changePassword(userId, dto);
+    return { ok: true };
+  }
+
+  @Post('email/send-code')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Email a 6-digit verification code to yourself' })
+  @ApiResponse({ status: 200 })
+  async sendEmailCode(
+    @CurrentUser('id') userId: string,
+  ): Promise<{ sent: true }> {
+    return this.authService.sendEmailVerification(userId);
+  }
+
+  @Post('email/verify')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Verify your email with the code' })
+  @ApiBody({ type: VerifyEmailDto })
+  @ApiResponse({ status: 200 })
+  async verifyEmail(
+    @CurrentUser('id') userId: string,
+    @Body() dto: VerifyEmailDto,
+  ): Promise<{ verified: true }> {
+    return this.authService.verifyEmail(userId, dto.code);
+  }
+
+  @Delete('providers/:provider')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Disconnect a linked sign-in method (never the last one)',
+  })
+  @ApiResponse({ status: 200 })
+  @ApiResponse({ status: 400, description: 'Cannot remove your only method' })
+  async disconnectProvider(
+    @CurrentUser('id') userId: string,
+    @Param('provider') provider: string,
+  ): Promise<{ ok: true }> {
+    const valid: AuthProvider[] = ['email', 'google', 'facebook', 'telegram'];
+    if (!valid.includes(provider as AuthProvider)) {
+      throw new BadRequestException('Unknown provider');
+    }
+    await this.usersService.unlinkProvider(userId, provider as AuthProvider);
+    return { ok: true };
+  }
+
+  @Post('google/link')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Link a Google account to the current user' })
+  @ApiBody({ type: GoogleLoginDto })
+  async linkGoogle(
+    @CurrentUser('id') userId: string,
+    @Body() dto: GoogleLoginDto,
+  ): Promise<{ ok: true }> {
+    await this.authService.linkGoogle(userId, dto);
+    return { ok: true };
+  }
+
+  @Post('facebook/link')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Link a Facebook account to the current user' })
+  @ApiBody({ type: FacebookLoginDto })
+  async linkFacebook(
+    @CurrentUser('id') userId: string,
+    @Body() dto: FacebookLoginDto,
+  ): Promise<{ ok: true }> {
+    await this.authService.linkFacebook(userId, dto);
+    return { ok: true };
+  }
+
+  @Post('telegram/link')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Link a Telegram account to the current user' })
+  @ApiBody({ type: TelegramLoginDto })
+  async linkTelegram(
+    @CurrentUser('id') userId: string,
+    @Body() dto: TelegramLoginDto,
+  ): Promise<{ ok: true }> {
+    await this.authService.linkTelegram(userId, dto);
     return { ok: true };
   }
 }

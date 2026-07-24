@@ -41,7 +41,11 @@ export function LiveUpdates() {
         };
 
         const connect = () => {
-            if (closed) return;
+            // Never hold more than one stream, and never open one while the tab
+            // is in the background — a browser only allows ~6 connections per
+            // host, so a background tab's stream would needlessly occupy a slot
+            // and can starve real requests (login, the chat, …) in other tabs.
+            if (closed || source || document.visibilityState === 'hidden') return;
             source = new EventSource(`${API_URL}/api/realtime/events`);
             source.onmessage = (event) => {
                 try {
@@ -57,20 +61,33 @@ export function LiveUpdates() {
                 // The stream dropped (e.g. the API restarted). Re-open it —
                 // EventSource's built-in retry can stall after a CLOSED state.
                 if (source && source.readyState === EventSource.CLOSED) {
-                    source.close();
+                    disconnect();
                     clearTimeout(reconnect);
                     reconnect = setTimeout(connect, 2000);
                 }
             };
         };
 
+        const disconnect = () => {
+            clearTimeout(reconnect);
+            source?.close();
+            source = null;
+        };
+
+        // Free the connection when the tab is hidden; restore it when visible.
+        const onVisibility = () => {
+            if (document.visibilityState === 'hidden') disconnect();
+            else connect();
+        };
+
         connect();
+        document.addEventListener('visibilitychange', onVisibility);
 
         return () => {
             closed = true;
+            document.removeEventListener('visibilitychange', onVisibility);
             clearTimeout(timer);
-            clearTimeout(reconnect);
-            source?.close();
+            disconnect();
         };
     }, [router]);
 

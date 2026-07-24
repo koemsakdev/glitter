@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ChevronRight, Package } from 'lucide-react';
 import { BackLink } from '@/components/ui/back-link';
+import { MobileAppBar } from '@/components/ui/mobile-app-bar';
 import { useAuth } from '@/lib/auth';
 import { formatPrice } from '@/lib/api';
+import { useLang } from '@/lib/lang-context';
 import { tr, type Lang } from '@/lib/locale';
 import {
     ORDER_STATUS_STYLE,
@@ -18,7 +20,8 @@ import type { OrderSummary } from '@/lib/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 
-export function OrdersView({ lang }: { lang: Lang }) {
+export function OrdersView({ lang: initialLang }: { lang: Lang }) {
+    const { lang } = useLang(initialLang);
     const router = useRouter();
     const { user, loading, authFetch } = useAuth();
     const [orders, setOrders] = useState<OrderSummary[]>([]);
@@ -59,13 +62,21 @@ export function OrdersView({ lang }: { lang: Lang }) {
     }, [user, authFetch]);
 
     return (
-        <div className="stagger mx-auto max-w-3xl px-4 py-10">
-            <BackLink lang={lang} fallbackHref="/account" className="mb-4" />
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                {tr(lang, 'myOrders')}
-            </h1>
+        <div className="stagger mx-auto max-w-3xl px-4 pb-4 pt-0 md:p-8">
+            {/* Native-app top bar on mobile; full header on desktop. */}
+            <MobileAppBar
+                lang={lang}
+                title={tr(lang, 'myOrders')}
+                fallbackHref="/account"
+            />
+            <div className="hidden md:block">
+                <BackLink lang={lang} fallbackHref="/account" className="mb-4" />
+                <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                    {tr(lang, 'myOrders')}
+                </h1>
+            </div>
 
-            <div className="mt-6 space-y-3">
+            <div className="mt-3 space-y-3 md:mt-6">
                 {ordersLoading ? (
                     <div className="animate-pulse space-y-3">
                         {[0, 1, 2].map((i) => (

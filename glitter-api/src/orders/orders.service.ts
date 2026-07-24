@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, LessThan, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, MoreThan, Repository } from 'typeorm';
 import { BranchEntity } from '../branch/entities/branch.entity';
 import { ProductImageEntity } from '../product-images/entities/product-image.entity';
 import { ProductVariantEntity } from '../product-variants/entities/product-variant.entity';
@@ -35,12 +35,29 @@ import {
 const RESERVED_STATUSES: OrderStatus[] = ['pending', 'paid', 'processing'];
 const COMMITTED_STATUSES: OrderStatus[] = ['shipped', 'completed'];
 
+/**
+ * Statuses that are NOT real, fulfillable orders: an `awaiting_payment` KHQR
+ * checkout that hasn't been paid yet, and an `expired` one that never was.
+ * Hidden from the dashboard list, customer history and KPI counts.
+ */
+const HIDDEN_STATUSES: OrderStatus[] = ['awaiting_payment', 'expired'];
+
+/** Payment options that must be paid up-front (before the order is "real"). */
+const PREPAY_METHODS = new Set(['khqr', 'aba_khqr', 'aba_ecommerce']);
+function isPrepayMethod(method: string | null | undefined): boolean {
+  return !!method && PREPAY_METHODS.has(method);
+}
+
 /** Allowed status transitions per source. */
 const TRANSITIONS: Record<
   string,
   Partial<Record<OrderStatus, OrderStatus[]>>
 > = {
   online: {
+    // Pay-first (KHQR): paid on ABA confirmation, else expires (or cancelled).
+    awaiting_payment: ['paid', 'expired', 'cancelled'],
+    // A late payment can still revive an expired hold into a real order.
+    expired: ['paid'],
     pending: ['paid', 'processing', 'cancelled'],
     paid: ['processing', 'shipped', 'completed', 'cancelled'],
     processing: ['shipped', 'completed', 'cancelled'],
@@ -150,46 +167,53 @@ export class OrdersService {
     return 30;
   }
 
-  /**
-   * Auto-cancel unpaid pay-first (KHQR) online orders whose hold window has
-   * lapsed, releasing their reserved stock back to available. Pay-on-delivery
-   * and pay-at-pickup orders are intentionally left alone — they're real orders
-   * to fulfil, not abandoned payments. Runs periodically (see OrdersExpiryService).
-   */
-  async expireStalePrepaidOrders(): Promise<number> {
-    const holdMinutes = await this.loadHoldMinutes();
-    const cutoff = new Date(Date.now() - holdMinutes * 60_000);
+  /** Minutes an unpaid pay-first hold survives before it may expire — exposed
+   *  for the ABA reconciler (see AbaReconciliationService). */
+  async getPrepaidHoldMinutes(): Promise<number> {
+    return this.loadHoldMinutes();
+  }
 
-    const candidates = await this.orderRepository.find({
+  /**
+   * Open pay-first (KHQR) holds still awaiting payment. The reconciler checks
+   * each against ABA before deciding to confirm or expire it — a hold is NEVER
+   * expired on a timer alone, so a real payment can't be lost if the client's
+   * poll dropped or ABA confirmed late.
+   */
+  async listOpenPrepaidHolds(): Promise<
+    { id: string; abaTranId: string | null; createdAt: Date }[]
+  > {
+    return this.orderRepository.find({
       where: {
         source: 'online',
-        status: 'pending',
+        status: 'awaiting_payment',
         paymentStatus: 'unpaid',
-        createdAt: LessThan(cutoff),
       },
-      select: ['id', 'paymentMethod', 'abaTranId'],
+      select: ['id', 'abaTranId', 'createdAt'],
     });
+  }
 
-    // Pay-first (KHQR) orders are the ones that started an ABA transaction, or
-    // carry a KHQR payment method. Cash / pay-on-receipt orders are left alone.
-    const prepayMethods = new Set(['khqr', 'aba_khqr']);
-    const stale = candidates.filter(
-      (o) =>
-        o.abaTranId !== null ||
-        (o.paymentMethod !== null && prepayMethods.has(o.paymentMethod)),
-    );
+  /**
+   * Recently expired holds that could still settle late at ABA. Re-checked for
+   * a grace window so a payment that lands AFTER expiry still becomes a real
+   * paid order (expired → paid), rather than money taken with no order.
+   */
+  async listRecentlyExpiredHolds(
+    withinMs: number,
+  ): Promise<{ id: string; abaTranId: string | null }[]> {
+    return this.orderRepository.find({
+      where: {
+        source: 'online',
+        status: 'expired',
+        paymentStatus: 'unpaid',
+        updatedAt: MoreThan(new Date(Date.now() - withinMs)),
+      },
+      select: ['id', 'abaTranId'],
+    });
+  }
 
-    let cancelled = 0;
-    for (const o of stale) {
-      try {
-        // Reuses the normal transition: releases the stock hold + notifies.
-        await this.updateStatus(o.id, 'cancelled');
-        cancelled += 1;
-      } catch {
-        // A concurrent payment/confirmation may have moved it on — skip.
-      }
-    }
-    return cancelled;
+  /** Mark an unpaid pay-first hold expired (silent: no stock, no notice). */
+  async expireHold(id: string): Promise<void> {
+    await this.updateStatus(id, 'expired');
   }
 
   /**
@@ -349,8 +373,14 @@ export class OrdersService {
         subtotal - discountTotal + shippingCost + taxAmount,
       );
 
-      // Move stock: in-store sells now; online reserves a hold.
+      // A pay-first (KHQR) online order isn't a real order until it's paid, so
+      // it holds NO stock at checkout — the units are only reserved once ABA
+      // confirms payment (see applyStatusStock: awaiting_payment → paid).
       const isInStore = dto.source === 'in_store';
+      const isPrepay = isOnline && isPrepayMethod(dto.paymentMethod);
+
+      // Move stock: in-store sells now; online (COD/pickup) reserves a hold;
+      // pay-first holds nothing until paid.
       for (const vid of variantIds) {
         const quantity = qtyByVariant.get(vid)!;
         if (isInStore) {
@@ -360,7 +390,7 @@ export class OrdersService {
             branchId,
             quantity,
           );
-        } else {
+        } else if (!isPrepay) {
           await this.inventoryService.reserveStockTx(
             manager,
             vid,
@@ -406,7 +436,11 @@ export class OrdersService {
       const order = orderRepo.create({
         orderNumber: await this.generateOrderNumber(orderRepo),
         source: dto.source,
-        status: isInStore ? 'completed' : 'pending',
+        status: isInStore
+          ? 'completed'
+          : isPrepay
+            ? 'awaiting_payment'
+            : 'pending',
         branchId,
         customerId,
         cashierId: isInStore ? currentUserId : null,
@@ -464,8 +498,10 @@ export class OrdersService {
       return { data: await this.buildDetail(manager, savedOrder.id) };
     });
 
-    // Notify staff of a new online order (after the transaction commits).
-    if (isOnline) {
+    // Notify staff of a new online order (after the transaction commits). A
+    // pay-first (KHQR) order isn't announced until it's actually paid — staff
+    // are notified then via "payment received" (see updatePaymentStatus).
+    if (isOnline && !isPrepayMethod(dto.paymentMethod)) {
       const o = result.data;
       await this.notifications.notifyStaff(
         'order_new',
@@ -500,6 +536,11 @@ export class OrdersService {
     }
     if (params.status) {
       qb.andWhere('order.status = :status', { status: params.status });
+    } else {
+      // Hide pay-first holds that aren't real orders yet (unpaid / expired).
+      qb.andWhere('order.status NOT IN (:...hidden)', {
+        hidden: HIDDEN_STATUSES,
+      });
     }
     if (params.branchId) {
       qb.andWhere('order.branchId = :branchId', { branchId: params.branchId });
@@ -636,7 +677,15 @@ export class OrdersService {
     if (order.paymentStatus === 'paid') {
       return { paid: true, orderId: order.id };
     }
-    if (order.status === 'pending') {
+    // Move a pay-first (awaiting_payment) or COD (pending) order to paid; for a
+    // pay-first order this is where its stock is finally reserved. A late
+    // payment on an already-expired hold is still honoured — it becomes a real
+    // paid order rather than losing the customer's money.
+    if (
+      order.status === 'awaiting_payment' ||
+      order.status === 'pending' ||
+      order.status === 'expired'
+    ) {
       await this.updateStatus(order.id, 'paid');
     }
     await this.updatePaymentStatus(order.id, 'paid');
@@ -649,6 +698,7 @@ export class OrdersService {
       .leftJoinAndSelect('order.branch', 'branch')
       .loadRelationCountAndMap('order.itemCount', 'order.items')
       .where('order.customerId = :customerId', { customerId })
+      .andWhere('order.status NOT IN (:...hidden)', { hidden: HIDDEN_STATUSES })
       .orderBy('order.createdAt', 'DESC')
       .getMany();
     return {
@@ -678,7 +728,9 @@ export class OrdersService {
 
     const totalOrders = await applyBranch(
       this.orderRepository.createQueryBuilder('o'),
-    ).getCount();
+    )
+      .andWhere('o.status NOT IN (:...hidden)', { hidden: HIDDEN_STATUSES })
+      .getCount();
 
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
@@ -686,7 +738,8 @@ export class OrdersService {
     const todayRow = await applyBranch(
       this.orderRepository
         .createQueryBuilder('o')
-        .andWhere('o.createdAt >= :start', { start: startOfDay }),
+        .andWhere('o.createdAt >= :start', { start: startOfDay })
+        .andWhere('o.status NOT IN (:...hidden)', { hidden: HIDDEN_STATUSES }),
     )
       .select('COUNT(*)', 'count')
       .addSelect(
@@ -704,12 +757,14 @@ export class OrdersService {
       .getRawMany<{ status: OrderStatus; count: string }>();
 
     const statusCounts: Record<OrderStatus, number> = {
+      awaiting_payment: 0,
       pending: 0,
       paid: 0,
       processing: 0,
       shipped: 0,
       completed: 0,
       cancelled: 0,
+      expired: 0,
       refunded: 0,
     };
     for (const row of statusRows) {
@@ -773,7 +828,8 @@ export class OrdersService {
     });
 
     // Notify the customer of the status change (after the transaction commits).
-    if (notify) {
+    // Silent for hidden states (an abandoned pay-first hold expiring).
+    if (notify && !HIDDEN_STATUSES.includes(newStatus)) {
       const n: { customerId: string; orderNumber: string } = notify;
       await this.notifications.notifyUser(
         n.customerId,
@@ -802,7 +858,26 @@ export class OrdersService {
     };
 
     if (order.source === 'online') {
-      if (to === 'cancelled' && RESERVED_STATUSES.includes(from)) {
+      if (
+        (from === 'awaiting_payment' || from === 'expired') &&
+        to === 'paid'
+      ) {
+        // Pay-first order just got paid — reserve its stock now (deferred from
+        // checkout). If stock ran out during the payment window we keep the
+        // paid order anyway (it's real); staff reconciles the shortfall.
+        for (const item of items) {
+          try {
+            await this.inventoryService.reserveStockTx(
+              manager,
+              item.productVariantId,
+              order.branchId,
+              item.quantity,
+            );
+          } catch {
+            // insufficient stock — leave unreserved, the order stays paid.
+          }
+        }
+      } else if (to === 'cancelled' && RESERVED_STATUSES.includes(from)) {
         await each((v, b, q) =>
           this.inventoryService.releaseStockTx(manager, v, b, q),
         );

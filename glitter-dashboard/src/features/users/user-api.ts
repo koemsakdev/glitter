@@ -63,6 +63,11 @@ export const userApi = {
         await apiClient.delete(`/api/users/${id}`);
     },
 
+    /** Admin: set or reset a user's login password. */
+    async setPassword(id: string, password: string): Promise<void> {
+        await apiClient.patch(`/api/users/${id}/password`, { password });
+    },
+
     async uploadAvatar(id: string, file: File): Promise<User> {
         const fd = new FormData();
         fd.append('avatar', file);

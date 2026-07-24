@@ -10,6 +10,11 @@ import type {
 } from '@/types/order';
 
 const STATUS_STYLES: Record<OrderStatus, { bg: string; dot: string }> = {
+    // Pay-first checkout not paid yet (hidden from the list) — slate.
+    awaiting_payment: {
+        bg: 'bg-slate-100 text-slate-600 hover:bg-slate-100 dark:bg-slate-500/15 dark:text-slate-300 dark:hover:bg-slate-500/15',
+        dot: 'bg-slate-400 dark:bg-slate-500',
+    },
     // Awaiting action — amber, the universal "pending" colour.
     pending: {
         bg: 'bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/15',
@@ -40,6 +45,11 @@ const STATUS_STYLES: Record<OrderStatus, { bg: string; dot: string }> = {
         bg: 'bg-zinc-100 text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-500/15 dark:text-zinc-400 dark:hover:bg-zinc-500/15',
         dot: 'bg-zinc-400 dark:bg-zinc-500',
     },
+    // Unpaid pay-first hold that lapsed (hidden from the list) — neutral grey.
+    expired: {
+        bg: 'bg-zinc-100 text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-500/15 dark:text-zinc-400 dark:hover:bg-zinc-500/15',
+        dot: 'bg-zinc-400 dark:bg-zinc-500',
+    },
     // Money returned — red.
     refunded: {
         bg: 'bg-rose-100 text-rose-700 hover:bg-rose-100 dark:bg-rose-500/15 dark:text-rose-300 dark:hover:bg-rose-500/15',
@@ -48,12 +58,14 @@ const STATUS_STYLES: Record<OrderStatus, { bg: string; dot: string }> = {
 };
 
 const STATUS_LABELS: Record<OrderStatus, TranslationKey> = {
+    awaiting_payment: 'order.status.awaiting_payment',
     pending: 'order.status.pending',
     paid: 'order.status.paid',
     processing: 'order.status.processing',
     shipped: 'order.status.shipped',
     completed: 'order.status.completed',
     cancelled: 'order.status.cancelled',
+    expired: 'order.status.expired',
     refunded: 'order.status.refunded',
 };
 

@@ -4,15 +4,17 @@ import localFont from 'next/font/local';
 import './globals.css';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
-import { RouteChrome } from '@/components/route-chrome';
+import { MobileHeader } from '@/components/mobile-header';
 import { MainArea } from '@/components/main-area';
 import { MobileBottomNav } from '@/components/mobile-bottom-nav';
 import { CartToast } from '@/components/cart-toast';
+import { ChatWidget } from '@/components/assistant/chat-widget';
 import { LiveUpdates } from '@/components/live-updates';
 import { PageTransition } from '@/components/page-transition';
 import { CartProvider } from '@/lib/cart';
 import { AuthProvider } from '@/lib/auth';
 import { WishlistProvider } from '@/lib/wishlist';
+import { LanguageProvider } from '@/lib/lang-context';
 import {
     fileUrl,
     getActivePromotions,
@@ -112,49 +114,54 @@ export default async function RootLayout({
                 )}
             </head>
             <body
-                className="flex min-h-full flex-col bg-background text-foreground"
+                className="flex min-h-full flex-col overflow-x-clip bg-background text-foreground"
                 style={{
                     fontFamily: font.stack || undefined,
                 }}
             >
+                <LanguageProvider initial={lang}>
                 <AuthProvider>
                     <WishlistProvider>
                         <CartProvider>
                         <LiveUpdates />
-                        {/* Hide the store header on mobile checkout so it reads
-                            like a native app screen (kept on desktop). */}
-                        <RouteChrome
-                            hideOn={['/checkout', '/products/*']}
-                            mobileOnly
-                        >
-                            <SiteHeader
-                                config={config}
-                                lang={lang}
-                                menu={headerMenu}
-                                promos={promos}
-                                popular={popular}
-                            />
-                        </RouteChrome>
+                        {/* Desktop-only web header (hidden below md on its own
+                            root); on mobile every screen reads like a native app
+                            via MobileHeader below. */}
+                        <SiteHeader
+                            config={config}
+                            lang={lang}
+                            menu={headerMenu}
+                            promos={promos}
+                            popular={popular}
+                        />
+                        {/* Native-app top bar — mobile only, route-aware. */}
+                        <MobileHeader
+                            config={config}
+                            lang={lang}
+                            promos={promos}
+                            popular={popular}
+                        />
                         <MainArea>
                             <PageTransition>{children}</PageTransition>
                         </MainArea>
-                        {/* No footer on mobile checkout — the fixed dock owns the
-                            bottom of the screen there. */}
-                        <RouteChrome
-                            hideOn={['/checkout', '/products/*']}
-                            mobileOnly
-                        >
-                            <SiteFooter
-                                config={config}
-                                lang={lang}
-                                menu={footerMenu}
-                            />
-                        </RouteChrome>
+                        {/* Web footer is desktop-only (hidden below md on its own
+                            root); mobile uses the tab bar. */}
+                        <SiteFooter
+                            config={config}
+                            lang={lang}
+                            menu={footerMenu}
+                        />
                         <MobileBottomNav lang={lang} />
+                        <ChatWidget
+                            lang={lang}
+                            logoUrl={fileUrl(config.logoUrl)}
+                            brandName={config.brandNameEn || 'Glitter'}
+                        />
                         <CartToast lang={lang} />
                         </CartProvider>
                     </WishlistProvider>
                 </AuthProvider>
+                </LanguageProvider>
             </body>
         </html>
     );

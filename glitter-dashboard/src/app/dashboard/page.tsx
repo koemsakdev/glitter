@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Clock, CreditCard, ShoppingCart, Users } from 'lucide-react';
 import { ErrorState } from '@/components/feedback/error-state';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
@@ -19,6 +20,7 @@ import { WelcomeHeader } from '@/features/dashboard/components/welcome-header';
 import { useDashboardStats } from '@/features/dashboard/use-dashboard';
 import { formatPrice } from '@/lib/formatters';
 import { useI18n } from '@/lib/i18n';
+import { useAuthStore } from '@/stores/auth-store';
 
 function pctChange(cur: number, prev: number): number {
     if (prev > 0) return ((cur - prev) / prev) * 100;
@@ -27,12 +29,29 @@ function pctChange(cur: number, prev: number): number {
 
 export default function DashboardHomePage() {
     const { t } = useI18n();
+    const router = useRouter();
+    const role = useAuthStore((s) => s.user?.role);
+    // The analytics home (and its stats endpoint) is manager+ only. Cashiers
+    // land on Orders instead of hitting a 403 here.
+    const canViewStats =
+        role === 'manager' || role === 'admin' || role === 'super_admin';
+
     const [preset, setPreset] = useState('30d');
     const [range, setRange] = useState<DateRange>(() =>
         (RANGE_PRESETS.find((p) => p.key === '30d') ?? RANGE_PRESETS[1]).range(),
     );
 
-    const { data: stats, isLoading, isError, refetch } = useDashboardStats(range);
+    useEffect(() => {
+        if (role && !canViewStats) router.replace('/dashboard/orders');
+    }, [role, canViewStats, router]);
+
+    const { data: stats, isLoading, isError, refetch } = useDashboardStats(
+        range,
+        canViewStats,
+    );
+
+    // Still hydrating the role, or redirecting a cashier away.
+    if (!canViewStats) return <LoadingScreen variant="page" />;
 
     if (isLoading) return <LoadingScreen variant="page" />;
 

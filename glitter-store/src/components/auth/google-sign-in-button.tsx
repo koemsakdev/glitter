@@ -34,8 +34,20 @@ declare global {
  * off-screen (to keep the secure ID-token credential flow) and show our own
  * translated, dark-mode-aware button that forwards the click to it.
  */
-export function GoogleSignInButton({ lang }: { lang: Lang }) {
-    const { loginWithGoogle } = useAuth();
+export function GoogleSignInButton({
+    lang,
+    mode = 'login',
+    onError,
+    compact = false,
+}: {
+    lang: Lang;
+    /** 'link' connects Google to the current account instead of signing in. */
+    mode?: 'login' | 'link';
+    onError?: (message: string) => void;
+    /** Small inline pill ("Connect") for the connected-accounts rows. */
+    compact?: boolean;
+}) {
+    const { loginWithGoogle, linkProvider } = useAuth();
     const router = useRouter();
     const gsiRef = useRef<HTMLDivElement>(null);
     const handlerRef = useRef<(credential: string) => void>(() => {});
@@ -44,10 +56,17 @@ export function GoogleSignInButton({ lang }: { lang: Lang }) {
     // Keep the latest handler so the GIS callback always uses fresh closures.
     handlerRef.current = async (credential: string) => {
         try {
-            await loginWithGoogle(credential);
-            router.push('/account');
-        } catch {
-            // Surfaced by the page-level form; keep the button silent.
+            if (mode === 'link') {
+                await linkProvider('google', { idToken: credential });
+            } else {
+                await loginWithGoogle(credential);
+                router.push('/account');
+            }
+        } catch (e) {
+            if (mode === 'link' && onError) {
+                onError(e instanceof Error ? e.message : 'Could not connect');
+            }
+            // Login errors are surfaced by the page-level form.
         }
     };
 
@@ -108,10 +127,14 @@ export function GoogleSignInButton({ lang }: { lang: Lang }) {
                 type="button"
                 onClick={handleClick}
                 disabled={!ready}
-                className="flex w-full items-center justify-center gap-2.5 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className={
+                    compact
+                        ? 'flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:border-(--brand) hover:text-(--brand) disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'
+                        : 'flex w-full items-center justify-center gap-2.5 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800'
+                }
             >
                 <GoogleG />
-                {tr(lang, 'continueWithGoogle')}
+                {tr(lang, compact ? 'connect' : 'continueWithGoogle')}
             </button>
 
             {/* Real Google button — kept off-screen; visible to Google (so its

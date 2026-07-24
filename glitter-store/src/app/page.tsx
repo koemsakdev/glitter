@@ -1,7 +1,8 @@
 import { AdSlot } from '@/components/ad-slot';
 import { BannerCarousel } from '@/components/banner-carousel';
 import { FeaturesStrip } from '@/components/features-strip';
-import { SectionBlock, resolveSectionProducts } from '@/components/home-section';
+import { SectionBlock } from '@/components/home-section';
+import { resolveSectionProducts } from '@/components/home-section-data';
 import {
     getBanners,
     getCategories,

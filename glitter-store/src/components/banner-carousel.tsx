@@ -9,16 +9,18 @@ import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import { fileUrl } from '@/lib/api';
+import { useLang } from '@/lib/lang-context';
 import { pick, type Lang } from '@/lib/locale';
 import type { Banner } from '@/lib/types';
 
 export function BannerCarousel({
     banners,
-    lang,
+    lang: initialLang,
 }: {
     banners: Banner[];
     lang: Lang;
 }) {
+    const { lang } = useLang(initialLang);
     const [active, setActive] = useState(0);
 
     if (banners.length === 0) return null;
@@ -91,41 +93,49 @@ export function BannerCarousel({
                                     <img
                                         src={img}
                                         alt={b.imageAltText || title || 'Banner'}
-                                        className="w-full object-cover"
+                                        className="block w-full"
                                         draggable={false}
                                     />
+                                    {/* Text + button overlay — desktop only; on
+                                        mobile the banner shows just the image. */}
                                     {hasOverlay && (
-                                        // ADDED `hidden sm:flex` here to hide overlay on mobile and show on larger screens
-                                        <div className="absolute inset-0 hidden sm:flex flex-col justify-end bg-linear-to-t from-black/80 via-black/30 to-transparent p-5 sm:p-8 dark:from-black/90 dark:via-black/45">
-                                            {title && (
-                                                <h2 className="line-clamp-2 max-w-xl text-2xl font-extrabold leading-tight text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.6)] sm:text-4xl">
-                                                    {title}
-                                                </h2>
-                                            )}
-                                            {desc && (
-                                                <p className="mt-2 line-clamp-2 max-w-md text-sm text-white/95 [text-shadow:0_1px_6px_rgba(0,0,0,0.6)] sm:text-base">
-                                                    {desc}
-                                                </p>
-                                            )}
-                                            {href && btn && (
-                                                <Link
-                                                    href={href}
-                                                    className="mt-4 inline-flex w-fit items-center gap-2 rounded-full bg-(--brand) px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:opacity-90 active:scale-95"
-                                                >
-                                                    {btn}
-                                                    <svg
-                                                        className="size-4"
-                                                        viewBox="0 0 24 24"
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        strokeWidth="2.5"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
+                                        <div className="absolute inset-0 hidden flex-col justify-end p-6 sm:flex sm:p-10">
+                                            {/* Readability scrim */}
+                                            <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/85 via-black/35 to-transparent dark:from-black/90 dark:via-black/45" />
+
+                                            <div className="relative max-w-xl">
+                                                {title && (
+                                                    <h2 className="line-clamp-2 text-2xl font-black leading-[1.1] tracking-tight text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.55)] sm:text-4xl lg:text-5xl">
+                                                        {title}
+                                                    </h2>
+                                                )}
+                                                {desc && (
+                                                    <p className="mt-2.5 line-clamp-2 max-w-md text-sm text-white/95 [text-shadow:0_1px_8px_rgba(0,0,0,0.55)] sm:text-base lg:text-lg">
+                                                        {desc}
+                                                    </p>
+                                                )}
+                                                {href && btn && (
+                                                    <Link
+                                                        href={href}
+                                                        className="group/btn mt-5 inline-flex w-fit items-center gap-2 rounded-full bg-(--brand) py-2.5 pl-6 pr-2.5 text-sm font-bold text-white shadow-lg shadow-black/30 ring-1 ring-white/25 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:brightness-110 active:scale-95"
                                                     >
-                                                        <path d="M5 12h14M13 6l6 6-6 6" />
-                                                    </svg>
-                                                </Link>
-                                            )}
+                                                        {btn}
+                                                        <span className="grid size-6 place-items-center rounded-full bg-white/25 transition-transform group-hover/btn:translate-x-0.5">
+                                                            <svg
+                                                                className="size-3.5"
+                                                                viewBox="0 0 24 24"
+                                                                fill="none"
+                                                                stroke="currentColor"
+                                                                strokeWidth="3"
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                            >
+                                                                <path d="M5 12h14M13 6l6 6-6 6" />
+                                                            </svg>
+                                                        </span>
+                                                    </Link>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>

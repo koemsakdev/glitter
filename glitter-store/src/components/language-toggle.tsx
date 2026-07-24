@@ -1,9 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Flag from 'react-world-flags';
 import type { Lang } from '@/lib/locale';
+import { useLang } from '@/lib/lang-context';
 import { cn } from '@/lib/utils';
 
 const OPTIONS: Array<{ code: Lang; country: string; native: string; sub: string }> =
@@ -13,8 +13,9 @@ const OPTIONS: Array<{ code: Lang; country: string; native: string; sub: string 
     ];
 
 export function LanguageToggle({ lang }: { lang: Lang }) {
-    const router = useRouter();
-    const [isPending, startTransition] = useTransition();
+    // Language lives in a client context so switching is instant (no wait for
+    // the server refetch). `lang` prop is the SSR fallback / initial value.
+    const { lang: active, setLang, pending } = useLang(lang);
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
 
@@ -28,14 +29,12 @@ export function LanguageToggle({ lang }: { lang: Lang }) {
         return () => document.removeEventListener('mousedown', onDown);
     }, []);
 
-    function setLang(next: Lang) {
+    function choose(next: Lang) {
         setOpen(false);
-        if (next === lang) return;
-        document.cookie = `lang=${next};path=/;max-age=31536000`;
-        startTransition(() => router.refresh());
+        setLang(next); // instant client switch + background server refresh
     }
 
-    const current = OPTIONS.find((o) => o.code === lang) ?? OPTIONS[0];
+    const current = OPTIONS.find((o) => o.code === active) ?? OPTIONS[0];
 
     return (
         <div ref={ref} className="relative">
@@ -47,7 +46,7 @@ export function LanguageToggle({ lang }: { lang: Lang }) {
                 aria-expanded={open}
                 className={cn(
                     'relative flex size-9 items-center justify-center rounded-full border border-zinc-200 transition-colors hover:border-(--brand) dark:border-zinc-700',
-                    isPending && 'opacity-60',
+                    pending && 'opacity-60',
                 )}
             >
                 <span className="size-6 overflow-hidden rounded-full">
@@ -57,7 +56,7 @@ export function LanguageToggle({ lang }: { lang: Lang }) {
                     />
                 </span>
                 <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-pink-400 px-1 text-[8px] font-bold leading-tight text-white dark:bg-pink-300 dark:text-pink-950">
-                    {lang === 'en' ? 'EN' : 'KH'}
+                    {active === 'en' ? 'EN' : 'KH'}
                 </span>
             </button>
 
@@ -67,10 +66,10 @@ export function LanguageToggle({ lang }: { lang: Lang }) {
                         <button
                             key={opt.code}
                             type="button"
-                            onClick={() => setLang(opt.code)}
+                            onClick={() => choose(opt.code)}
                             className={cn(
                                 'flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-pink-50 dark:hover:bg-pink-500/10',
-                                lang === opt.code && 'font-semibold',
+                                active === opt.code && 'font-semibold',
                             )}
                         >
                             <span className="flex items-center gap-3">
@@ -89,7 +88,7 @@ export function LanguageToggle({ lang }: { lang: Lang }) {
                                     </span>
                                 </span>
                             </span>
-                            {lang === opt.code && (
+                            {active === opt.code && (
                                 <svg
                                     className="size-4 text-pink-500"
                                     viewBox="0 0 24 24"

@@ -3,9 +3,11 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { useLang } from '@/lib/lang-context';
+import { tr } from '@/lib/locale';
 
-export function ProductSearch({ placeholder }: { placeholder: string }) {
+export function ProductSearch() {
+    const { lang } = useLang();
     const router = useRouter();
     const params = useSearchParams();
     const searchParam = params.get('search') ?? '';
@@ -41,21 +43,23 @@ export function ProductSearch({ placeholder }: { placeholder: string }) {
     }
 
     return (
-        <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-4 top-1/2 z-10 size-4 -translate-y-1/2 text-zinc-400" />
-            <Input
+        <div className="group relative flex-1">
+            <span className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-zinc-400 transition-colors group-focus-within:text-(--brand)">
+                <Search className="size-4.5" />
+            </span>
+            <input
                 type="search"
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                placeholder={placeholder}
-                className="pl-11 pr-10 [&::-webkit-search-cancel-button]:appearance-none"
+                placeholder={tr(lang, 'search')}
+                className="h-11 w-full rounded-full border border-zinc-200 bg-white pl-12 pr-11 text-sm text-zinc-900 shadow-sm outline-none transition-all placeholder:text-zinc-400 hover:border-zinc-300 focus:border-(--brand) focus:shadow-md focus:ring-4 focus:ring-(--brand)/10 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:hover:border-zinc-600 [&::-webkit-search-cancel-button]:appearance-none"
             />
             {value && (
                 <button
                     type="button"
                     onClick={clear}
                     aria-label="Clear"
-                    className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full p-1 text-zinc-400 transition hover:bg-zinc-200 hover:text-zinc-600 dark:hover:bg-zinc-700"
+                    className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700"
                 >
                     <X className="size-4" />
                 </button>

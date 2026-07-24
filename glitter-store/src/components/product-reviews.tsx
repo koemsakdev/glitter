@@ -27,30 +27,14 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 import { ImageLightbox } from '@/components/image-lightbox';
+import { StarRating } from '@/components/ui/star-rating';
+import { useLang } from '@/lib/lang-context';
 import { pick, tr, type Lang } from '@/lib/locale';
 import { cn } from '@/lib/utils';
 import type { Review, ReviewSummary } from '@/lib/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 const LIKED_KEY = 'glitter_review_likes';
-
-function Stars({ value, size = 16 }: { value: number; size?: number }) {
-    return (
-        <span className="inline-flex">
-            {Array.from({ length: 5 }, (_, i) => (
-                <Star
-                    key={i}
-                    style={{ width: size, height: size }}
-                    className={
-                        i < Math.round(value)
-                            ? 'fill-amber-400 text-amber-400'
-                            : 'fill-zinc-200 text-zinc-200 dark:fill-zinc-700 dark:text-zinc-700'
-                    }
-                />
-            ))}
-        </span>
-    );
-}
 
 function timeAgo(iso: string, lang: Lang): string {
     const d = new Date(iso).getTime();
@@ -69,7 +53,7 @@ type SortKey = 'newest' | 'top' | 'helpful';
 
 export function ProductReviews({
     productId,
-    lang,
+    lang: initialLang,
     reviews,
     summary,
 }: {
@@ -78,6 +62,7 @@ export function ProductReviews({
     reviews: Review[];
     summary: ReviewSummary;
 }) {
+    const { lang } = useLang(initialLang);
     const { user, authFetch } = useAuth();
 
     // ---- local list state (so likes + new submissions reflect instantly) ----
@@ -276,7 +261,7 @@ export function ProductReviews({
                         {average.toFixed(1)}
                     </div>
                     <div className="mt-1">
-                        <Stars value={average} size={18} />
+                        <StarRating value={average} size={18} />
                     </div>
                     <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                         {total} {tr(lang, 'ratings')}
@@ -504,11 +489,14 @@ export function ProductReviews({
                     </p>
                 ) : (
                     sorted.map((r) => {
-                        const rComment = pick(
-                            lang,
-                            r.commentEn ?? '',
-                            r.commentKm ?? '',
-                        );
+                        // Admin-added reviews often carry the comment in only one
+                        // language field, so fall back to whichever exists rather
+                        // than showing a name with no text.
+                        const rComment =
+                            pick(lang, r.commentEn ?? '', r.commentKm ?? '') ||
+                            r.commentEn ||
+                            r.commentKm ||
+                            '';
                         const imgs = (r.imageUrls ?? [])
                             .map((u) => ({ src: fileUrl(u) ?? '', alt: '' }))
                             .filter((x) => x.src);
@@ -555,7 +543,7 @@ export function ProductReviews({
                                                     />
                                                 )}
                                             </div>
-                                            <Stars value={r.rating} size={13} />
+                                            <StarRating value={r.rating} size={13} />
                                         </div>
                                     </div>
                                     <span className="shrink-0 text-xs text-zinc-400">

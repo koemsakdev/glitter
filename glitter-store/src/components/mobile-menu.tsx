@@ -13,7 +13,8 @@ import {
 import { UserAvatar } from '@/components/user-avatar';
 import { useAuth } from '@/lib/auth';
 import { resolveNavItems } from '@/lib/nav-config';
-import { tr, type Lang } from '@/lib/locale';
+import { pick, tr, type Lang } from '@/lib/locale';
+import type { StoreNavItem } from '@/lib/store-config';
 import { cn } from '@/lib/utils';
 
 /**
@@ -22,20 +23,20 @@ import { cn } from '@/lib/utils';
  */
 export function MobileMenu({
     lang,
-    navOrder,
+    navItems,
     shopName,
     tagline,
     logo,
 }: {
     lang: Lang;
-    navOrder: string[];
+    navItems: StoreNavItem[];
     shopName: string;
     tagline?: string;
     logo?: string | null;
 }) {
     const pathname = usePathname();
     const { user } = useAuth();
-    const items = resolveNavItems(navOrder);
+    const items = resolveNavItems(navItems);
 
     const isActive = (href: string) =>
         href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -81,7 +82,7 @@ export function MobileMenu({
                         {tr(lang, 'menu')}
                     </p>
                     <nav className="flex flex-col gap-1">
-                        {items.map(({ id, href, trKey, Icon }) => {
+                        {items.map(({ id, href, trKey, Icon, labelEn, labelKm }) => {
                             const active = isActive(href);
                             return (
                                 <SheetClose asChild key={id}>
@@ -105,7 +106,8 @@ export function MobileMenu({
                                             <Icon className="size-5" />
                                         </span>
                                         <span className="flex-1">
-                                            {tr(lang, trKey)}
+                                            {pick(lang, labelEn, labelKm) ||
+                                                tr(lang, trKey)}
                                         </span>
                                         <ChevronRight
                                             className={cn(

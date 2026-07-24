@@ -72,6 +72,19 @@ import { DashboardModule } from './dashboard/dashboard.module';
         autoLoadEntities: true,
         synchronize: true, // dev only — use migrations in prod
         ssl: { rejectUnauthorized: false },
+        // Serverless Postgres (Neon) drops its connections when it idles/
+        // suspends. Recycle idle pooled connections BEFORE they go stale so a
+        // request never grabs a dead one and hangs forever. This only manages
+        // the connection lifecycle — there is NO statement/query timeout here,
+        // so legitimately-slow queries still complete instead of erroring.
+        extra: {
+          keepAlive: true,
+          // Give up opening a connection after 10s instead of waiting forever.
+          connectionTimeoutMillis: 10000,
+          // Close a connection once it's been idle 30s, so it's never reused
+          // after Neon has quietly dropped it.
+          idleTimeoutMillis: 30000,
+        },
       }),
     }),
     ServeStaticModule.forRoot({

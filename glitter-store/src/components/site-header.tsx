@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { AccountButton } from '@/components/account-button';
 import { AnnouncementBar } from '@/components/announcement-bar';
@@ -11,13 +13,14 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Separator } from '@/components/ui/separator';
 import { fileUrl, type PublicPromo } from '@/lib/api';
 import { resolveNavItems } from '@/lib/nav-config';
+import { useLang } from '@/lib/lang-context';
 import { pick, tr, type Lang } from '@/lib/locale';
-import { DEFAULT_NAV_ORDER, type StoreConfig } from '@/lib/store-config';
+import { DEFAULT_NAV_ITEMS, type StoreConfig } from '@/lib/store-config';
 import type { MenuItem, Product } from '@/lib/types';
 
 export function SiteHeader({
     config,
-    lang,
+    lang: initialLang,
     promos = [],
     popular = [],
 }: {
@@ -27,12 +30,13 @@ export function SiteHeader({
     promos?: PublicPromo[];
     popular?: Product[];
 }) {
+    const { lang } = useLang(initialLang);
     const shopName = pick(lang, config.brandNameEn, config.brandNameKm) || 'Glitter';
     const logo = fileUrl(config.logoUrl);
-    const navItems = resolveNavItems(config.navOrder ?? DEFAULT_NAV_ORDER);
+    const navItems = resolveNavItems(config.navItems ?? DEFAULT_NAV_ITEMS);
 
     return (
-        <div className="sticky top-0 z-40">
+        <div className="sticky top-0 z-40 max-md:hidden">
             <AnnouncementBar
                 announcements={config.announcements}
                 lang={lang}
@@ -53,7 +57,8 @@ export function SiteHeader({
                                 <img
                                     src={logo}
                                     alt={shopName}
-                                    className="size-9 rounded-full object-cover ring-1 ring-zinc-200 dark:ring-zinc-700"
+                                    style={{ borderRadius: `${config.logoRadius}%` }}
+                                    className="size-9 object-contain"
                                 />
                             ) : (
                                 <>
@@ -73,20 +78,23 @@ export function SiteHeader({
                             - Expand back to a full textual inline menu link on standard desktop views (`lg`)
                         */}
                         <nav className="ml-2 hidden items-center gap-1 md:flex">
-                            {navItems.map(({ id, href, trKey, Icon }) => (
-                                <NavLink 
-                                    key={id} 
-                                    href={href} 
-                                    className="flex items-center justify-center transition-colors rounded-full text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-50
+                            {navItems.map(
+                                ({ id, href, trKey, Icon, labelEn, labelKm }) => (
+                                    <NavLink
+                                        key={id}
+                                        href={href}
+                                        className="flex items-center justify-center transition-colors rounded-full text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-50
                                                md:size-9 md:hover:bg-zinc-100 md:dark:hover:bg-zinc-800
                                                lg:w-auto lg:h-auto lg:px-3 lg:py-1.5 lg:rounded-lg lg:gap-2 lg:hover:bg-zinc-50 lg:dark:hover:bg-zinc-900"
-                                >
-                                    <Icon className="size-4 shrink-0" />
-                                    <span className="hidden lg:inline text-sm font-medium">
-                                        {tr(lang, trKey)}
-                                    </span>
-                                </NavLink>
-                            ))}
+                                    >
+                                        <Icon className="size-4 shrink-0" />
+                                        <span className="hidden lg:inline text-sm font-medium">
+                                            {pick(lang, labelEn, labelKm) ||
+                                                tr(lang, trKey)}
+                                        </span>
+                                    </NavLink>
+                                ),
+                            )}
                         </nav>
 
                         {/* Control Actions & Global Utilities Wrapper */}
@@ -119,7 +127,7 @@ export function SiteHeader({
                                 <Separator orientation="vertical" className="h-4" />
                                 <MobileMenu
                                     lang={lang}
-                                    navOrder={config.navOrder ?? DEFAULT_NAV_ORDER}
+                                    navItems={config.navItems ?? DEFAULT_NAV_ITEMS}
                                     shopName={shopName}
                                     tagline={pick(lang, config.taglineEn, config.taglineKm)}
                                     logo={logo}

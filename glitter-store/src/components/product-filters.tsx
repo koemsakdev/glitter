@@ -2,7 +2,14 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { Check, ChevronsUpDown, ListFilter } from 'lucide-react';
+import {
+    ArrowUpDown,
+    Check,
+    ChevronsUpDown,
+    DollarSign,
+    ListFilter,
+    Tag,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Command,
@@ -29,12 +36,12 @@ export type BrandOption = { id: string; name: string; logo?: string | null };
 
 function BrandLogo({ logo, name }: { logo?: string | null; name: string }) {
     return (
-        <span className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-200 bg-white dark:border-zinc-700">
+        <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-zinc-50 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:ring-zinc-700">
             {logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logo} alt="" className="size-full object-contain" />
+                <img src={logo} alt="" className="size-full object-contain p-0.5" />
             ) : (
-                <span className="text-[10px] font-bold text-zinc-500">
+                <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
                     {name.charAt(0).toUpperCase()}
                 </span>
             )}
@@ -45,6 +52,34 @@ function BrandLogo({ logo, name }: { logo?: string | null; name: string }) {
 function Dot() {
     return (
         <span className="absolute -right-1 -top-1 size-2.5 rounded-full bg-(--brand) ring-2 ring-white dark:ring-zinc-950" />
+    );
+}
+
+/** A compact "$" number input for the price-range filter. */
+function PriceField({
+    value,
+    onChange,
+    placeholder,
+}: {
+    value: string;
+    onChange: (v: string) => void;
+    placeholder: string;
+}) {
+    return (
+        <div className="relative flex-1">
+            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400">
+                $
+            </span>
+            <input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={placeholder}
+                className="h-9 w-full rounded-lg border border-zinc-200 bg-white pl-5 pr-2 text-sm outline-none transition-colors focus:border-(--brand) dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+        </div>
     );
 }
 
@@ -64,6 +99,9 @@ export function ProductFilters({
         clear: string;
         apply: string;
         selected: string;
+        price: string;
+        minPrice: string;
+        maxPrice: string;
     };
 }) {
     const router = useRouter();
@@ -72,12 +110,20 @@ export function ProductFilters({
     const defaultSort = sortOptions[0]?.key ?? 'newest';
     const urlSort = params.get('sort') ?? defaultSort;
     const urlBrands = (params.get('brandIds') ?? '').split(',').filter(Boolean);
+    const urlMin = params.get('minPrice') ?? '';
+    const urlMax = params.get('maxPrice') ?? '';
 
     const sortActive = urlSort !== defaultSort;
     const brandActive = urlBrands.length > 0;
-    const anyActive = sortActive || brandActive;
+    const priceActive = Boolean(urlMin || urlMax);
+    const anyActive = sortActive || brandActive || priceActive;
 
-    function apply(next: { sort?: string; brands?: string[] }) {
+    function apply(next: {
+        sort?: string;
+        brands?: string[];
+        minPrice?: string;
+        maxPrice?: string;
+    }) {
         const p = new URLSearchParams(params.toString());
         if (next.sort !== undefined) {
             if (next.sort && next.sort !== defaultSort) p.set('sort', next.sort);
@@ -86,6 +132,14 @@ export function ProductFilters({
         if (next.brands !== undefined) {
             if (next.brands.length) p.set('brandIds', next.brands.join(','));
             else p.delete('brandIds');
+        }
+        if (next.minPrice !== undefined) {
+            if (next.minPrice) p.set('minPrice', next.minPrice);
+            else p.delete('minPrice');
+        }
+        if (next.maxPrice !== undefined) {
+            if (next.maxPrice) p.set('maxPrice', next.maxPrice);
+            else p.delete('maxPrice');
         }
         p.delete('page');
         router.replace(`/products?${p.toString()}`, { scroll: false });
@@ -102,8 +156,13 @@ export function ProductFilters({
             <PopoverTrigger asChild>
                 <Button
                     variant="outline"
-                    className="relative h-11 justify-between gap-2 rounded-xl font-normal"
+                    className={cn(
+                        'relative h-11 justify-between gap-2 rounded-full px-4 font-normal transition-colors',
+                        sortActive &&
+                            'border-(--brand)/50 bg-(--brand)/5 dark:bg-(--brand)/10',
+                    )}
                 >
+                    <ArrowUpDown className="size-4 text-zinc-400" />
                     <span className="text-zinc-500 dark:text-zinc-400">
                         {labels.sortBy}:
                     </span>
@@ -170,13 +229,18 @@ export function ProductFilters({
             <PopoverTrigger asChild>
                 <Button
                     variant="outline"
-                    className="relative h-11 justify-between gap-2 rounded-xl font-normal"
+                    className={cn(
+                        'relative h-11 justify-between gap-2 rounded-full px-4 font-normal transition-colors',
+                        brandActive &&
+                            'border-(--brand)/50 bg-(--brand)/5 dark:bg-(--brand)/10',
+                    )}
                 >
+                    <Tag className="size-4 text-zinc-400" />
                     <span className="font-medium text-zinc-900 dark:text-zinc-100">
                         {labels.brands}
                     </span>
                     {urlBrands.length > 0 && (
-                        <span className="rounded-full bg-(--brand) px-1.5 text-[11px] font-bold text-white">
+                        <span className="flex size-5 items-center justify-center rounded-full bg-(--brand) text-[11px] font-bold text-white">
                             {urlBrands.length}
                         </span>
                     )}
@@ -238,15 +302,90 @@ export function ProductFilters({
         </Popover>
     );
 
+    /* ---------- Price range (applies on Apply / close) ---------- */
+    const [priceOpen, setPriceOpen] = useState(false);
+    const [pMin, setPMin] = useState(urlMin);
+    const [pMax, setPMax] = useState(urlMax);
+
+    function openPrice(open: boolean) {
+        if (open) {
+            setPMin(urlMin);
+            setPMax(urlMax);
+        }
+        setPriceOpen(open);
+    }
+
+    const PriceFilter = (
+        <Popover open={priceOpen} onOpenChange={openPrice}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    className={cn(
+                        'relative h-11 justify-between gap-2 rounded-full px-4 font-normal transition-colors',
+                        priceActive &&
+                            'border-(--brand)/50 bg-(--brand)/5 dark:bg-(--brand)/10',
+                    )}
+                >
+                    <DollarSign className="size-4 text-zinc-400" />
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                        {labels.price}
+                    </span>
+                    <ChevronsUpDown className="size-4 text-zinc-400" />
+                    {priceActive && <Dot />}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 p-3">
+                <div className="flex items-center gap-2">
+                    <PriceField
+                        value={pMin}
+                        onChange={setPMin}
+                        placeholder={labels.minPrice}
+                    />
+                    <span className="text-zinc-400">–</span>
+                    <PriceField
+                        value={pMax}
+                        onChange={setPMax}
+                        placeholder={labels.maxPrice}
+                    />
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setPMin('');
+                            setPMax('');
+                        }}
+                        className="px-2 text-xs font-medium text-zinc-500 hover:text-(--brand) dark:text-zinc-400"
+                    >
+                        {labels.clear}
+                    </button>
+                    <Button
+                        size="sm"
+                        onClick={() => {
+                            apply({ minPrice: pMin, maxPrice: pMax });
+                            setPriceOpen(false);
+                        }}
+                    >
+                        {labels.apply}
+                    </Button>
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+
     /* ---------- Mobile: filter button + sheet (batched, Apply) ---------- */
     const [sheetOpen, setSheetOpen] = useState(false);
     const [pSort, setPSort] = useState(urlSort);
     const [pBrands, setPBrands] = useState<string[]>(urlBrands);
+    const [pMinM, setPMinM] = useState(urlMin);
+    const [pMaxM, setPMaxM] = useState(urlMax);
 
     function openSheet(open: boolean) {
         if (open) {
             setPSort(urlSort);
             setPBrands(urlBrands);
+            setPMinM(urlMin);
+            setPMaxM(urlMax);
         }
         setSheetOpen(open);
     }
@@ -256,6 +395,7 @@ export function ProductFilters({
             {/* Desktop: inline comboboxes */}
             <div className="hidden items-center gap-2 lg:flex">
                 {SortCombobox}
+                {PriceFilter}
                 {BrandMultiSelect}
             </div>
 
@@ -265,7 +405,7 @@ export function ProductFilters({
                     <Button
                         size="icon"
                         aria-label={labels.filters}
-                        className="relative size-11 rounded-xl"
+                        className="relative size-11 rounded-full"
                         onClick={() => openSheet(true)}
                     >
                         <ListFilter className="size-5" />
@@ -295,6 +435,23 @@ export function ProductFilters({
                                     {o.label}
                                 </button>
                             ))}
+                        </div>
+
+                        <h3 className="mt-6 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                            {labels.price}
+                        </h3>
+                        <div className="mt-2 flex items-center gap-2">
+                            <PriceField
+                                value={pMinM}
+                                onChange={setPMinM}
+                                placeholder={labels.minPrice}
+                            />
+                            <span className="text-zinc-400">–</span>
+                            <PriceField
+                                value={pMaxM}
+                                onChange={setPMaxM}
+                                placeholder={labels.maxPrice}
+                            />
                         </div>
 
                         <h3 className="mt-6 text-xs font-semibold uppercase tracking-wider text-zinc-400">
@@ -340,6 +497,8 @@ export function ProductFilters({
                                 onClick={() => {
                                     setPSort(defaultSort);
                                     setPBrands([]);
+                                    setPMinM('');
+                                    setPMaxM('');
                                 }}
                             >
                                 {labels.clear}
@@ -347,7 +506,12 @@ export function ProductFilters({
                             <Button
                                 className="flex-1"
                                 onClick={() => {
-                                    apply({ sort: pSort, brands: pBrands });
+                                    apply({
+                                        sort: pSort,
+                                        brands: pBrands,
+                                        minPrice: pMinM,
+                                        maxPrice: pMaxM,
+                                    });
                                     setSheetOpen(false);
                                 }}
                             >

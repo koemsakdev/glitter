@@ -8,6 +8,7 @@ import { MapPicker } from '@/components/ui/map-picker';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { reverseGeocode } from '@/lib/geocode';
+import { isValidPhone } from '@/lib/phone';
 import { tr, type Lang } from '@/lib/locale';
 import type { Address } from '@/lib/types';
 
@@ -120,6 +121,7 @@ export function AddressForm({
         setError('');
         if (!name.trim()) return setError(tr(lang, 'nameRequired'));
         if (!phone.trim()) return setError(tr(lang, 'phoneRequired'));
+        if (!isValidPhone(phone)) return setError(tr(lang, 'invalidPhone'));
         if (!street.trim()) return setError(tr(lang, 'addressRequired'));
 
         setSaving(true);

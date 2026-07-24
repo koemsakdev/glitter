@@ -6,10 +6,12 @@ import { Heart, Home, MapPin, ShoppingCart, User } from 'lucide-react';
 import { UserAvatar } from '@/components/user-avatar';
 import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
+import { useLang } from '@/lib/lang-context';
 import { tr, type Lang } from '@/lib/locale';
 import { cn } from '@/lib/utils';
 
-export function MobileBottomNav({ lang }: { lang: Lang }) {
+export function MobileBottomNav({ lang: initialLang }: { lang: Lang }) {
+    const { lang } = useLang(initialLang);
     const pathname = usePathname();
     const { itemCount, hydrated } = useCart();
     const { user } = useAuth();
