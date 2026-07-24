@@ -26,7 +26,6 @@ import type { Metadata } from 'next';
 
 // Always render fresh from the API — never serve a cached page/badge state.
 export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
 
 export async function generateMetadata({
     params,

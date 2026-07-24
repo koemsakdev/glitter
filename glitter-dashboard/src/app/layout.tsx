@@ -10,6 +10,7 @@ import { Toaster } from "sonner";
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ThemeProvider } from '@/lib/theme-provider';
 import { RealtimeListener } from '@/lib/realtime-listener';
+import { NavLoadingBar } from '@/components/feedback/nav-loading-bar';
 
 const googleSans = localFont({
   src: [
@@ -42,6 +43,7 @@ export default function RootLayout({
           <ThemeProvider>
             <QueryProvider>
               <RealtimeListener />
+              <NavLoadingBar />
               <AuthProvider>
                 <TooltipProvider>
                   {children}

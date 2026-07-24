@@ -423,3 +423,18 @@ input[type="password"]::placeholder {
     font-family: 'Sora', sans-serif;
     letter-spacing: normal;
 }
+/* Soft, thin top navigation/loading bar — shown while any data is fetching. */
+@keyframes nav-progress {
+  0%   { left: -40%; width: 40%; }
+  50%  { left: 25%;  width: 50%; }
+  100% { left: 100%; width: 40%; }
+}
+.nav-progress-bar-soft {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 9999px;
+  background: #f472b6;      /* pink-400, soft */
+  opacity: 0.85;
+  animation: nav-progress 1.2s ease-in-out infinite;
+}

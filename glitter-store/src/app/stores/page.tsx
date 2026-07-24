@@ -7,7 +7,6 @@ import type { Branch } from '@/lib/types';
 export const metadata = { title: 'Our stores' };
 
 export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
 
 function hasCoords(b: Branch): b is Branch & { latitude: number; longitude: number } {
     return typeof b.latitude === 'number' && typeof b.longitude === 'number';

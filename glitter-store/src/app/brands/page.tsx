@@ -7,7 +7,6 @@ import { tr } from '@/lib/locale';
 export const metadata = { title: 'Brands' };
 
 export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
 
 export default async function BrandsPage() {
     const [lang, brands] = await Promise.all([
