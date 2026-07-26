@@ -9,5 +9,6 @@ import { CommonModule } from '../common/common.module';
   imports: [TypeOrmModule.forFeature([BrandEntity]), CommonModule],
   controllers: [BrandsController],
   providers: [BrandsService],
+  exports: [BrandsService],
 })
 export class BrandsModule {}

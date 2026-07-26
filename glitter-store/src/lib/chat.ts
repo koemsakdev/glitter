@@ -12,6 +12,8 @@ export interface ChatProduct {
 export interface ChatReply {
     reply: string;
     products: ChatProduct[];
+    /** AI-generated follow-up questions relevant to this conversation. */
+    suggestions?: string[];
 }
 
 /** A message in the on-screen transcript (assistant messages may carry cards). */
@@ -19,6 +21,7 @@ export interface ChatMessage {
     role: 'user' | 'model';
     content: string;
     products?: ChatProduct[];
+    suggestions?: string[];
 }
 
 export type ChatError = 'rate' | 'error';
