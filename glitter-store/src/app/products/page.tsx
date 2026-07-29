@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { ChevronRight, Flame, LayoutGrid, PackagePlus, SearchX } from 'lucide-react';
+import { ChevronRight, Flame, PackagePlus, SearchX } from 'lucide-react';
 import { ProductCard } from '@/components/product-card';
 import { ProductFilters } from '@/components/product-filters';
+import { CategoryChips } from '@/components/category-chips';
 import { ProductSearch } from '@/components/product-search';
 import { SectionBlock } from '@/components/home-section';
 import { resolveSectionProducts } from '@/components/home-section-data';
@@ -17,8 +18,7 @@ import {
 import { getLang } from '@/lib/lang';
 import { productGridClass } from '@/lib/store-config';
 import { Tr, T } from '@/lib/lang-context';
-import { pick, tr } from '@/lib/locale';
-import { cn } from '@/lib/utils';
+import { tr } from '@/lib/locale';
 
 export const metadata = { title: 'Shop' };
 
@@ -293,6 +293,7 @@ export default async function ProductsPage({
                     <div className="flex items-center gap-3">
                         <ProductSearch />
                         <ProductFilters
+                            lang={lang}
                             brands={brands.map((b) => ({
                                 id: b.id,
                                 name: b.name,
@@ -300,85 +301,24 @@ export default async function ProductsPage({
                             }))}
                             sortOptions={SORTS.map((s) => ({
                                 key: s.key,
-                                label: tr(lang, s.trKey),
+                                trKey: s.trKey,
                             }))}
-                            labels={{
-                                filters: tr(lang, 'filters'),
-                                sortBy: tr(lang, 'sortBy'),
-                                brands: tr(lang, 'brands'),
-                                searchBrands: tr(lang, 'searchBrands'),
-                                noBrands: tr(lang, 'noBrands'),
-                                clear: tr(lang, 'clear'),
-                                apply: tr(lang, 'apply'),
-                                selected: tr(lang, 'selected'),
-                                price: tr(lang, 'price'),
-                                minPrice: tr(lang, 'min'),
-                                maxPrice: tr(lang, 'max'),
-                            }}
                         />
                     </div>
                 )}
 
-                {/* Category chips */}
+                {/* Category chips — client component for instant tap feedback */}
                 {!isCurated && (
-                <div className="mt-5 flex gap-2.5 overflow-x-auto pb-2 [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
-                    <Link
-                        href={buildHref(current, { categoryId: '' })}
-                        className={cn(
-                            'flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all',
-                            !categoryId
-                                ? 'bg-(--brand) text-white shadow-lg shadow-(--brand)/30'
-                                : 'bg-white text-zinc-600 border border-zinc-200 dark:border-zinc-700 hover:text-(--brand) hover:border-(--brand)/40 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-800',
-                        )}
-                    >
-                        <LayoutGrid className="size-4" />
-                        <Tr k="all" />
-                    </Link>
-                    {categories.map((c) => {
-                        const active = categoryId === c.id;
-                        const icon = fileUrl(c.iconUrl);
-                        const cname = pick(lang, c.nameEn, c.nameKm);
-                        return (
-                            <Link
-                                key={c.id}
-                                href={buildHref(current, { categoryId: c.id })}
-                                className={cn(
-                                    'flex shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-4 text-sm font-semibold transition-all',
-                                    active
-                                        ? 'bg-(--brand)/75 dark:bg-(--brand)/25 text-white shadow-lg shadow-(--brand)/30'
-                                        : 'bg-white text-zinc-600 border border-zinc-200 dark:border-zinc-700 hover:text-(--brand) hover:border-(--brand)/40 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-800',
-                                )}
-                            >
-                                <span
-                                    className={cn(
-                                        'flex size-6 items-center justify-center overflow-hidden p-0.5'
-                                    )}
-                                >
-                                    {icon ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img
-                                            src={icon}
-                                            alt=""
-                                            className="size-full object-cover"
-                                        />
-                                    ) : (
-                                        <span
-                                            className={cn(
-                                                'text-xs font-bold',
-                                                active
-                                                    ? 'text-white'
-                                                    : 'text-(--brand)',
-                                            )}
-                                        >
-                                            {cname.charAt(0)}
-                                        </span>
-                                    )}
-                                </span>
-                                <T en={c.nameEn} km={c.nameKm} />
-                            </Link>
-                        );
-                    })}
-                </div>
+                    <CategoryChips
+                        lang={lang}
+                        activeId={categoryId}
+                        categories={categories.map((c) => ({
+                            id: c.id,
+                            nameEn: c.nameEn,
+                            nameKm: c.nameKm,
+                            iconUrl: c.iconUrl,
+                        }))}
+                    />
                 )}
 
                 {/* Active filter chips (price + brands) */}

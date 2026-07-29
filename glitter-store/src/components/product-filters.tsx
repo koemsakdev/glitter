@@ -1,16 +1,19 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import {
     ArrowUpDown,
     Check,
     ChevronsUpDown,
     DollarSign,
     ListFilter,
+    Loader2,
     Tag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useLang } from '@/lib/lang-context';
+import { tr, type Lang } from '@/lib/locale';
 import {
     Command,
     CommandEmpty,
@@ -31,17 +34,18 @@ import {
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
-export type SortOption = { key: string; label: string };
+export type SortOption = { key: string; trKey: string };
 export type BrandOption = { id: string; name: string; logo?: string | null };
 
 function BrandLogo({ logo, name }: { logo?: string | null; name: string }) {
+    // Circular, edge-to-edge logo — no box, border or padding around the image.
     return (
-        <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-zinc-50 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:ring-zinc-700">
+        <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full">
             {logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logo} alt="" className="size-full object-contain p-0.5" />
+                <img src={logo} alt="" className="size-full object-cover" />
             ) : (
-                <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+                <span className="flex size-full items-center justify-center rounded-full bg-zinc-100 text-[11px] font-bold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
                     {name.charAt(0).toUpperCase()}
                 </span>
             )}
@@ -86,28 +90,40 @@ function PriceField({
 export function ProductFilters({
     brands,
     sortOptions,
-    labels,
+    lang: initialLang,
 }: {
     brands: BrandOption[];
     sortOptions: SortOption[];
-    labels: {
-        filters: string;
-        sortBy: string;
-        brands: string;
-        searchBrands: string;
-        noBrands: string;
-        clear: string;
-        apply: string;
-        selected: string;
-        price: string;
-        minPrice: string;
-        maxPrice: string;
-    };
+    lang: Lang;
 }) {
     const router = useRouter();
     const params = useSearchParams();
+    // Read the language from the client context so the labels switch instantly
+    // when the user toggles EN/KM (instead of waiting for a server re-render).
+    const { lang } = useLang(initialLang);
+    const [isPending, startTransition] = useTransition();
+    const appliedRef = useRef(false);
 
-    const defaultSort = sortOptions[0]?.key ?? 'newest';
+    const labels = {
+        filters: tr(lang, 'filters'),
+        sortBy: tr(lang, 'sortBy'),
+        brands: tr(lang, 'brands'),
+        searchBrands: tr(lang, 'searchBrands'),
+        noBrands: tr(lang, 'noBrands'),
+        clear: tr(lang, 'clear'),
+        apply: tr(lang, 'apply'),
+        applying: tr(lang, 'applying'),
+        selected: tr(lang, 'selected'),
+        price: tr(lang, 'price'),
+        minPrice: tr(lang, 'min'),
+        maxPrice: tr(lang, 'max'),
+    };
+    const sorts = sortOptions.map((s) => ({
+        key: s.key,
+        label: tr(lang, s.trKey),
+    }));
+
+    const defaultSort = sorts[0]?.key ?? 'newest';
     const urlSort = params.get('sort') ?? defaultSort;
     const urlBrands = (params.get('brandIds') ?? '').split(',').filter(Boolean);
     const urlMin = params.get('minPrice') ?? '';
@@ -142,12 +158,17 @@ export function ProductFilters({
             else p.delete('maxPrice');
         }
         p.delete('page');
-        router.replace(`/products?${p.toString()}`, { scroll: false });
+        // Wrap in a transition so `isPending` is true while the server renders
+        // the filtered list — that drives the "Applying…" feedback and the
+        // popovers/sheet stay open until it's done.
+        appliedRef.current = true;
+        startTransition(() => {
+            router.replace(`/products?${p.toString()}`, { scroll: false });
+        });
     }
 
     const sortLabel =
-        sortOptions.find((s) => s.key === urlSort)?.label ??
-        sortOptions[0]?.label;
+        sorts.find((s) => s.key === urlSort)?.label ?? sorts[0]?.label;
 
     /* ---------- Sort combobox (applies on select) ---------- */
     const [sortOpen, setSortOpen] = useState(false);
@@ -177,7 +198,7 @@ export function ProductFilters({
                 <Command>
                     <CommandList>
                         <CommandGroup>
-                            {sortOptions.map((o) => (
+                            {sorts.map((o) => (
                                 <CommandItem
                                     key={o.key}
                                     value={o.label}
@@ -289,12 +310,14 @@ export function ProductFilters({
                         </button>
                         <Button
                             size="sm"
-                            onClick={() => {
-                                apply({ brands: pending });
-                                setBrandOpen(false);
-                            }}
+                            disabled={isPending}
+                            className="gap-1.5"
+                            onClick={() => apply({ brands: pending })}
                         >
-                            {labels.apply}
+                            {isPending && (
+                                <Loader2 className="size-4 animate-spin" />
+                            )}
+                            {isPending ? labels.applying : labels.apply}
                         </Button>
                     </div>
                 </Command>
@@ -361,12 +384,12 @@ export function ProductFilters({
                     </button>
                     <Button
                         size="sm"
-                        onClick={() => {
-                            apply({ minPrice: pMin, maxPrice: pMax });
-                            setPriceOpen(false);
-                        }}
+                        disabled={isPending}
+                        className="gap-1.5"
+                        onClick={() => apply({ minPrice: pMin, maxPrice: pMax })}
                     >
-                        {labels.apply}
+                        {isPending && <Loader2 className="size-4 animate-spin" />}
+                        {isPending ? labels.applying : labels.apply}
                     </Button>
                 </div>
             </PopoverContent>
@@ -389,6 +412,17 @@ export function ProductFilters({
         }
         setSheetOpen(open);
     }
+
+    // Close the open popover/sheet once an apply's navigation has completed
+    // (kept open during `isPending` so the "Applying…" spinner is visible).
+    useEffect(() => {
+        if (!isPending && appliedRef.current) {
+            appliedRef.current = false;
+            setBrandOpen(false);
+            setPriceOpen(false);
+            setSheetOpen(false);
+        }
+    }, [isPending]);
 
     return (
         <>
@@ -420,7 +454,7 @@ export function ProductFilters({
                             {labels.sortBy}
                         </h3>
                         <div className="mt-2 flex flex-wrap gap-2">
-                            {sortOptions.map((o) => (
+                            {sorts.map((o) => (
                                 <button
                                     key={o.key}
                                     type="button"
@@ -504,18 +538,21 @@ export function ProductFilters({
                                 {labels.clear}
                             </Button>
                             <Button
-                                className="flex-1"
-                                onClick={() => {
+                                className="flex-1 gap-1.5"
+                                disabled={isPending}
+                                onClick={() =>
                                     apply({
                                         sort: pSort,
                                         brands: pBrands,
                                         minPrice: pMinM,
                                         maxPrice: pMaxM,
-                                    });
-                                    setSheetOpen(false);
-                                }}
+                                    })
+                                }
                             >
-                                {labels.apply}
+                                {isPending && (
+                                    <Loader2 className="size-4 animate-spin" />
+                                )}
+                                {isPending ? labels.applying : labels.apply}
                             </Button>
                         </div>
                     </SheetContent>
