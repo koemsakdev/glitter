@@ -55,6 +55,12 @@ export function ChatWidget({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Mobile swipe-to-dismiss (drag the sheet down to close).
+    const [dragY, setDragY] = useState(0);
+    const [dragging, setDragging] = useState(false);
+    const [entered, setEntered] = useState(false);
+    const dragStartRef = useRef<number | null>(null);
+
     const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -175,6 +181,35 @@ export function ChatWidget({
         }
     }
 
+    // Let the open animation finish, then disable it so the drag transform can
+    // take over (a filled CSS animation would otherwise override inline style).
+    useEffect(() => {
+        if (!open) {
+            setEntered(false);
+            setDragY(0);
+            return;
+        }
+        const t = setTimeout(() => setEntered(true), 380);
+        return () => clearTimeout(t);
+    }, [open]);
+
+    // Swipe-down-to-close handlers (mobile drag handle).
+    function onSwipeDown(e: React.PointerEvent<HTMLDivElement>) {
+        dragStartRef.current = e.clientY;
+        setDragging(true);
+        e.currentTarget.setPointerCapture(e.pointerId);
+    }
+    function onSwipeMove(e: React.PointerEvent<HTMLDivElement>) {
+        if (dragStartRef.current == null) return;
+        setDragY(Math.max(0, e.clientY - dragStartRef.current));
+    }
+    function onSwipeEnd() {
+        setDragging(false);
+        if (dragY > 110) setOpen(false);
+        setDragY(0);
+        dragStartRef.current = null;
+    }
+
     // ---- Launcher button (panel closed) -------------------------------------
     if (!open) {
         return (
@@ -251,7 +286,28 @@ export function ChatWidget({
                 onClick={() => setOpen(false)}
                 className="chat-backdrop fixed inset-0 z-50 cursor-default bg-zinc-950/40 backdrop-blur-[2px] md:bg-zinc-950/25"
             />
-            <div className={panelClass}>
+            <div
+                className={panelClass}
+                style={{
+                    transform: dragY ? `translateY(${dragY}px)` : undefined,
+                    transition: dragging
+                        ? 'none'
+                        : 'transform 0.28s cubic-bezier(0.32,0.72,0,1)',
+                    animation: entered ? 'none' : undefined,
+                }}
+            >
+            {/* Mobile drag handle — swipe down to close (centred so it doesn't
+                cover the header buttons). Desktop uses the header controls. */}
+            <div
+                onPointerDown={onSwipeDown}
+                onPointerMove={onSwipeMove}
+                onPointerUp={onSwipeEnd}
+                onPointerCancel={onSwipeEnd}
+                aria-hidden
+                className="absolute left-1/2 top-0 z-20 flex h-8 w-24 -translate-x-1/2 touch-none cursor-grab items-center justify-center md:hidden"
+            >
+                <span className="mt-2 h-1.5 w-10 rounded-full bg-white/60" />
+            </div>
             {started ? (
                 /* ---- Conversation ---- */
                 <>
@@ -596,7 +652,12 @@ function DraggableLauncher({
     onOpen: () => void;
     ariaLabel: string;
 }) {
+    // `pos` is where the button is actually drawn (clamped to the viewport);
+    // `anchorRef` is where the user INTENDED it. We always re-clamp from the
+    // anchor, so shrinking then growing the window restores the original spot
+    // instead of stranding it at the shrunk-in position.
     const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+    const anchorRef = useRef<{ x: number; y: number } | null>(null);
     const btnRef = useRef<HTMLButtonElement>(null);
     const startRef = useRef({ x: 0, y: 0 });
     const offsetRef = useRef({ x: 0, y: 0 });
@@ -605,10 +666,23 @@ function DraggableLauncher({
     useEffect(() => {
         try {
             const s = localStorage.getItem(LAUNCHER_POS_KEY);
-            if (s) setPos(JSON.parse(s) as { x: number; y: number });
+            if (s) {
+                const saved = JSON.parse(s) as { x: number; y: number };
+                anchorRef.current = saved;
+                setPos(clamp(saved.x, saved.y));
+            }
         } catch {
             /* ignore */
         }
+        // On resize/rotate, re-clamp from the intended anchor (not the current
+        // clamped value) so the spot is restored when there's room again.
+        function onResize() {
+            const a = anchorRef.current;
+            if (a) setPos(clamp(a.x, a.y));
+        }
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     function clamp(x: number, y: number) {
@@ -646,6 +720,8 @@ function DraggableLauncher({
             /* ignore */
         }
         if (movedRef.current && pos) {
+            // A deliberate move sets a new intended anchor.
+            anchorRef.current = pos;
             try {
                 localStorage.setItem(LAUNCHER_POS_KEY, JSON.stringify(pos));
             } catch {

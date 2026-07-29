@@ -98,10 +98,11 @@ export async function searchProducts(
 /** Active promotions to advertise on the storefront (public). */
 export async function getActivePromotions(): Promise<PublicPromo[]> {
     try {
-        // Fresh each request so promo/announcement edits reflect immediately.
+        // Cached briefly so the announcement bar isn't a fresh API call on every
+        // page; promo edits reflect within ~30s.
         const res = await apiGet<{ data: PublicPromo[] }>(
             '/api/vouchers/active',
-            0,
+            30,
         );
         return res.data ?? [];
     } catch {
@@ -333,9 +334,12 @@ interface RawSetting {
 export async function getStoreConfig(): Promise<StoreConfig> {
     try {
         // Fetch just the one public config row (not the whole settings table).
+        // Cached briefly (store branding/nav rarely changes) so it isn't a fresh
+        // API round-trip on every page render — a big SSR speed-up. Admin edits
+        // appear within ~1 min.
         const row = await apiGet<RawSetting | null>(
             `/api/app-settings/group/storefront/key/home_config`,
-            0,
+            60,
         );
         if (!row?.settingValue) return DEFAULT_STORE_CONFIG;
         return mergeStoreConfig(JSON.parse(row.settingValue));

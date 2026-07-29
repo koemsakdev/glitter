@@ -1,0 +1,27 @@
+name: Keep API warm
+
+# Render's free tier sleeps after ~15 min of inactivity, and the first request
+# after that takes 30–60s to cold-start — which makes every storefront/dashboard
+# page appear to "load forever". This pings the API every 10 minutes so it stays
+# awake during the day, eliminating those cold starts.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *' # every 10 minutes (UTC)
+  workflow_dispatch: {} # allow manual runs from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the API until it responds
+        run: |
+          URL="https://glitter-mlb2.onrender.com/api/branches/status/active"
+          for i in 1 2 3 4; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 70 "$URL" || echo 000)
+            echo "Attempt $i → HTTP $code"
+            # Any real HTTP response means the server is awake.
+            if [ "$code" != "000" ]; then exit 0; fi
+            sleep 20
+          done
+          echo "API did not respond in time" && exit 1
