@@ -15,7 +15,7 @@ export function NavLoadingBar() {
     if (!mounted) return null;
 
     return createPortal(
-        <div className="fixed inset-x-0 top-0 z-9999 h-0.5 overflow-hidden">
+        <div className="fixed inset-x-0 top-0 z-9999 h-1 overflow-hidden">
             <span className="nav-progress-bar" />
         </div>,
         document.body,

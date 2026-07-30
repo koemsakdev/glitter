@@ -2,7 +2,8 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import { LayoutGrid, Loader2 } from 'lucide-react';
+import { LayoutGrid } from 'lucide-react';
+import { NavLoadingBar } from '@/components/nav-loading-bar';
 import { fileUrl } from '@/lib/api';
 import { useLang } from '@/lib/lang-context';
 import { pick, tr, type Lang } from '@/lib/locale';
@@ -60,60 +61,69 @@ export function CategoryChips({
         'bg-white text-zinc-600 border border-zinc-200 hover:text-(--brand) hover:border-(--brand)/40 dark:bg-zinc-900 dark:text-zinc-300 dark:border-zinc-700';
 
     return (
-        <div className="mt-5 flex gap-2.5 overflow-x-auto pb-2 [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
-            <button
-                type="button"
-                onClick={() => go('')}
-                className={cn(chipBase, 'px-4 py-2', !shown ? activeCls : idleCls)}
-            >
-                {isPending && target === '' ? (
-                    <Loader2 className="size-4 animate-spin" />
-                ) : (
-                    <LayoutGrid className="size-4" />
+        <>
+            {/* Page-level loading feedback (a top bar) while the list loads —
+                shown instead of a spinner inside the little chip. */}
+            {isPending && <NavLoadingBar />}
+            <div
+                className={cn(
+                    'mt-5 flex gap-2.5 overflow-x-auto pb-2 transition-opacity [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden',
+                    isPending && 'opacity-60',
                 )}
-                {tr(lang, 'all')}
-            </button>
-            {categories.map((c) => {
-                const isActive = shown === c.id;
-                const loading = isPending && target === c.id;
-                const icon = fileUrl(c.iconUrl);
-                const cname = pick(lang, c.nameEn, c.nameKm);
-                return (
-                    <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => go(c.id)}
-                        className={cn(
-                            chipBase,
-                            'py-1.5 pl-1.5 pr-4',
-                            isActive ? activeCls : idleCls,
-                        )}
-                    >
-                        <span className="flex size-6 items-center justify-center overflow-hidden rounded-full">
-                            {loading ? (
-                                <Loader2 className="size-4 animate-spin" />
-                            ) : icon ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                    src={icon}
-                                    alt=""
-                                    className="size-full object-cover"
-                                />
-                            ) : (
-                                <span
-                                    className={cn(
-                                        'text-xs font-bold',
-                                        isActive ? 'text-white' : 'text-(--brand)',
-                                    )}
-                                >
-                                    {cname.charAt(0)}
-                                </span>
+            >
+                <button
+                    type="button"
+                    onClick={() => go('')}
+                    className={cn(
+                        chipBase,
+                        'px-4 py-2',
+                        !shown ? activeCls : idleCls,
+                    )}
+                >
+                    <LayoutGrid className="size-4" />
+                    {tr(lang, 'all')}
+                </button>
+                {categories.map((c) => {
+                    const isActive = shown === c.id;
+                    const icon = fileUrl(c.iconUrl);
+                    const cname = pick(lang, c.nameEn, c.nameKm);
+                    return (
+                        <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => go(c.id)}
+                            className={cn(
+                                chipBase,
+                                'py-1.5 pl-1.5 pr-4',
+                                isActive ? activeCls : idleCls,
                             )}
-                        </span>
-                        {cname}
-                    </button>
-                );
-            })}
-        </div>
+                        >
+                            <span className="flex size-6 items-center justify-center overflow-hidden rounded-full">
+                                {icon ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                        src={icon}
+                                        alt=""
+                                        className="size-full object-cover"
+                                    />
+                                ) : (
+                                    <span
+                                        className={cn(
+                                            'text-xs font-bold',
+                                            isActive
+                                                ? 'text-white'
+                                                : 'text-(--brand)',
+                                        )}
+                                    >
+                                        {cname.charAt(0)}
+                                    </span>
+                                )}
+                            </span>
+                            {cname}
+                        </button>
+                    );
+                })}
+            </div>
+        </>
     );
 }

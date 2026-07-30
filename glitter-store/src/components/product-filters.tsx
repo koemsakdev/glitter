@@ -12,6 +12,7 @@ import {
     Tag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { NavLoadingBar } from '@/components/nav-loading-bar';
 import { useLang } from '@/lib/lang-context';
 import { tr, type Lang } from '@/lib/locale';
 import {
@@ -426,6 +427,7 @@ export function ProductFilters({
 
     return (
         <>
+            {isPending && <NavLoadingBar />}
             {/* Desktop: inline comboboxes */}
             <div className="hidden items-center gap-2 lg:flex">
                 {SortCombobox}
@@ -445,12 +447,17 @@ export function ProductFilters({
                         <ListFilter className="size-5" />
                         {anyActive && <Dot />}
                     </Button>
-                    <SheetContent>
-                        <SheetTitle className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
-                            {labels.filters}
-                        </SheetTitle>
+                    <SheetContent className="flex flex-col gap-0 overflow-hidden p-0">
+                        {/* Header */}
+                        <div className="shrink-0 border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+                            <SheetTitle className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
+                                {labels.filters}
+                            </SheetTitle>
+                        </div>
 
-                        <h3 className="mt-6 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                        {/* Scrollable filter body */}
+                        <div className="flex-1 overflow-y-auto px-5 pb-4">
+                        <h3 className="mt-5 text-xs font-semibold uppercase tracking-wider text-zinc-400">
                             {labels.sortBy}
                         </h3>
                         <div className="mt-2 flex flex-wrap gap-2">
@@ -523,8 +530,10 @@ export function ProductFilters({
                                 );
                             })}
                         </div>
+                        </div>
 
-                        <div className="mt-auto flex items-center gap-2 pt-6">
+                        {/* Docked action bar — always visible at the bottom */}
+                        <div className="shrink-0 flex items-center gap-2 border-t border-zinc-100 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:border-zinc-800">
                             <Button
                                 variant="outline"
                                 className="flex-1"
