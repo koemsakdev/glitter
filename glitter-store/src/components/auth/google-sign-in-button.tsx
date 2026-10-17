@@ -15,11 +15,16 @@ declare global {
                     initialize(config: {
                         client_id: string;
                         callback: (resp: { credential: string }) => void;
+                        auto_select?: boolean;
                     }): void;
                     renderButton(
                         parent: HTMLElement,
                         options: Record<string, unknown>,
                     ): void;
+                    prompt(
+                        momentListener?: (notification: unknown) => void,
+                    ): void;
+                    disableAutoSelect(): void;
                 };
             };
         };
@@ -27,12 +32,11 @@ declare global {
 }
 
 /**
- * Custom-styled Google sign-in button.
+ * Google Sign-In button rendered directly via Google Identity Services (GIS).
  *
- * Google's own rendered button can't be dark-mode themed on the fly and its
- * label isn't localized to Khmer. So we render the real Google button hidden
- * off-screen (to keep the secure ID-token credential flow) and show our own
- * translated, dark-mode-aware button that forwards the click to it.
+ * Renders the official Google button to ensure secure ID-token issuance,
+ * proper click handling (avoiding cross-origin iframe click blocking),
+ * native Khmer and English localization, and automatic dark/light theme switching.
  */
 export function GoogleSignInButton({
     lang,
@@ -52,10 +56,13 @@ export function GoogleSignInButton({
     const gsiRef = useRef<HTMLDivElement>(null);
     const handlerRef = useRef<(credential: string) => void>(() => {});
     const [ready, setReady] = useState(false);
+    const [isDark, setIsDark] = useState(false);
+    const [authError, setAuthError] = useState<string | null>(null);
 
     // Keep the latest handler so the GIS callback always uses fresh closures.
     handlerRef.current = async (credential: string) => {
         try {
+            setAuthError(null);
             if (mode === 'link') {
                 await linkProvider('google', { idToken: credential });
             } else {
@@ -63,12 +70,26 @@ export function GoogleSignInButton({
                 router.push('/account');
             }
         } catch (e) {
-            if (mode === 'link' && onError) {
-                onError(e instanceof Error ? e.message : 'Could not connect');
-            }
-            // Login errors are surfaced by the page-level form.
+            const msg =
+                e instanceof Error ? e.message : 'Google sign-in failed';
+            setAuthError(msg);
+            onError?.(msg);
         }
     };
+
+    // Track dark mode dynamically so Google button adapts on theme change
+    useEffect(() => {
+        const updateDark = () => {
+            setIsDark(document.documentElement.classList.contains('dark'));
+        };
+        updateDark();
+        const obs = new MutationObserver(updateDark);
+        obs.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class'],
+        });
+        return () => obs.disconnect();
+    }, []);
 
     useEffect(() => {
         if (!CLIENT_ID) return;
@@ -76,24 +97,41 @@ export function GoogleSignInButton({
 
         function init() {
             if (cancelled || !window.google || !gsiRef.current) return;
-            window.google.accounts.id.initialize({
-                client_id: CLIENT_ID as string,
-                callback: (resp) => handlerRef.current(resp.credential),
-            });
-            window.google.accounts.id.renderButton(gsiRef.current, {
-                theme: 'outline',
-                size: 'large',
-                width: 320,
-                text: 'continue_with',
-                shape: 'pill',
-            });
-            setReady(true);
+            try {
+                // Clear any stale children before rendering fresh button
+                gsiRef.current.replaceChildren();
+
+                window.google.accounts.id.initialize({
+                    client_id: CLIENT_ID as string,
+                    callback: (resp) => handlerRef.current(resp.credential),
+                });
+
+                window.google.accounts.id.renderButton(gsiRef.current, {
+                    type: 'standard',
+                    theme: isDark ? 'filled_black' : 'outline',
+                    size: compact ? 'medium' : 'large',
+                    text: 'continue_with',
+                    shape: 'pill',
+                    logo_alignment: 'left',
+                    width: compact ? 200 : 320,
+                    locale: lang,
+                });
+
+                if (mode === 'login') {
+                    window.google.accounts.id.prompt();
+                }
+
+                setReady(true);
+            } catch (err) {
+                console.error('Google Sign-In initialization failed:', err);
+            }
         }
 
         if (window.google) {
             init();
             return;
         }
+
         const id = 'google-gsi-script';
         let script = document.getElementById(id) as HTMLScriptElement | null;
         if (!script) {
@@ -104,46 +142,50 @@ export function GoogleSignInButton({
             script.id = id;
             document.body.appendChild(script);
         }
-        script.addEventListener('load', init);
+
+        const onLoad = () => init();
+        script.addEventListener('load', onLoad);
         return () => {
             cancelled = true;
-            script?.removeEventListener('load', init);
+            script?.removeEventListener('load', onLoad);
         };
-    }, []);
+    }, [lang, compact, mode, isDark]);
 
     if (!CLIENT_ID) return null;
 
-    function handleClick() {
-        // Forward the click to the hidden Google button (a real user gesture).
-        const inner = gsiRef.current?.querySelector(
-            '[role="button"]',
-        ) as HTMLElement | null;
-        inner?.click();
-    }
-
     return (
-        <div className="relative">
-            <button
-                type="button"
-                onClick={handleClick}
-                disabled={!ready}
-                className={
-                    compact
-                        ? 'flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:border-(--brand) hover:text-(--brand) disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'
-                        : 'flex w-full items-center justify-center gap-2.5 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800'
-                }
-            >
-                <GoogleG />
-                {tr(lang, compact ? 'connect' : 'continueWithGoogle')}
-            </button>
-
-            {/* Real Google button — kept off-screen; visible to Google (so its
-                click flow works) but not to the user. */}
+        <div className="flex flex-col items-center justify-center">
+            {/* Real rendered Google button */}
             <div
                 ref={gsiRef}
-                aria-hidden
-                className="pointer-events-none absolute left-[-9999px] top-0"
+                className={
+                    ready
+                        ? 'flex justify-center'
+                        : 'hidden'
+                }
             />
+
+            {/* Skeleton / placeholder while loading GIS script */}
+            {!ready && (
+                <div
+                    className={
+                        compact
+                            ? 'flex h-9 w-[200px] items-center justify-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 text-xs font-semibold text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900'
+                            : 'flex h-10 w-[320px] items-center justify-center gap-2.5 rounded-full border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900'
+                    }
+                >
+                    <GoogleG />
+                    <span>
+                        {tr(lang, compact ? 'connect' : 'continueWithGoogle')}
+                    </span>
+                </div>
+            )}
+
+            {authError && !onError && (
+                <p className="mt-2 text-center text-xs font-medium text-red-600 dark:text-red-400">
+                    {authError}
+                </p>
+            )}
         </div>
     );
 }

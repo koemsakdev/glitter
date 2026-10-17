@@ -9,7 +9,7 @@ import {
     type ReactNode,
 } from 'react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5001';
 const ACCESS_KEY = 'glitter_access';
 const REFRESH_KEY = 'glitter_refresh';
 
@@ -263,6 +263,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await authFetch('/api/auth/logout', { method: 'POST' });
         } catch {
             // ignore — clear locally regardless
+        }
+        if (typeof window !== 'undefined') {
+            const g = (window as unknown as {
+                google?: {
+                    accounts?: {
+                        id?: { disableAutoSelect?: () => void };
+                    };
+                };
+            }).google;
+            g?.accounts?.id?.disableAutoSelect?.();
         }
         clearTokens();
         setUser(null);

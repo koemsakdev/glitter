@@ -119,7 +119,7 @@ export function LoginForm({
                 </button>
             </form>
 
-            <SocialAuth lang={lang} />
+            <SocialAuth lang={lang} onError={setError} />
 
             <p className="mt-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
                 {tr(lang, 'noAccount')}{' '}

@@ -395,7 +395,7 @@ export class AuthService {
         'GOOGLE_CLIENT_ID is not configured. Set it in .env before using Google login.',
       );
     }
-    if (profile.aud !== clientId) {
+    if (profile.aud !== clientId && profile.azp !== clientId) {
       throw new UnauthorizedException(
         'Google ID token was not issued for this application',
       );
@@ -526,6 +526,7 @@ export class AuthService {
 interface GoogleProfile {
   iss: string;
   aud: string;
+  azp?: string;
   sub: string;
   email?: string;
   email_verified?: string;

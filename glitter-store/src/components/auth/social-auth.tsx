@@ -7,7 +7,13 @@ import { tr, type Lang } from '@/lib/locale';
 const HAS_GOOGLE = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
 const HAS_TELEGRAM = Boolean(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME);
 
-export function SocialAuth({ lang }: { lang: Lang }) {
+export function SocialAuth({
+    lang,
+    onError,
+}: {
+    lang: Lang;
+    onError?: (message: string) => void;
+}) {
     if (!HAS_GOOGLE && !HAS_TELEGRAM) return null;
 
     return (
@@ -17,8 +23,8 @@ export function SocialAuth({ lang }: { lang: Lang }) {
                 {tr(lang, 'orContinueWith')}
                 <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
             </div>
-            <GoogleSignInButton lang={lang} />
-            <TelegramLoginButton />
+            <GoogleSignInButton lang={lang} onError={onError} />
+            <TelegramLoginButton onError={onError} />
         </div>
     );
 }
