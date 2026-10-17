@@ -1,7 +1,7 @@
 'use client';
 
 import { Camera, Loader2, Trash2 } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@/components/ui/safe-image';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -159,6 +159,7 @@ export function ProfileView() {
                             <Image
                                 src={shownAvatar}
                                 alt={user.fullName}
+                                fallback={initials}
                                 width={80}
                                 height={80}
                                 className="size-full object-cover"

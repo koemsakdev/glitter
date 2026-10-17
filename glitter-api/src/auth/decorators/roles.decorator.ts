@@ -8,7 +8,7 @@ export const ROLES_KEY = 'roles';
  *
  * Usage:
  *   @UseGuards(JwtAuthGuard, RolesGuard)
- *   @Roles('admin', 'super_admin')
+ *   @Roles('admin', 'manager')
  *   @Post()
  *   createProduct(...) {}
  *

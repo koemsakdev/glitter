@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-image';
 import {
     ArrowDown,
     ArrowUp,
@@ -181,8 +182,7 @@ export default function BannersSettingsPage() {
                             >
                                 <div className="relative h-40 bg-muted/30">
                                     {img && (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img
+                                        <SafeImg
                                             src={img}
                                             alt={b.imageAltText ?? ''}
                                             className={cn(

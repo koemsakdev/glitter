@@ -2,7 +2,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { Camera, Loader2, Mail, Phone, Trash2, UserRound } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@/components/ui/safe-image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { SavingOverlay } from '@/components/feedback/saving-overlay';
@@ -338,6 +338,11 @@ export function CustomerForm({
                                         <Image
                                             src={shownAvatar}
                                             alt={fullName || 'avatar'}
+                                            fallback={
+                                                initials || (
+                                                    <UserRound className="size-10" />
+                                                )
+                                            }
                                             width={112}
                                             height={112}
                                             className="size-full object-cover"

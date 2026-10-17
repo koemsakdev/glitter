@@ -1,7 +1,7 @@
 'use client';
 
 import { Camera, Loader2, Save, Trash2, X } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@/components/ui/safe-image';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {

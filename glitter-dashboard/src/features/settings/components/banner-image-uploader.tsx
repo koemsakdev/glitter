@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-image';
 import { Eye, ImageUp, RefreshCw, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
@@ -107,8 +108,7 @@ export function BannerImageUploader({
             >
                 {preview ? (
                     <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                        <SafeImg
                             src={preview}
                             alt={label ?? t('settings.banner.alt')}
                             className={`size-full ${

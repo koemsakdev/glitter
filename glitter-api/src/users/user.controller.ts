@@ -85,7 +85,7 @@ export class UsersController {
    * Customers self-register via POST /api/auth/register instead.
    */
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -96,19 +96,7 @@ export class UsersController {
   @ApiBody({ type: CreateUserDto })
   @ApiResponse({ status: 201, type: UserDetailResponseDto })
   @ApiResponse({ status: 403, description: 'Admin access required' })
-  async create(
-    @Body() dto: CreateUserDto,
-    @CurrentUser() currentUser: UserEntity,
-  ): Promise<UserDetailResponse> {
-    // Only super_admin can create other super_admin or admin
-    if (
-      (dto.role === 'super_admin' || dto.role === 'admin') &&
-      currentUser.role !== 'super_admin'
-    ) {
-      throw new ForbiddenException(
-        'Only super_admin can create admin or super_admin accounts',
-      );
-    }
+  async create(@Body() dto: CreateUserDto): Promise<UserDetailResponse> {
     return this.usersService.create(dto);
   }
 
@@ -116,12 +104,12 @@ export class UsersController {
    * ADMIN ONLY — list users
    */
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'List users (admin only)',
-    description: 'Managers, admins, super_admins can browse users.',
+    description: 'Managers and admins can browse users.',
   })
   @ApiResponse({ status: 200, type: UserListResponseDto })
   async findAll(@Query() query: UserQueryDto): Promise<UserListResponse> {
@@ -132,7 +120,7 @@ export class UsersController {
    * ADMIN ONLY — find user by email
    */
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   @Get('email/:email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Find user by email (admin only)' })
@@ -142,6 +130,22 @@ export class UsersController {
     @Param('email') email: string,
   ): Promise<UserDetailResponse> {
     return this.usersService.findByEmail(email);
+  }
+
+  /**
+   * ADMIN ONLY — live check for the staff form: is this username valid and
+   * free? `excludeId` ignores the user being edited (their current name).
+   */
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @Get('username-available')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Check whether a staff username is available' })
+  async usernameAvailable(
+    @Query('username') username = '',
+    @Query('excludeId') excludeId?: string,
+  ): Promise<{ available: boolean; reason?: 'invalid' | 'taken' }> {
+    return this.usersService.checkUsername(username, excludeId);
   }
 
   /**
@@ -190,22 +194,13 @@ export class UsersController {
       if (
         dto.role !== undefined ||
         dto.branchId !== undefined ||
-        dto.accountStatus !== undefined
+        dto.accountStatus !== undefined ||
+        dto.username !== undefined
       ) {
         throw new ForbiddenException(
-          'Only admins can change role, branch, or account status',
+          'Only admins can change role, branch, username, or account status',
         );
       }
-    }
-
-    // Only super_admin can promote someone to admin or super_admin
-    if (
-      (dto.role === 'admin' || dto.role === 'super_admin') &&
-      currentUser.role !== 'super_admin'
-    ) {
-      throw new ForbiddenException(
-        'Only super_admin can assign admin or super_admin roles',
-      );
     }
 
     // You cannot change your OWN role or account status — that prevents
@@ -292,7 +287,7 @@ export class UsersController {
    * staff credentials, or reset a forgotten password).
    */
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @Patch(':id/password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -317,7 +312,7 @@ export class UsersController {
    * ADMIN ONLY — force a user to log out from all devices
    */
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @Post(':id/invalidate-tokens')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -334,7 +329,7 @@ export class UsersController {
    * ADMIN ONLY — soft delete
    */
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Soft-delete a user (admin only)' })
@@ -350,14 +345,14 @@ export class UsersController {
   }
 
   /**
-   * SUPER ADMIN ONLY — hard delete (irreversible)
+   * ADMIN ONLY — hard delete (irreversible)
    */
   @UseGuards(RolesGuard)
-  @Roles('super_admin')
+  @Roles('admin')
   @Delete(':id/hard')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    summary: 'Permanently delete a user (super_admin only, DESTRUCTIVE)',
+    summary: 'Permanently delete a user (admin only, DESTRUCTIVE)',
   })
   @ApiParam({ name: 'id', type: String })
   async hardDelete(

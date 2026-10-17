@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2, Package, Plus, Search } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@/components/ui/safe-image';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

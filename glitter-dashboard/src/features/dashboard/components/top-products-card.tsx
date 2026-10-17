@@ -1,7 +1,7 @@
 'use client';
 
 import { ImageIcon, Package } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@/components/ui/safe-image';
 import Link from 'next/link';
 import { getFileUrl } from '@/lib/file-url';
 import { formatPrice } from '@/lib/formatters';

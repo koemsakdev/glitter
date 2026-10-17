@@ -5,7 +5,7 @@ import { UserEntity, UserRole } from '../../users/entities/user.entity';
  * Admin-level roles that can bypass ownership checks
  * (e.g., admins managing other users' addresses for customer support).
  */
-const ADMIN_ROLES: UserRole[] = ['admin', 'super_admin'];
+const ADMIN_ROLES: UserRole[] = ['admin'];
 
 /**
  * Assert that the current user either owns a resource OR is an admin.

@@ -1,6 +1,8 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -16,6 +18,7 @@ import { AuthAccountEntity } from '../users/entities/auth-account.entity';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginDto } from './dto/login.dto';
+import { StaffLoginDto } from './dto/staff-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { TelegramLoginDto } from './dto/telegram-login.dto';
@@ -24,6 +27,8 @@ import { AuthTokenResponse, JwtPayload } from './types/jwt-payload.type';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -58,7 +63,9 @@ export class AuthService {
     if (user.emailVerifiedAt) {
       throw new BadRequestException('Email is already verified');
     }
-    if (!this.mail.isConfigured) {
+    const devFallback =
+      !this.mail.isConfigured && process.env.NODE_ENV !== 'production';
+    if (!this.mail.isConfigured && !devFallback) {
       throw new BadRequestException('Email sending is not configured');
     }
     // Rate limit: one code per minute.
@@ -78,15 +85,19 @@ export class AuthService {
     user.emailOtpSentAt = new Date();
     await this.userRepo.save(user);
 
-    await this.mail.sendVerificationCode(user.email, code);
+    if (devFallback) {
+      // Local dev without SMTP: surface the code in the API logs instead.
+      this.logger.warn(
+        `SMTP not configured — verification code for ${user.email}: ${code}`,
+      );
+    } else {
+      await this.mail.sendVerificationCode(user.email, code);
+    }
     return { sent: true };
   }
 
   /** Verify the code; on success stamp emailVerifiedAt + sync the email login. */
-  async verifyEmail(
-    userId: string,
-    code: string,
-  ): Promise<{ verified: true }> {
+  async verifyEmail(userId: string, code: string): Promise<{ verified: true }> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (user === null) throw new NotFoundException('User not found');
     if (user.emailVerifiedAt) return { verified: true };
@@ -98,9 +109,7 @@ export class AuthService {
       throw new BadRequestException('The code has expired — request a new one');
     }
     if (user.emailOtpAttempts >= 5) {
-      throw new BadRequestException(
-        'Too many attempts — request a new code',
-      );
+      throw new BadRequestException('Too many attempts — request a new code');
     }
     if (this.hashOtp(code.trim(), user.id) !== user.emailOtpHash) {
       user.emailOtpAttempts += 1;
@@ -133,9 +142,13 @@ export class AuthService {
   // EMAIL + PASSWORD
   // ==========================================================================
 
+  /**
+   * Create the account and email a verification code. No tokens are issued —
+   * the user signs in by confirming the code (POST /auth/email/confirm).
+   */
   async register(
     dto: RegisterDto,
-  ): Promise<{ user: UserEntity; tokens: AuthTokenResponse }> {
+  ): Promise<{ requiresVerification: true; email: string }> {
     const user = await this.usersService.registerWithEmail({
       email: dto.email,
       password: dto.password,
@@ -143,8 +156,49 @@ export class AuthService {
       phoneNumber: dto.phoneNumber,
     });
 
-    const tokens = this.issueTokens(user);
-    return { user, tokens };
+    // Don't fail the sign-up if delivery hiccups — the verify screen can resend.
+    await this.sendEmailVerification(user.id).catch((err: unknown) =>
+      this.logger.error(`Could not send verification email: ${String(err)}`),
+    );
+    return { requiresVerification: true, email: user.email ?? dto.email };
+  }
+
+  /** Customers must verify their email before email/password sign-in. */
+  private requiresEmailVerification(user: UserEntity): boolean {
+    return user.role === 'customer' && !!user.email && !user.emailVerifiedAt;
+  }
+
+  /** Public: (re)send the code for an unverified account, by email. Always
+   *  answers the same way so it can't be used to probe which emails exist. */
+  async resendEmailVerification(email: string): Promise<{ sent: true }> {
+    const user = await this.userRepo.findOne({
+      where: { email: email.trim().toLowerCase() },
+    });
+    if (user && this.requiresEmailVerification(user)) {
+      await this.sendEmailVerification(user.id);
+    }
+    return { sent: true };
+  }
+
+  /** Public: confirm the code for an email, then sign the user in. */
+  async confirmEmail(
+    email: string,
+    code: string,
+  ): Promise<{ user: UserEntity; tokens: AuthTokenResponse }> {
+    const user = await this.userRepo.findOne({
+      where: { email: email.trim().toLowerCase() },
+    });
+    if (user === null) throw new BadRequestException('Incorrect code');
+
+    await this.verifyEmail(user.id, code);
+
+    if (user.accountStatus !== 'active') {
+      throw new UnauthorizedException(
+        `Account is ${user.accountStatus}. Contact support.`,
+      );
+    }
+    const fresh = await this.userRepo.findOneOrFail({ where: { id: user.id } });
+    return { user: fresh, tokens: this.issueTokens(fresh) };
   }
 
   async login(
@@ -177,8 +231,53 @@ export class AuthService {
       );
     }
 
+    if (this.requiresEmailVerification(user)) {
+      // Send a fresh code (ignore the 1-minute rate limit error) so the user
+      // can verify right away from the login screen.
+      await this.sendEmailVerification(user.id).catch(() => undefined);
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Please verify your email to continue.',
+        email: user.email,
+      });
+    }
+
     const tokens = this.issueTokens(user);
     return { user, tokens };
+  }
+
+  /**
+   * Dashboard sign-in: username (or a legacy email) + password, staff only.
+   * No email verification — staff accounts are created by an admin.
+   */
+  async staffLogin(
+    dto: StaffLoginDto,
+  ): Promise<{ user: UserEntity; tokens: AuthTokenResponse }> {
+    const id = dto.username.trim().toLowerCase();
+    const user = await this.userRepo.findOne({
+      where: id.includes('@') ? { email: id } : { username: id },
+    });
+    const invalid = new UnauthorizedException('Invalid username or password');
+    if (user === null || user.role === 'customer') throw invalid;
+
+    const account = await this.authAccountRepo
+      .createQueryBuilder('auth')
+      .addSelect('auth.passwordHash')
+      .where('auth.userId = :userId', { userId: user.id })
+      .andWhere('auth.provider = :provider', { provider: 'email' })
+      .getOne();
+    if (!account?.passwordHash) throw invalid;
+    if (!(await verifyPassword(dto.password, account.passwordHash))) {
+      throw invalid;
+    }
+
+    if (user.accountStatus !== 'active') {
+      throw new UnauthorizedException(
+        `Account is ${user.accountStatus}. Contact your admin.`,
+      );
+    }
+    return { user, tokens: this.issueTokens(user) };
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {

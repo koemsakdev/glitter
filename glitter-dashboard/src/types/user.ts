@@ -9,6 +9,8 @@ export type AuthProvider = 'email' | 'google' | 'facebook' | 'telegram';
 export interface User {
     id: string;
     email: string | null;
+    /** Dashboard sign-in name (staff). */
+    username: string | null;
     phoneNumber: string | null;
     fullName: string;
     profileImageUrl: string | null;
@@ -48,6 +50,7 @@ export interface UserQuery {
 
 export interface UserFormValues {
     fullName: string;
+    username?: string;
     email?: string;
     phoneNumber?: string;
     role?: UserRole;
@@ -62,7 +65,6 @@ export const USER_ROLES: UserRole[] = [
     'cashier',
     'manager',
     'admin',
-    'super_admin',
 ];
 
 export const ACCOUNT_STATUSES: AccountStatus[] = [
@@ -71,10 +73,8 @@ export const ACCOUNT_STATUSES: AccountStatus[] = [
     'deleted',
 ];
 
-/** Roles that belong to a branch (staff). Customers have no branch. */
-export const STAFF_ROLES: UserRole[] = [
-    'cashier',
-    'manager',
-    'admin',
-    'super_admin',
-];
+/** Dashboard roles, most access first. Customers can't use the dashboard. */
+export const STAFF_ROLES: UserRole[] = ['admin', 'manager', 'cashier'];
+
+/** Roles tied to one branch (admins work across all branches). */
+export const BRANCH_ROLES: UserRole[] = ['manager', 'cashier'];

@@ -1,11 +1,18 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
-import { ChevronRight, Flame, PackagePlus, SearchX } from 'lucide-react';
-import { ProductCard } from '@/components/product-card';
+import { ChevronRight, SearchX } from 'lucide-react';
 import { ProductFilters } from '@/components/product-filters';
 import { CategoryChips } from '@/components/category-chips';
 import { ProductSearch } from '@/components/product-search';
 import { SectionBlock } from '@/components/home-section';
 import { resolveSectionProducts } from '@/components/home-section-data';
+import { ProductCard } from '@/components/product-card';
+import { Pagination } from '@/components/products/pagination';
+import { ViewTabs } from '@/components/products/view-tabs';
+import {
+    ProductCardSkeletons,
+    ProductGridSkeleton,
+} from '@/components/products/product-grid-skeleton';
 import {
     fileUrl,
     getActiveBrands,
@@ -16,24 +23,25 @@ import {
     type ProductQuery,
 } from '@/lib/api';
 import { getLang } from '@/lib/lang';
-import { productGridClass } from '@/lib/store-config';
-import { Tr, T } from '@/lib/lang-context';
-import { tr } from '@/lib/locale';
+import {
+    productGridClass,
+    type HomeSection,
+    type StoreConfig,
+} from '@/lib/store-config';
+import type { Category } from '@/lib/types';
+import { T, Tr } from '@/lib/lang-context';
+import { pick, tr, type Lang } from '@/lib/locale';
 
 export const metadata = { title: 'Shop' };
 
-// Always render fresh from the API — never serve a cached page/badge state.
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
+// No route-wide `force-no-store`: it overrode every fetch's own caching, so the
+// store config, categories and brands were re-fetched from the API on every
+// request. The page is still rendered per request (it reads searchParams), and
+// the product list itself is fetched fresh (see ProductResults).
 
 const PAGE_SIZE = 12;
 
-type SortKey =
-    | 'newest'
-    | 'price-asc'
-    | 'price-desc'
-    | 'name'
-    | 'rating';
+type SortKey = 'newest' | 'price-asc' | 'price-desc' | 'name' | 'rating';
 
 const SORTS: {
     key: SortKey;
@@ -43,9 +51,19 @@ const SORTS: {
 }[] = [
     { key: 'newest', trKey: 'newest', sortBy: 'createdAt', sortOrder: 'DESC' },
     { key: 'price-asc', trKey: 'priceLow', sortBy: 'price', sortOrder: 'ASC' },
-    { key: 'price-desc', trKey: 'priceHigh', sortBy: 'price', sortOrder: 'DESC' },
+    {
+        key: 'price-desc',
+        trKey: 'priceHigh',
+        sortBy: 'price',
+        sortOrder: 'DESC',
+    },
     { key: 'name', trKey: 'nameAZ', sortBy: 'nameEn', sortOrder: 'ASC' },
-    { key: 'rating', trKey: 'topRated', sortBy: 'averageRating', sortOrder: 'DESC' },
+    {
+        key: 'rating',
+        trKey: 'topRated',
+        sortBy: 'averageRating',
+        sortOrder: 'DESC',
+    },
 ];
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -80,8 +98,10 @@ function buildHref(
     if (merged.brandIds) params.set('brandIds', merged.brandIds);
     if (merged.minPrice) params.set('minPrice', merged.minPrice);
     if (merged.maxPrice) params.set('maxPrice', merged.maxPrice);
-    if (merged.sort && merged.sort !== 'newest') params.set('sort', merged.sort);
-    if (overrides.page && overrides.page > 1) params.set('page', String(overrides.page));
+    if (merged.sort && merged.sort !== 'newest')
+        params.set('sort', merged.sort);
+    if (overrides.page && overrides.page > 1)
+        params.set('page', String(overrides.page));
     const qs = params.toString();
     return qs ? `/products?${qs}` : '/products';
 }
@@ -102,18 +122,22 @@ export default async function ProductsPage({
     const selectedBrandIds = brandIds.split(',').filter(Boolean);
     const minPrice = first(sp.minPrice) ?? '';
     const maxPrice = first(sp.maxPrice) ?? '';
-    const sort =
-        (first(sp.sort) as SortKey) || config.appearance.productSort;
+    const sort = (first(sp.sort) as SortKey) || config.appearance.productSort;
     const view = first(sp.view) ?? '';
     const page = Math.max(1, Number(first(sp.page)) || 1);
-    // "Best sellers" is a curated popularity ranking (its own endpoint), so it
-    // only applies to the unfiltered base view.
-    const wantBest =
-        view === 'best-selling' && !search && !categoryId && !brandIds;
 
-    // "New arrivals" is always newest-first, regardless of the default sort.
+    // Curated lists (from a home section's "View all"): best sellers is its own
+    // popularity ranking; new arrivals is always newest-first. Sorting and
+    // filtering would contradict them, so those controls are hidden there.
+    const isCurated =
+        (view === 'best-selling' || view === 'new-arrivals') &&
+        !search &&
+        !categoryId &&
+        !brandIds;
+    const curatedView = isCurated ? view : '';
+
     const sortDef =
-        view === 'new-arrivals'
+        curatedView === 'new-arrivals'
             ? SORTS[0]
             : (SORTS.find((s) => s.key === sort) ?? SORTS[0]);
     const current = { search, categoryId, brandIds, minPrice, maxPrice, sort };
@@ -130,45 +154,17 @@ export default async function ProductsPage({
         sortOrder: sortDef.sortOrder,
     };
 
-    const [result, best, categories, brands] = await Promise.all([
-        wantBest ? Promise.resolve(null) : getProducts(query).catch(() => null),
-        wantBest ? getBestSellers(24).catch(() => []) : Promise.resolve([]),
+    // Both are cached for minutes, so this is quick; the product list streams
+    // in separately below.
+    const [categories, brands] = await Promise.all([
         getCategories().catch(() => []),
         getActiveBrands().catch(() => []),
     ]);
 
-    const products = wantBest ? best : (result?.data ?? []);
-    const total = wantBest ? best.length : (result?.total ?? 0);
-    const totalPages = wantBest ? 1 : Math.max(1, Math.ceil(total / PAGE_SIZE));
     const colClass = productGridClass(config.appearance.productColumns);
-
-    // Contextual heading so shoppers know what list they're viewing after
-    // tapping a section's "View all" (best sellers, new arrivals, a category…).
     const activeCategory = categoryId
         ? categories.find((c) => c.id === categoryId)
         : null;
-    const headingNode = search ? (
-        <>
-            <Tr k="resultsFor" /> “{search}”
-        </>
-    ) : activeCategory ? (
-        <T en={activeCategory.nameEn} km={activeCategory.nameKm} />
-    ) : (
-        <Tr
-            k={
-                view === 'best-selling'
-                    ? 'bestSellers'
-                    : view === 'new-arrivals'
-                      ? 'newArrivals'
-                      : 'allProducts'
-            }
-        />
-    );
-
-    // Curated views (best sellers / new arrivals) are a fixed list — showing
-    // sort/filter controls there is contradictory, so we hide them and offer a
-    // link back to the full shop instead.
-    const isCurated = view === 'best-selling' || view === 'new-arrivals';
 
     // Configured sections for this page — only on the unfiltered base view.
     const isBaseView =
@@ -182,143 +178,128 @@ export default async function ProductsPage({
     const productSections = isBaseView
         ? config.sections.filter((s) => s.enabled && s.page === 'products')
         : [];
-    const latest = productSections.some((s) => s.type === 'new-arrivals')
-        ? ((
-              await getProducts({
-                  limit: 12,
-                  sortBy: 'createdAt',
-                  sortOrder: 'DESC',
-              }).catch(() => null)
-          )?.data ?? [])
-        : [];
-    const sectionProducts = await resolveSectionProducts(
-        productSections,
-        latest,
-        getProducts,
-    );
+
+    // A new key per list → the results boundary shows its skeleton while the
+    // new list loads, and the infinite grid restarts from page 1.
+    const resultsKey = JSON.stringify({ query, curatedView });
 
     return (
         <>
             {productSections.length > 0 && (
-                <div className="border-b border-zinc-100">
-                    {productSections.map((section) => (
-                        <SectionBlock
-                            key={section.id}
-                            section={section}
-                            lang={lang}
-                            categories={categories}
-                            products={sectionProducts.get(section.id) ?? []}
-                            columns={config.appearance.productColumns}
-                        />
-                    ))}
-                </div>
+                <Suspense fallback={<SectionsSkeleton colClass={colClass} />}>
+                    <ConfiguredSections
+                        sections={productSections}
+                        lang={lang}
+                        categories={categories}
+                        config={config}
+                    />
+                </Suspense>
             )}
+
             <div className="mx-auto max-w-6xl px-4 py-6">
-                {/* Contextual heading — tells shoppers which list this is.
-                    Curated lists (from a home-page "View all") get a hero. */}
-                {isCurated ? (
-                    <div className="relative mb-6 overflow-hidden rounded-3xl border border-(--brand)/15 bg-linear-to-br from-(--brand)/12 via-(--brand)/5 to-transparent p-6 sm:p-8">
-                        <div className="pointer-events-none absolute -right-8 -top-10 size-44 rounded-full bg-(--brand)/15 blur-3xl" />
-                        <div className="relative flex items-center gap-4">
-                            <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-(--brand) text-white shadow-lg shadow-(--brand)/30">
-                                {view === 'best-selling' ? (
-                                    <Flame className="size-7" />
-                                ) : (
-                                    <PackagePlus className="size-7" />
-                                )}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                                <h1 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl dark:text-zinc-50">
-                                    <Tr
-                                        k={
-                                            view === 'best-selling'
-                                                ? 'bestSellers'
-                                                : 'newArrivals'
-                                        }
-                                    />
-                                </h1>
-                                <p className="mt-1 line-clamp-2 text-sm text-zinc-600 dark:text-zinc-300">
-                                    <Tr
-                                        k={
-                                            view === 'best-selling'
-                                                ? 'bestSellersSub'
-                                                : 'newArrivalsSub'
-                                        }
-                                    />
-                                </p>
-                                {total > 0 && (
-                                    <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-(--brand)">
-                                        {total} <Tr k="products" />
-                                    </span>
-                                )}
-                            </div>
+                {/* Breadcrumb */}
+                <nav className="mb-3 flex items-center gap-1 text-xs font-medium text-zinc-400">
+                    <Link href="/" className="hover:text-(--brand)">
+                        {tr(lang, 'breadcrumbHome')}
+                    </Link>
+                    <ChevronRight className="size-3" />
+                    {search || activeCategory || curatedView ? (
+                        <>
                             <Link
                                 href="/products"
-                                className="hidden shrink-0 items-center gap-1 self-start rounded-full bg-white/80 px-3.5 py-2 text-xs font-semibold text-zinc-700 shadow-sm backdrop-blur transition-colors hover:text-(--brand) sm:inline-flex dark:bg-zinc-900/70 dark:text-zinc-200"
+                                className="hover:text-(--brand)"
                             >
-                                {tr(lang, 'allProducts')}
-                                <ChevronRight className="size-3.5" />
+                                {tr(lang, 'shop')}
                             </Link>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="mb-4 flex items-center gap-2.5">
-                        <h1 className="flex items-center gap-2.5 text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                            <span className="h-5 w-1 rounded-full bg-(--brand)" />
-                            {headingNode}
-                        </h1>
-                        {total > 0 && (
-                            <span className="text-sm font-medium text-zinc-400">
-                                {total}
+                            <ChevronRight className="size-3" />
+                            <span className="truncate text-zinc-600 dark:text-zinc-300">
+                                {search
+                                    ? `“${search}”`
+                                    : activeCategory
+                                      ? pick(
+                                            lang,
+                                            activeCategory.nameEn,
+                                            activeCategory.nameKm,
+                                        )
+                                      : tr(
+                                            lang,
+                                            curatedView === 'best-selling'
+                                                ? 'bestSellers'
+                                                : 'newArrivals',
+                                        )}
                             </span>
+                        </>
+                    ) : (
+                        <span className="text-zinc-600 dark:text-zinc-300">
+                            {tr(lang, 'shop')}
+                        </span>
+                    )}
+                </nav>
+
+                {/* Compact title only where the tabs don't already say it
+                    (a search or a category); no banner. */}
+                {search || activeCategory ? (
+                    <h1 className="flex items-center gap-2.5 text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                        <span className="h-5 w-1 rounded-full bg-(--brand)" />
+                        {search ? (
+                            <>
+                                <Tr k="resultsFor" /> “{search}”
+                            </>
+                        ) : (
+                            <T
+                                en={activeCategory!.nameEn}
+                                km={activeCategory!.nameKm}
+                            />
                         )}
+                    </h1>
+                ) : (
+                    <h1 className="sr-only">
+                        {tr(
+                            lang,
+                            curatedView === 'best-selling'
+                                ? 'bestSellers'
+                                : curatedView === 'new-arrivals'
+                                  ? 'newArrivals'
+                                  : 'allProducts',
+                        )}
+                    </h1>
+                )}
+
+                {/* Switch between the main lists */}
+                {!search && !activeCategory && (
+                    <div>
+                        <ViewTabs active={curatedView} lang={lang} />
                     </div>
                 )}
 
-                {/* Curated lists hide the filters, so give mobile a clear way
-                    back to the full shop. */}
-                {isCurated && (
-                    <Link
-                        href="/products"
-                        className="mb-4 flex w-full items-center justify-center gap-1 rounded-full border border-zinc-200 py-2.5 text-sm font-semibold text-zinc-700 transition-colors hover:border-(--brand)/40 hover:text-(--brand) sm:hidden dark:border-zinc-700 dark:text-zinc-200"
-                    >
-                        {tr(lang, 'allProducts')}
-                        <ChevronRight className="size-3.5" />
-                    </Link>
-                )}
-
-                {/* Search + filters — hidden on curated best-seller / new-arrival
-                    lists where sorting/filtering wouldn't make sense. */}
                 {!isCurated && (
-                    <div className="flex items-center gap-3">
-                        <ProductSearch />
-                        <ProductFilters
+                    <>
+                        <div className="mt-5 flex items-center gap-3">
+                            <ProductSearch />
+                            <ProductFilters
+                                lang={lang}
+                                brands={brands.map((b) => ({
+                                    id: b.id,
+                                    name: b.name,
+                                    logo: fileUrl(b.logoUrl),
+                                }))}
+                                sortOptions={SORTS.map((s) => ({
+                                    key: s.key,
+                                    trKey: s.trKey,
+                                }))}
+                            />
+                        </div>
+                        <CategoryChips
                             lang={lang}
-                            brands={brands.map((b) => ({
-                                id: b.id,
-                                name: b.name,
-                                logo: fileUrl(b.logoUrl),
-                            }))}
-                            sortOptions={SORTS.map((s) => ({
-                                key: s.key,
-                                trKey: s.trKey,
+                            activeId={categoryId}
+                            categories={categories.map((c) => ({
+                                id: c.id,
+                                nameEn: c.nameEn,
+                                nameKm: c.nameKm,
+                                iconUrl: c.iconUrl,
                             }))}
                         />
-                    </div>
-                )}
-
-                {/* Category chips — client component for instant tap feedback */}
-                {!isCurated && (
-                    <CategoryChips
-                        lang={lang}
-                        activeId={categoryId}
-                        categories={categories.map((c) => ({
-                            id: c.id,
-                            nameEn: c.nameEn,
-                            nameKm: c.nameKm,
-                            iconUrl: c.iconUrl,
-                        }))}
-                    />
+                    </>
                 )}
 
                 {/* Active filter chips (price + brands) */}
@@ -351,7 +332,9 @@ export default async function ProductsPage({
                                     className="inline-flex items-center gap-1.5 rounded-full bg-(--brand)/10 px-3 py-1 text-xs font-medium text-(--brand)"
                                 >
                                     {b.name}
-                                    <span className="text-sm leading-none">×</span>
+                                    <span className="text-sm leading-none">
+                                        ×
+                                    </span>
                                 </Link>
                             );
                         })}
@@ -368,77 +351,139 @@ export default async function ProductsPage({
                     </div>
                 )}
 
-                <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
-                    {search ? (
-                        <>
-                            <Tr k="results" /> “{search}” ·{' '}
-                        </>
-                    ) : (
-                        ''
-                    )}
-                    {total} <Tr k="products" />
-                </p>
-
-                <div className="mt-4">
-                    {products.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 py-20 text-center dark:border-zinc-700">
-                            <SearchX className="size-10 text-zinc-300 dark:text-zinc-600" />
-                            <p className="mt-3 font-medium text-zinc-700 dark:text-zinc-200">
-                                {tr(lang, 'noProducts')}
-                            </p>
-                            {search && (
-                                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                                    “{search}”
-                                </p>
-                            )}
-                            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                                {tr(lang, 'tryDifferent')}
-                            </p>
-                            <Link
-                                href="/products"
-                                className="mt-4 rounded-full bg-(--brand) px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-                            >
-                                {tr(lang, 'clearFilters')}
-                            </Link>
-                        </div>
-                    ) : (
-                        <>
-                            <div
-                                className={`stagger grid gap-(--ui-gap) ${colClass}`}
-                            >
-                                {products.map((p) => (
-                                    <ProductCard key={p.id} product={p} lang={lang} />
-                                ))}
-                            </div>
-
-                            {totalPages > 1 && (
-                                <div className="mt-8 flex items-center justify-center gap-2">
-                                    {page > 1 && (
-                                        <Link
-                                            href={buildHref(current, { page: page - 1 })}
-                                            className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:border-(--brand) dark:border-zinc-700 dark:text-zinc-200"
-                                        >
-                                            {tr(lang, 'previous')}
-                                        </Link>
-                                    )}
-                                    <span className="px-2 text-sm text-zinc-500 dark:text-zinc-400">
-                                        {tr(lang, 'page')} {page} {tr(lang, 'of')}{' '}
-                                        {totalPages}
-                                    </span>
-                                    {page < totalPages && (
-                                        <Link
-                                            href={buildHref(current, { page: page + 1 })}
-                                            className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:border-(--brand) dark:border-zinc-700 dark:text-zinc-200"
-                                        >
-                                            {tr(lang, 'next')}
-                                        </Link>
-                                    )}
-                                </div>
-                            )}
-                        </>
-                    )}
-                </div>
+                <Suspense
+                    key={resultsKey}
+                    fallback={<ProductGridSkeleton colClass={colClass} />}
+                >
+                    <ProductResults
+                        lang={lang}
+                        query={query}
+                        curatedView={curatedView}
+                        search={search}
+                        colClass={colClass}
+                    />
+                </Suspense>
             </div>
         </>
+    );
+}
+
+/** The product list — fetched fresh and streamed in behind a skeleton. */
+async function ProductResults({
+    lang,
+    query,
+    curatedView,
+    search,
+    colClass,
+}: {
+    lang: Lang;
+    query: ProductQuery;
+    curatedView: string;
+    search: string;
+    colClass: string;
+}) {
+    const isBest = curatedView === 'best-selling';
+    const result = isBest
+        ? null
+        : await getProducts(query, { fresh: true }).catch(() => null);
+    const best = isBest ? await getBestSellers(24).catch(() => []) : [];
+    const products = isBest ? best : (result?.data ?? []);
+    const total = isBest ? best.length : (result?.total ?? 0);
+
+    if (products.length === 0) {
+        return (
+            <div className="mt-6 flex flex-col items-center justify-center rounded-3xl border border-dashed border-zinc-200 px-6 py-20 text-center dark:border-zinc-700">
+                <span className="flex size-16 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800">
+                    <SearchX className="size-8 text-zinc-400" />
+                </span>
+                <p className="mt-4 font-semibold text-zinc-800 dark:text-zinc-100">
+                    {tr(lang, 'noProducts')}
+                </p>
+                {search && (
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                        “{search}”
+                    </p>
+                )}
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                    {tr(lang, 'tryDifferent')}
+                </p>
+                <Link
+                    href="/products"
+                    className="mt-5 rounded-full bg-(--brand) px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 hover:opacity-90"
+                >
+                    {tr(lang, 'clearFilters')}
+                </Link>
+            </div>
+        );
+    }
+
+    const totalPages = isBest ? 1 : Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+    return (
+        <div className="mt-6">
+            <div className={`stagger grid gap-(--ui-gap) ${colClass}`}>
+                {products.map((p) => (
+                    <ProductCard key={p.id} product={p} lang={lang} />
+                ))}
+            </div>
+            <Pagination
+                page={query.page ?? 1}
+                totalPages={totalPages}
+                lang={lang}
+            />
+        </div>
+    );
+}
+
+/** Dashboard-configured sections for the products page (base view only). */
+async function ConfiguredSections({
+    sections,
+    lang,
+    categories,
+    config,
+}: {
+    sections: HomeSection[];
+    lang: Lang;
+    categories: Category[];
+    config: StoreConfig;
+}) {
+    const latest = sections.some((s) => s.type === 'new-arrivals')
+        ? ((
+              await getProducts({
+                  limit: 12,
+                  sortBy: 'createdAt',
+                  sortOrder: 'DESC',
+              }).catch(() => null)
+          )?.data ?? [])
+        : [];
+    const sectionProducts = await resolveSectionProducts(
+        sections,
+        latest,
+        getProducts,
+    );
+    return (
+        <div className="border-b border-zinc-100 dark:border-zinc-800">
+            {sections.map((section) => (
+                <SectionBlock
+                    key={section.id}
+                    section={section}
+                    lang={lang}
+                    categories={categories}
+                    products={sectionProducts.get(section.id) ?? []}
+                    columns={config.appearance.productColumns}
+                />
+            ))}
+        </div>
+    );
+}
+
+function SectionsSkeleton({ colClass }: { colClass: string }) {
+    return (
+        <div className="mx-auto max-w-6xl px-4 py-6">
+            <div className="h-6 w-40 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
+            <div className={`mt-5 grid gap-(--ui-gap) ${colClass}`}>
+                <ProductCardSkeletons count={5} />
+            </div>
+        </div>
     );
 }

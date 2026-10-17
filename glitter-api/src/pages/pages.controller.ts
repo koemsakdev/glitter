@@ -31,7 +31,7 @@ export class PagesController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'Create a custom page' })
   async create(@Body() dto: CreatePageDto): Promise<PageDetailResponse> {
     return this.pagesService.create(dto);
@@ -56,7 +56,7 @@ export class PagesController {
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'Update a page' })
   async update(
     @Param('id') id: string,
@@ -68,7 +68,7 @@ export class PagesController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'Delete a page' })
   async delete(@Param('id') id: string): Promise<void> {
     return this.pagesService.delete(id);

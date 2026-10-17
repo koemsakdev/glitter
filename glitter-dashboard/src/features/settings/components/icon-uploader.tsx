@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-image';
 import { ImageUp, X } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 import { getFileUrl } from '@/lib/file-url';
@@ -49,8 +50,7 @@ export function IconUploader({
                     className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed bg-muted/30 transition-colors hover:border-pink-300/60 dark:hover:border-pink-700/60"
                 >
                     {preview ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <SafeImg
                             src={preview}
                             alt=""
                             className="size-full object-contain p-1.5"

@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-image';
 import {
     ArrowLeft,
     Check,
@@ -429,8 +430,7 @@ export function OrderDetailView({ id }: { id: string }) {
                                                 order.paymentMethod,
                                                 order.paymentMethodName,
                                             ) && (
-                                                // eslint-disable-next-line @next/next/no-img-element
-                                                <img
+                                                <SafeImg
                                                     src="/khqr.png"
                                                     alt="KHQR"
                                                     className="h-5 w-auto shrink-0 rounded"
@@ -503,8 +503,7 @@ export function OrderDetailView({ id }: { id: string }) {
                                             rel="noopener noreferrer"
                                             className="mt-1 block"
                                         >
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
+                                            <SafeImg
                                                 src={
                                                     getFileUrl(
                                                         order.paymentProofUrl,
@@ -600,8 +599,7 @@ function OrderItemsTable({ order }: { order: Order }) {
                         >
                             <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/40">
                                 {img ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
+                                    <SafeImg
                                         src={img}
                                         alt={item.productName}
                                         className="size-full object-cover"

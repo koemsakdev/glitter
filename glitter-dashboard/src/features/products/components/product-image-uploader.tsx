@@ -1,7 +1,7 @@
 'use client';
 
 import { ImagePlus, Star, Trash2, Upload } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@/components/ui/safe-image';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';

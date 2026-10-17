@@ -104,7 +104,7 @@ export class CategoriesController {
     },
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiResponse({ status: 201 })
   async create(
     @Body() dto: CreateCategoryDto,
@@ -216,7 +216,7 @@ export class CategoriesController {
     },
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateCategoryDto,
@@ -236,7 +236,7 @@ export class CategoriesController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'Delete a category' })
   @ApiParam({ name: 'id', type: String })
   async delete(@Param('id') id: string): Promise<void> {

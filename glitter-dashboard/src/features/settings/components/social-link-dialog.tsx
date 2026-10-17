@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-image';
 import { ImageUp, Loader2, Plus, Save, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ResponsiveModal } from '@/components/responsive-modal';
@@ -120,8 +121,7 @@ export function SocialLinkDialog({
                         <div className="flex items-center gap-3">
                             <div className="relative flex size-14 items-center justify-center overflow-hidden rounded-lg border bg-muted/30">
                                 {iconPreview ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
+                                    <SafeImg
                                         src={iconPreview}
                                         alt={name}
                                         className="size-full object-contain"

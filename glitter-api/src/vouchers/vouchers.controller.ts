@@ -57,7 +57,7 @@ export class VouchersController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('manager', 'admin', 'super_admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'List all vouchers' })
   async findAll(): Promise<{ data: VoucherEntity[] }> {
     return { data: await this.service.findAll() };
@@ -66,7 +66,7 @@ export class VouchersController {
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('manager', 'admin', 'super_admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Get a voucher' })
   async findOne(@Param('id') id: string): Promise<{ data: VoucherEntity }> {
     return { data: await this.service.findOne(id) };
@@ -75,7 +75,7 @@ export class VouchersController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles('manager', 'admin', 'super_admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Create a voucher' })
   async create(
     @Body() dto: CreateVoucherDto,
@@ -86,7 +86,7 @@ export class VouchersController {
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('manager', 'admin', 'super_admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Update a voucher' })
   async update(
     @Param('id') id: string,
@@ -98,7 +98,7 @@ export class VouchersController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
-  @Roles('manager', 'admin', 'super_admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Delete a voucher' })
   async remove(@Param('id') id: string): Promise<void> {
     await this.service.remove(id);

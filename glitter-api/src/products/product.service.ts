@@ -10,6 +10,8 @@ import { CategoryEntity } from '../category/entities/category.entity';
 import { BrandEntity } from '../brands/entities/brand.entity';
 import { ProductVariantEntity } from '../product-variants/entities/product-variant.entity';
 import { BadgeEntity } from '../badges/entities/badge.entity';
+import { ProductImageEntity } from '../product-images/entities/product-image.entity';
+import { ProductBadgeEntity } from '../product-badges/entities/product-badge.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
@@ -244,30 +246,15 @@ export class ProductsService {
     qb.orderBy(sortFieldMap[sortBy], sortOrder);
     qb.skip(skip).take(limit);
 
-    const [pageRows, total] = await qb.getManyAndCount();
+    // Page + count in parallel (each is a full DB round trip).
+    const [pageRows, total] = await Promise.all([qb.getMany(), qb.getCount()]);
     const ids = pageRows.map((p) => p.id);
 
-    // Hydrate relations for just this page. relationLoadStrategy 'query' loads
-    // each relation in its own query (one IN-query per relation) instead of a
-    // single multi-join, so there is no row multiplication to de-duplicate.
-    const hydrated =
-      ids.length > 0
-        ? await this.productRepository.find({
-            where: { id: In(ids) },
-            relations: {
-              category: true,
-              brand: true,
-              images: true,
-              variants: true,
-              badges: true,
-            },
-            relationLoadStrategy: 'query',
-          })
-        : [];
-    const byId = new Map(hydrated.map((p) => [p.id, p]));
-    const products = ids
-      .map((id) => byId.get(id))
-      .filter((p): p is ProductEntity => p !== undefined);
+    // Hydrate this page's relations and load the badge catalog concurrently.
+    const [products, badgeMap] = await Promise.all([
+      this.hydrate(ids, { badges: true }),
+      this.loadBadgeMap(),
+    ]);
 
     let branchStockByProduct: Map<string, number> | null = null;
 
@@ -293,9 +280,8 @@ export class ProductsService {
       });
     }
 
-    // The badges catalog is the source of truth for a badge's label/colour,
-    // so renaming/recolouring a badge there flows straight to the storefront.
-    const badgeMap = await this.loadBadgeMap();
+    // (badgeMap: the badges catalog is the source of truth for a badge's
+    // label/colour, so renaming/recolouring one flows straight to the store.)
 
     return {
       data: products.map((product: ProductEntity) => {
@@ -310,6 +296,60 @@ export class ProductsService {
       page,
       limit,
     };
+  }
+
+  /**
+   * Load products by id with category/brand/images/variants(/badges), in the
+   * given order. Each collection is its own query and all run in parallel —
+   * instead of one join (row explosion) or sequential per-relation queries,
+   * which cost a full DB round trip each.
+   */
+  private async hydrate(
+    ids: string[],
+    opts: { badges?: boolean; activeOnly?: boolean } = {},
+  ): Promise<ProductEntity[]> {
+    if (ids.length === 0) return [];
+    const manager = this.productRepository.manager;
+    const [rows, images, variants, badges] = await Promise.all([
+      this.productRepository.find({
+        where: opts.activeOnly
+          ? { id: In(ids), status: 'active' }
+          : { id: In(ids) },
+        relations: { category: true, brand: true },
+      }),
+      manager.find(ProductImageEntity, {
+        where: { productId: In(ids) },
+        order: { displayOrder: 'ASC' },
+      }),
+      manager.find(ProductVariantEntity, { where: { productId: In(ids) } }),
+      opts.badges
+        ? manager.find(ProductBadgeEntity, { where: { productId: In(ids) } })
+        : Promise.resolve([] as ProductBadgeEntity[]),
+    ]);
+
+    const group = <T extends { productId: string }>(list: T[]) => {
+      const m = new Map<string, T[]>();
+      for (const item of list) {
+        const arr = m.get(item.productId);
+        if (arr) arr.push(item);
+        else m.set(item.productId, [item]);
+      }
+      return m;
+    };
+    const imagesBy = group(images);
+    const variantsBy = group(variants);
+    const badgesBy = group(badges);
+
+    const byId = new Map(rows.map((p) => [p.id, p]));
+    return ids
+      .map((id) => byId.get(id))
+      .filter((p): p is ProductEntity => p !== undefined)
+      .map((p) => {
+        p.images = imagesBy.get(p.id) ?? [];
+        p.variants = variantsBy.get(p.id) ?? [];
+        if (opts.badges) p.badges = badgesBy.get(p.id) ?? [];
+        return p;
+      });
   }
 
   /** Load the badge catalog keyed by slug (which is stored as badge_type). */
@@ -354,10 +394,9 @@ export class ProductsService {
     const rows = await this.productRepository
       .createQueryBuilder('p')
       .where('p.status = :status', { status: 'active' })
-      .andWhere(
-        '(p.nameEn ILIKE :q OR p.nameKm ILIKE :q OR p.sku ILIKE :q)',
-        { q: `%${term}%` },
-      )
+      .andWhere('(p.nameEn ILIKE :q OR p.nameKm ILIKE :q OR p.sku ILIKE :q)', {
+        q: `%${term}%`,
+      })
       .orderBy('p.reviewCount', 'DESC')
       .addOrderBy('p.averageRating', 'DESC')
       .take(limit)
@@ -438,18 +477,17 @@ export class ProductsService {
       return { data: [], total: 0, page: 1, limit };
     }
 
-    const products = await this.productRepository.find({
-      where: { id: In(ids), status: 'active' },
-      relations: ['category', 'brand', 'images', 'variants'],
-      order: { images: { displayOrder: 'ASC' } },
-    });
-    const byId = new Map(products.map((p) => [p.id, p]));
-    const ordered = ids
-      .map((id) => byId.get(id))
-      .filter((p): p is ProductEntity => Boolean(p));
+    const [ordered, badgeMap] = await Promise.all([
+      this.hydrate(ids, { activeOnly: true, badges: true }),
+      this.loadBadgeMap(),
+    ]);
 
     return {
-      data: ordered.map((p) => this.toResponseWithRelations(p)),
+      data: ordered.map((p) => {
+        const response = this.toResponseWithRelations(p);
+        this.resolveBadges(response, badgeMap);
+        return response;
+      }),
       total: ordered.length,
       page: 1,
       limit,
@@ -461,19 +499,8 @@ export class ProductsService {
     ids: string[],
     activeOnly = false,
   ): Promise<ProductResponse[]> {
-    if (ids.length === 0) return [];
-    const products = await this.productRepository.find({
-      where: activeOnly
-        ? { id: In(ids), status: 'active' }
-        : { id: In(ids) },
-      relations: ['category', 'brand', 'images', 'variants'],
-      order: { images: { displayOrder: 'ASC' } },
-    });
-    const byId = new Map(products.map((p) => [p.id, p]));
-    return ids
-      .map((id) => byId.get(id))
-      .filter((p): p is ProductEntity => Boolean(p))
-      .map((p) => this.toResponseWithRelations(p));
+    const products = await this.hydrate(ids, { activeOnly });
+    return products.map((p) => this.toResponseWithRelations(p));
   }
 
   async findOne(id: string): Promise<ProductDetailResponse> {

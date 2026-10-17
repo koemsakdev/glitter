@@ -34,7 +34,7 @@ import {
 @ApiBearerAuth()
 @Controller('orders')
 @UseGuards(RolesGuard)
-@Roles('admin', 'super_admin', 'manager', 'cashier')
+@Roles('admin', 'manager', 'cashier')
 export class OrdersController {
   constructor(private readonly service: OrdersService) {}
 

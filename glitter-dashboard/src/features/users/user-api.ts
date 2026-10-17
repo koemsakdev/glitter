@@ -63,6 +63,20 @@ export const userApi = {
         await apiClient.delete(`/api/users/${id}`);
     },
 
+    /** Admin: is this staff username valid and not taken? */
+    async checkUsername(
+        username: string,
+        excludeId?: string,
+    ): Promise<{ available: boolean; reason?: 'invalid' | 'taken' }> {
+        const { data } = await apiClient.get<{
+            available: boolean;
+            reason?: 'invalid' | 'taken';
+        }>('/api/users/username-available', {
+            params: { username, ...(excludeId ? { excludeId } : {}) },
+        });
+        return data;
+    },
+
     /** Admin: set or reset a user's login password. */
     async setPassword(id: string, password: string): Promise<void> {
         await apiClient.patch(`/api/users/${id}/password`, { password });

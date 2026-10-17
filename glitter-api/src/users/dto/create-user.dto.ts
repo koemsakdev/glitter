@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -18,10 +19,13 @@ import type { AccountStatus, UserRole } from '../entities/user.entity';
  * Roles:
  *   - 'customer' (default)     — regular shopper. branchId should be null.
  *   - 'cashier' or 'manager'   — staff member. branchId is REQUIRED.
- *   - 'admin' or 'super_admin' — system admin. branchId should be null.
+ *   - 'admin' — full access (owner/head office). branchId should be null.
  *
  * Self-registration via POST /api/auth/register always creates role='customer'.
- * Only admins/super_admins can use this endpoint to create elevated roles.
+ * Only admins can use this endpoint.
+ *
+ * Staff sign in to the dashboard with `username` + `password`; `email` is
+ * optional for staff (kept for when everyone has a work address).
  */
 export class CreateUserDto {
   @ApiPropertyOptional({
@@ -32,6 +36,19 @@ export class CreateUserDto {
   @IsEmail()
   @MaxLength(255)
   email?: string;
+
+  @ApiPropertyOptional({
+    example: 'dara',
+    description:
+      'Dashboard sign-in name for staff: 3–30 lowercase letters, numbers, . _ -',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-z0-9._-]{3,30}$/, {
+    message:
+      'username must be 3–30 characters: lowercase letters, numbers, dot, underscore or dash',
+  })
+  username?: string;
 
   @ApiPropertyOptional({
     example: '+85512345678',
@@ -52,13 +69,13 @@ export class CreateUserDto {
   fullName!: string;
 
   @ApiPropertyOptional({
-    enum: ['customer', 'cashier', 'manager', 'admin', 'super_admin'],
+    enum: ['customer', 'cashier', 'manager', 'admin'],
     default: 'customer',
     description:
       'User role. Defaults to "customer". Setting staff/admin roles requires admin-level permissions.',
   })
   @IsOptional()
-  @IsEnum(['customer', 'cashier', 'manager', 'admin', 'super_admin'])
+  @IsIn(['customer', 'cashier', 'manager', 'admin'])
   role?: UserRole;
 
   @ApiPropertyOptional({

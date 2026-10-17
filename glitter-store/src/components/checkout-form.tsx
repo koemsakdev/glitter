@@ -79,6 +79,10 @@ function cleanVariantLabel(label: string): string {
     .join(" · ");
 }
 
+
+/** A checkout failure whose message is safe to show the shopper. */
+class OrderError extends Error {}
+
 export function CheckoutForm({
   branches,
   lang: initialLang,
@@ -715,7 +719,14 @@ export function CheckoutForm({
             headers: { "Content-Type": "application/json" },
             body,
           });
-      if (!res.ok) throw new Error("failed");
+      if (!res.ok) {
+        // Surface the API's reason (e.g. '"X" is out of stock') to the shopper.
+        const e = (await res.json().catch(() => ({}))) as {
+          message?: string | string[];
+        };
+        const msg = Array.isArray(e.message) ? e.message[0] : e.message;
+        throw new OrderError(msg || tr(lang, "orderFailed"));
+      }
       const json: { data?: { orderNumber?: string; id?: string } } =
         await res.json();
       const orderId = json.data?.id ?? "";
@@ -840,8 +851,10 @@ export function CheckoutForm({
       setPaySheet(false);
       clear();
       setPlaced(orderNumber);
-    } catch {
-      setError(tr(lang, "orderFailed"));
+    } catch (err) {
+      setError(
+        err instanceof OrderError ? err.message : tr(lang, "orderFailed"),
+      );
     } finally {
       setSubmitting(false);
     }

@@ -1,5 +1,6 @@
 "use client";
 
+import { SafeImg } from '@/components/ui/safe-image';
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -216,8 +217,7 @@ export default function ContactSettingsPage() {
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/30 text-xs font-semibold text-muted-foreground">
                       {icon ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <SafeImg
                           src={icon}
                           alt={s.name}
                           className="size-full object-contain"

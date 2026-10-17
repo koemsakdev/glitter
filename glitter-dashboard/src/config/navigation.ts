@@ -33,9 +33,10 @@ export interface NavGroup {
     items: NavItem[];
 }
 
-const ALL_STAFF: UserRole[] = ['cashier', 'manager', 'admin', 'super_admin'];
-const MANAGER_PLUS: UserRole[] = ['manager', 'admin', 'super_admin'];
-const ADMIN_ONLY: UserRole[] = ['admin', 'super_admin'];
+// Who sees what — mirrors the API's role rules (see the Staff page legend).
+const ALL_STAFF: UserRole[] = ['cashier', 'manager', 'admin'];
+const MANAGER_PLUS: UserRole[] = ['manager', 'admin'];
+const ADMIN_ONLY: UserRole[] = ['admin'];
 
 export const navigation: NavGroup[] = [
     {
@@ -160,6 +161,37 @@ export const navigation: NavGroup[] = [
         ],
     },
 ];
+
+/**
+ * Whether a role may open a dashboard path. Uses the most specific nav entry
+ * that matches (so /dashboard/staff/123 follows /dashboard/staff). Paths not
+ * in the menu (profile, notifications…) are open to every staff member.
+ */
+export function canAccessPath(role: UserRole, pathname: string): boolean {
+    let best: NavItem | null = null;
+    for (const group of navigation) {
+        for (const item of group.items) {
+            const match =
+                pathname === item.href ||
+                (item.href !== '/dashboard' &&
+                    pathname.startsWith(`${item.href}/`));
+            if (match && (!best || item.href.length > best.href.length)) {
+                best = item;
+            }
+        }
+    }
+    return best ? best.roles.includes(role) : true;
+}
+
+/** First page a role can open (where to send them when access is denied). */
+export function homePathForRole(role: UserRole): string {
+    for (const group of navigation) {
+        for (const item of group.items) {
+            if (item.roles.includes(role) && !item.comingSoon) return item.href;
+        }
+    }
+    return '/dashboard/profile';
+}
 
 export function filterNavigationByRole(role: UserRole): NavGroup[] {
     return navigation

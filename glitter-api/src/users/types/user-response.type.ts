@@ -8,6 +8,7 @@ import { AuthProvider } from '../entities/auth-account.entity';
 export interface UserResponse {
   id: string;
   email: string | null;
+  username: string | null;
   emailVerifiedAt: Date | null;
   phoneNumber: string | null;
   phoneVerifiedAt: Date | null;

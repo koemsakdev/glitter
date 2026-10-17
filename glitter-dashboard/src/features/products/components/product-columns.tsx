@@ -9,7 +9,7 @@ import {
     MoreHorizontal,
     Trash2,
 } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@/components/ui/safe-image';
 import Link from 'next/link';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';

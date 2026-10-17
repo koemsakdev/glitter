@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
   IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   IsUUID,
@@ -21,6 +22,19 @@ export class UpdateUserDto {
   @MaxLength(255)
   email?: string;
 
+  @ApiPropertyOptional({
+    example: 'dara',
+    description:
+      'Dashboard sign-in name for staff: 3–30 lowercase letters, numbers, . _ -',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-z0-9._-]{3,30}$/, {
+    message:
+      'username must be 3–30 characters: lowercase letters, numbers, dot, underscore or dash',
+  })
+  username?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -34,11 +48,11 @@ export class UpdateUserDto {
   fullName?: string;
 
   @ApiPropertyOptional({
-    enum: ['customer', 'cashier', 'manager', 'admin', 'super_admin'],
+    enum: ['customer', 'cashier', 'manager', 'admin'],
     description: 'Admin-only. Changing role may require branchId adjustment.',
   })
   @IsOptional()
-  @IsEnum(['customer', 'cashier', 'manager', 'admin', 'super_admin'])
+  @IsIn(['customer', 'cashier', 'manager', 'admin'])
   role?: UserRole;
 
   @ApiPropertyOptional({

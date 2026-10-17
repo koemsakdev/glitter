@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-image';
 import { useEffect, useMemo, useState } from 'react';
 import {
     AlertTriangle,
@@ -224,8 +225,7 @@ export default function InventoryPage() {
                                             />
                                             <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/40">
                                                 {img ? (
-                                                    // eslint-disable-next-line @next/next/no-img-element
-                                                    <img
+                                                    <SafeImg
                                                         src={img}
                                                         alt={pName(product)}
                                                         className="size-full object-cover"

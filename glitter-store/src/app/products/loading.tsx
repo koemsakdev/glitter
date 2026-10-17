@@ -12,8 +12,14 @@ export default function ProductsLoading() {
         <div className="mx-auto max-w-6xl px-4 py-6">
             <NavLoadingBar />
 
+            {/* Breadcrumb */}
+            <div className={`mb-3 h-3 w-32 rounded ${Box}`} />
+
             {/* Heading banner */}
             <div className={`h-24 w-full rounded-3xl ${Box}`} />
+
+            {/* List tabs */}
+            <div className={`mt-4 h-10 w-80 max-w-full rounded-full ${Box}`} />
 
             {/* Search + filter row */}
             <div className="mt-5 flex items-center gap-3">

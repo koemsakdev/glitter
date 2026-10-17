@@ -183,6 +183,7 @@ export interface ProductQuery {
 
 export async function getProducts(
     query: ProductQuery = {},
+    opts: { fresh?: boolean } = {},
 ): Promise<Paginated<Product>> {
     const params = new URLSearchParams();
     params.set('page', String(query.page ?? 1));
@@ -199,9 +200,10 @@ export async function getProducts(
     if (query.sortBy) params.set('sortBy', query.sortBy);
     if (query.sortOrder) params.set('sortOrder', query.sortOrder);
     // Cache briefly so toggling language / re-renders don't re-hit the API.
+    // `fresh` skips the cache (main listing: stock/badges must be current).
     return apiGet<Paginated<Product>>(
         `/api/products?${params.toString()}`,
-        30,
+        opts.fresh ? 0 : 30,
     );
 }
 

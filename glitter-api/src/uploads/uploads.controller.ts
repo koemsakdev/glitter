@@ -56,7 +56,7 @@ export class UploadsController {
   constructor(private readonly optimizer: ImageOptimizationService) {}
 
   /** List previously uploaded images (most recent first) for re-use pickers. */
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @Get('images')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'List previously uploaded images (admin only)' })
@@ -89,7 +89,7 @@ export class UploadsController {
    * so storefront banners/icons look sharp. Returns the served URL + final
    * dimensions so the UI can preview / validate aspect ratio.
    */
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @Post('image')
   @HttpCode(HttpStatus.CREATED)
   @ApiConsumes('multipart/form-data')

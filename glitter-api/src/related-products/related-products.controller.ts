@@ -35,7 +35,7 @@ export class RelatedProductsController {
   @Get('product/:productId')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('manager', 'admin', 'super_admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'All related products for the editor' })
   async getForProduct(
     @Param('productId') productId: string,
@@ -46,7 +46,7 @@ export class RelatedProductsController {
   @Put('product/:productId')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('manager', 'admin', 'super_admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Replace the related set for a product' })
   async setForProduct(
     @Param('productId') productId: string,

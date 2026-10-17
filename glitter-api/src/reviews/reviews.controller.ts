@@ -44,7 +44,7 @@ export class ReviewsController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'List reviews for moderation' })
   async findAll(
     @Query('status') status?: ReviewStatus,
@@ -93,7 +93,7 @@ export class ReviewsController {
   @Patch(':id/status')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Approve / hide a review' })
   async updateStatus(
     @Param('id') id: string,
@@ -105,7 +105,7 @@ export class ReviewsController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'Delete a review' })
   async delete(@Param('id') id: string): Promise<void> {
     return this.reviewsService.delete(id);

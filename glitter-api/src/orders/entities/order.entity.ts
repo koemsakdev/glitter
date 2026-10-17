@@ -286,6 +286,14 @@ export class OrderEntity {
   @Column({ type: 'varchar', length: 40, nullable: true, name: 'voucher_code' })
   voucherCode!: string | null;
 
+  /**
+   * Whether this online order currently holds reserved stock. False for a
+   * pay-first order until its payment reserves it (or if that reservation
+   * fell short) — fulfilment then takes the units from available stock.
+   */
+  @Column({ type: 'boolean', default: true, name: 'stock_held' })
+  stockHeld!: boolean;
+
   @Column({ type: 'text', nullable: true })
   note!: string | null;
 

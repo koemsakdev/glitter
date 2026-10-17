@@ -12,7 +12,7 @@ import {
   NotificationResponse,
 } from './types/notification-response.type';
 
-const STAFF_ROLES = ['cashier', 'manager', 'admin', 'super_admin'];
+const STAFF_ROLES = ['cashier', 'manager', 'admin'];
 
 @Injectable()
 export class NotificationsService {

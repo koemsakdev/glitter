@@ -30,7 +30,7 @@ export class BranchesController {
   constructor(private readonly branchesService: BranchesService) {}
 
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   /**
    * Create a new branch
    * POST /branches
@@ -91,7 +91,7 @@ export class BranchesController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   /**
    * Update a branch
    * PATCH /branches/:id
@@ -106,7 +106,7 @@ export class BranchesController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles('super_admin')
+  @Roles('admin')
   /**
    * Delete a branch
    * DELETE /branches/:id

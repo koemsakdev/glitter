@@ -1,9 +1,24 @@
 'use client';
 
-import { Camera, Eye, EyeOff, Loader2, Trash2, UserRound } from 'lucide-react';
-import Image from 'next/image';
+import {
+    Camera,
+    Check,
+    ChevronDown,
+    CircleAlert,
+    CircleCheck,
+    Eye,
+    EyeOff,
+    Loader2,
+    Trash2,
+    UserRound,
+} from 'lucide-react';
+import { RoleOptionCards } from '@/features/users/components/role-access';
+import {
+    USERNAME_PATTERN,
+    useUsernameCheck,
+} from '@/features/users/use-username-check';
+import { SafeImage as Image } from '@/components/ui/safe-image';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { SavingOverlay } from '@/components/feedback/saving-overlay';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
@@ -29,20 +44,12 @@ import { useI18n, type TranslationKey } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/auth-store';
 import {
     ACCOUNT_STATUSES,
-    STAFF_ROLES,
+    BRANCH_ROLES,
     type AccountStatus,
     type User,
     type UserFormValues,
     type UserRole,
 } from '@/types/user';
-
-const ROLE_LABELS: Record<UserRole, TranslationKey> = {
-    customer: 'user.role.customer',
-    cashier: 'user.role.cashier',
-    manager: 'user.role.manager',
-    admin: 'user.role.admin',
-    super_admin: 'user.role.super_admin',
-};
 
 const STATUS_LABELS: Record<AccountStatus, TranslationKey> = {
     active: 'user.status.active',
@@ -80,17 +87,21 @@ export function UserForm({
     const setUserPassword = useSetUserPassword();
     const uploadAvatar = useUploadUserAvatar();
     const removeAvatar = useRemoveUserAvatar();
-    const pending =
-        createUser.isPending ||
-        updateUser.isPending ||
-        setUserPassword.isPending ||
-        uploadAvatar.isPending ||
-        removeAvatar.isPending;
 
     const { data: branches } = useActiveBranches();
     const fileRef = useRef<HTMLInputElement>(null);
 
     const [fullName, setFullName] = useState(user?.fullName ?? '');
+    const [username, setUsername] = useState(user?.username ?? '');
+    const usernameStatus = useUsernameCheck(username, {
+        currentUsername: user?.username,
+        excludeId: user?.id,
+        enabled: !isCustomerMode,
+    });
+    // Saving progress shown inside the form (no full-screen blocker).
+    const [saveStep, setSaveStep] = useState<
+        'idle' | 'account' | 'password' | 'photo' | 'done'
+    >('idle');
     const [email, setEmail] = useState(user?.email ?? '');
     const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber ?? '');
     const [role, setRole] = useState<UserRole>(
@@ -121,16 +132,12 @@ export function UserForm({
         };
     }, [avatarPreview]);
 
-    const isStaff = !isCustomerMode && STAFF_ROLES.includes(role);
-
-    // Roles listed most-powerful first — Super Admin always shown on top.
-    // (The backend still enforces that only one Super Admin can exist.)
-    const roleChoices: UserRole[] = [
-        'super_admin',
-        'admin',
-        'manager',
-        'cashier',
-    ];
+    // Managers and cashiers work at one branch; admins cover every branch.
+    const needsBranch = !isCustomerMode && BRANCH_ROLES.includes(role);
+    // Email/phone are optional for staff — tucked away unless already set.
+    const [showContact, setShowContact] = useState(
+        isCustomerMode || Boolean(user?.email || user?.phoneNumber),
+    );
 
     const currentAvatar = getFileUrl(user?.profileImageUrl);
     const shownAvatar = avatarPreview ?? (removeFlag ? null : currentAvatar);
@@ -180,20 +187,39 @@ export function UserForm({
             return;
         }
 
-        // Staff need an email + password to sign into the dashboard. On create
-        // the password is required; on edit it's only validated when the admin
-        // actually types a new one (blank = keep current).
-        const wantsPassword =
-            canSetPassword && (passwordRequired || password.trim().length > 0);
-        if (wantsPassword) {
-            if (!email.trim()) {
+        // Staff sign in with username + password (no email needed). On
+        // create the password is required; on edit it's only validated when
+        // the admin actually types a new one (blank = keep current).
+        const cleanUsername = username.trim().toLowerCase();
+        if (!isCustomerMode) {
+            // The field already shows why inline; the toast is a nudge.
+            const problem = !USERNAME_PATTERN.test(cleanUsername)
+                ? t('user.validation.username')
+                : usernameStatus === 'taken'
+                  ? t('user.username.taken')
+                  : usernameStatus === 'checking'
+                    ? t('user.username.stillChecking')
+                    : null;
+            if (problem) {
                 toast({
                     title: t('common.toast.error'),
-                    description: t('user.validation.emailRequiredForLogin'),
+                    description: problem,
                     variant: 'destructive',
                 });
                 return;
             }
+        }
+        if (needsBranch && !branchId) {
+            toast({
+                title: t('common.toast.error'),
+                description: t('user.validation.branchRequired'),
+                variant: 'destructive',
+            });
+            return;
+        }
+        const wantsPassword =
+            canSetPassword && (passwordRequired || password.trim().length > 0);
+        if (wantsPassword) {
             if (password.trim().length < 8) {
                 toast({
                     title: t('common.toast.error'),
@@ -206,10 +232,11 @@ export function UserForm({
 
         const payload: UserFormValues = {
             fullName: fullName.trim(),
+            username: isCustomerMode ? undefined : cleanUsername,
             email: email.trim() || undefined,
             phoneNumber: phoneNumber.trim() || undefined,
             role: isCustomerMode ? 'customer' : role,
-            branchId: isStaff ? branchId || undefined : undefined,
+            branchId: needsBranch ? branchId || undefined : undefined,
             accountStatus,
             // On create, the password goes with the create call. On edit it's
             // applied separately via the reset endpoint (see below).
@@ -218,11 +245,13 @@ export function UserForm({
 
         try {
             let id: string;
+            setSaveStep('account');
             if (isEdit && user) {
                 await updateUser.mutateAsync({ id: user.id, payload });
                 id = user.id;
                 // Editing another staff member: apply a new password if typed.
                 if (canSetPassword && password.trim().length >= 8) {
+                    setSaveStep('password');
                     await setUserPassword.mutateAsync({
                         id,
                         password: password.trim(),
@@ -233,11 +262,16 @@ export function UserForm({
                 id = created.id;
             }
 
+            if (avatarFile || removeFlag) setSaveStep('photo');
             if (avatarFile) {
                 await uploadAvatar.mutateAsync({ id, file: avatarFile });
             } else if (removeFlag) {
                 await removeAvatar.mutateAsync(id);
             }
+
+            // Brief "Saved ✓" on the button before the dialog closes.
+            setSaveStep('done');
+            await new Promise((r) => setTimeout(r, 650));
 
             toast({
                 title: isEdit
@@ -247,6 +281,7 @@ export function UserForm({
             });
             onSuccess?.();
         } catch (error) {
+            setSaveStep('idle');
             toast({
                 title: t('common.toast.error'),
                 description: getErrorMessage(error),
@@ -254,6 +289,25 @@ export function UserForm({
             });
         }
     }
+
+    const saving = saveStep !== 'idle';
+    const stepLabel =
+        saveStep === 'account'
+            ? isEdit
+                ? t('user.save.updating')
+                : t('user.save.creating')
+            : saveStep === 'password'
+              ? t('user.save.password')
+              : saveStep === 'photo'
+                ? t('user.save.photo')
+                : saveStep === 'done'
+                  ? t('user.save.done')
+                  : null;
+    const usernameBlocked =
+        !isCustomerMode &&
+        (usernameStatus === 'invalid' ||
+            usernameStatus === 'taken' ||
+            usernameStatus === 'checking');
 
     return (
         <form
@@ -263,9 +317,34 @@ export function UserForm({
             }}
             className="flex flex-col"
         >
-            <SavingOverlay open={pending} label={t('common.saving')} />
+            {/* Thin progress bar along the top while saving. */}
+            <div
+                aria-hidden
+                className={`h-0.5 overflow-hidden bg-pink-100 transition-opacity dark:bg-pink-500/10 ${
+                    saving ? 'opacity-100' : 'opacity-0'
+                }`}
+            >
+                <div
+                    className={`h-full bg-pink-400 transition-[width] duration-500 ease-out dark:bg-pink-600 ${
+                        saveStep === 'done'
+                            ? 'w-full'
+                            : saveStep === 'photo'
+                              ? 'w-4/5'
+                              : saveStep === 'password'
+                                ? 'w-3/5'
+                                : saveStep === 'account'
+                                  ? 'w-2/5'
+                                  : 'w-0'
+                    }`}
+                />
+            </div>
 
-            <div className="space-y-4 px-6 pb-2">
+            <fieldset
+                disabled={saving}
+                className={`space-y-4 px-6 pb-2 pt-2 transition-opacity ${
+                    saving ? 'pointer-events-none opacity-60' : ''
+                }`}
+            >
                 {/* Avatar */}
                 <div className="flex items-center gap-4">
                     <div className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-pink-100 to-pink-50 text-xl font-semibold text-pink-600 ring-2 ring-pink-200/70 dark:from-pink-500/20 dark:to-pink-500/5 dark:text-pink-300 dark:ring-pink-500/25">
@@ -273,6 +352,13 @@ export function UserForm({
                             <Image
                                 src={shownAvatar}
                                 alt={fullName || 'avatar'}
+                                fallback={
+                                    initials !== '?' ? (
+                                        initials
+                                    ) : (
+                                        <UserRound className="size-9 text-pink-400 dark:text-pink-300/70" />
+                                    )
+                                }
                                 width={80}
                                 height={80}
                                 className="size-full object-cover"
@@ -296,7 +382,7 @@ export function UserForm({
                             type="button"
                             variant="outline"
                             size="sm"
-                            disabled={pending}
+                            disabled={saving}
                             onClick={() => fileRef.current?.click()}
                         >
                             <Camera className="mr-2 size-4" />
@@ -307,7 +393,7 @@ export function UserForm({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                disabled={pending}
+                                disabled={saving}
                                 onClick={clearAvatar}
                                 className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                             >
@@ -327,25 +413,72 @@ export function UserForm({
                     />
                 </Field>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <Field label={t('user.field.email')}>
-                        <Input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="name@example.com"
-                            className={inputClass}
-                        />
+                {!isCustomerMode && (
+                    <Field label={t('user.field.username')}>
+                        <div className="relative">
+                            <Input
+                                value={username}
+                                onChange={(e) =>
+                                    setUsername(
+                                        e.target.value
+                                            .toLowerCase()
+                                            .replace(/\s+/g, ''),
+                                    )
+                                }
+                                placeholder="dara"
+                                autoComplete="off"
+                                autoCapitalize="none"
+                                spellCheck={false}
+                                aria-invalid={
+                                    usernameStatus === 'invalid' ||
+                                    usernameStatus === 'taken'
+                                }
+                                aria-describedby="username-status"
+                                className={`${inputClass} pr-10 font-mono ${
+                                    usernameStatus === 'available'
+                                        ? 'border-emerald-500 focus-visible:border-emerald-500 dark:focus-visible:border-emerald-500'
+                                        : ''
+                                }`}
+                            />
+                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                                {usernameStatus === 'checking' && (
+                                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                                )}
+                                {usernameStatus === 'available' && (
+                                    <CircleCheck className="size-4 text-emerald-500" />
+                                )}
+                                {(usernameStatus === 'invalid' ||
+                                    usernameStatus === 'taken') && (
+                                    <CircleAlert className="size-4 text-destructive" />
+                                )}
+                            </span>
+                        </div>
+                        <p
+                            id="username-status"
+                            aria-live="polite"
+                            className={`text-xs ${
+                                usernameStatus === 'available'
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : usernameStatus === 'invalid' ||
+                                        usernameStatus === 'taken'
+                                      ? 'text-destructive'
+                                      : 'text-muted-foreground'
+                            }`}
+                        >
+                            {usernameStatus === 'invalid'
+                                ? usernameFormatError(username, t)
+                                : usernameStatus === 'taken'
+                                  ? t('user.username.taken')
+                                  : usernameStatus === 'available'
+                                    ? t('user.username.available')
+                                    : usernameStatus === 'checking'
+                                      ? t('user.username.checking')
+                                      : usernameStatus === 'error'
+                                        ? t('user.username.checkFailed')
+                                        : t('user.form.usernameHint')}
+                        </p>
                     </Field>
-                    <Field label={t('user.field.phone')}>
-                        <Input
-                            value={phoneNumber}
-                            onChange={(e) => setPhoneNumber(e.target.value)}
-                            placeholder="+855..."
-                            className={inputClass}
-                        />
-                    </Field>
-                </div>
+                )}
 
                 {canSetPassword && (
                     <Field
@@ -392,65 +525,20 @@ export function UserForm({
                     </Field>
                 )}
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {!isCustomerMode && (
-                        <Field label={t('user.field.role')}>
-                            <Select
-                                value={role}
-                                disabled={isSelf}
-                                onValueChange={(v) =>
-                                    v && setRole(v as UserRole)
-                                }
-                            >
-                                <SelectTrigger className="h-11 w-full">
-                                    <SelectValue>
-                                        {(v: string) =>
-                                            t(ROLE_LABELS[v as UserRole])
-                                        }
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {roleChoices.map((r) => (
-                                        <SelectItem key={r} value={r}>
-                                            {t(ROLE_LABELS[r])}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </Field>
-                    )}
-
-                    <Field label={t('user.field.status')}>
-                        <Select
-                            value={accountStatus}
+                {!isCustomerMode && (
+                    <Field label={t('user.field.role')}>
+                        <RoleOptionCards
+                            value={role}
                             disabled={isSelf}
-                            onValueChange={(v) =>
-                                v && setAccountStatus(v as AccountStatus)
-                            }
-                        >
-                            <SelectTrigger className="h-11 w-full">
-                                <SelectValue>
-                                    {(v: string) => t(STATUS_LABELS[v as AccountStatus])}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                                {ACCOUNT_STATUSES.map((s) => (
-                                    <SelectItem key={s} value={s}>
-                                        {t(STATUS_LABELS[s])}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            onChange={(r) => {
+                                setRole(r);
+                                if (!BRANCH_ROLES.includes(r)) setBranchId('');
+                            }}
+                        />
                     </Field>
-                </div>
-
-                {isSelf && (
-                    <p className="text-xs text-muted-foreground">
-                        {t('user.form.selfHint')}
-                    </p>
                 )}
 
-                {isStaff && (
+                {needsBranch && (
                     <Field label={t('user.field.branch')}>
                         <Combobox
                             options={branchOptions}
@@ -458,9 +546,110 @@ export function UserForm({
                             onChange={setBranchId}
                             placeholder={t('user.field.branch.placeholder')}
                         />
+                        <p className="text-xs text-muted-foreground">
+                            {t('user.form.branchHint')}
+                        </p>
                     </Field>
                 )}
-            </div>
+
+                <Field label={t('user.field.status')}>
+                    <Select
+                        value={accountStatus}
+                        disabled={isSelf}
+                        onValueChange={(v) =>
+                            v && setAccountStatus(v as AccountStatus)
+                        }
+                    >
+                        <SelectTrigger className="h-11 w-full">
+                            <SelectValue>
+                                {(v: string) => t(STATUS_LABELS[v as AccountStatus])}
+                            </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            {ACCOUNT_STATUSES.filter((s) => s !== 'deleted').map(
+                                (s) => (
+                                    <SelectItem key={s} value={s}>
+                                        {t(STATUS_LABELS[s])}
+                                    </SelectItem>
+                                ),
+                            )}
+                        </SelectContent>
+                    </Select>
+                </Field>
+
+                {isSelf && (
+                    <p className="text-xs text-muted-foreground">
+                        {t('user.form.selfHint')}
+                    </p>
+                )}
+
+                {/* Contact details — optional for staff (kept for when
+                    everyone has a work email). */}
+                {isCustomerMode ? (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Field label={t('user.field.email')}>
+                            <Input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="name@example.com"
+                                className={inputClass}
+                            />
+                        </Field>
+                        <Field label={t('user.field.phone')}>
+                            <Input
+                                value={phoneNumber}
+                                onChange={(e) => setPhoneNumber(e.target.value)}
+                                placeholder="+855..."
+                                className={inputClass}
+                            />
+                        </Field>
+                    </div>
+                ) : (
+                    <div className="rounded-lg border border-dashed">
+                        <button
+                            type="button"
+                            onClick={() => setShowContact((v) => !v)}
+                            className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium"
+                        >
+                            <span>
+                                {t('user.form.contactOptional')}
+                                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                    {t('user.form.contactOptionalHint')}
+                                </span>
+                            </span>
+                            <ChevronDown
+                                className={`size-4 text-muted-foreground transition-transform ${
+                                    showContact ? 'rotate-180' : ''
+                                }`}
+                            />
+                        </button>
+                        {showContact && (
+                            <div className="px-4 pb-4">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <Field label={t('user.field.email')}>
+                                    <Input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="name@example.com"
+                                        className={inputClass}
+                                    />
+                                </Field>
+                                <Field label={t('user.field.phone')}>
+                                    <Input
+                                        value={phoneNumber}
+                                        onChange={(e) => setPhoneNumber(e.target.value)}
+                                        placeholder="+855..."
+                                        className={inputClass}
+                                    />
+                                </Field>
+                            </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </fieldset>
 
             <div className="sticky bottom-0 mt-6 flex justify-end gap-2 border-t bg-neutral-50 px-6 py-4 dark:bg-neutral-800">
                 {onCancel && (
@@ -468,18 +657,27 @@ export function UserForm({
                         type="button"
                         variant="outline"
                         onClick={onCancel}
-                        disabled={pending}
+                        disabled={saving}
                     >
                         {t('common.cancel')}
                     </Button>
                 )}
                 <Button
                     type="submit"
-                    disabled={pending}
-                    className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
+                    disabled={saving || usernameBlocked}
+                    className={`min-w-36 text-white transition-colors ${
+                        saveStep === 'done'
+                            ? 'bg-emerald-500 hover:bg-emerald-500 disabled:opacity-100'
+                            : 'bg-pink-400 hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800'
+                    }`}
                 >
-                    {pending && <Loader2 className="mr-2 size-4 animate-spin" />}
-                    {isEdit ? t('user.edit.submit') : t('user.create.submit')}
+                    {saveStep === 'done' ? (
+                        <Check className="mr-2 size-4" />
+                    ) : (
+                        saving && <Loader2 className="mr-2 size-4 animate-spin" />
+                    )}
+                    {stepLabel ??
+                        (isEdit ? t('user.edit.submit') : t('user.create.submit'))}
                 </Button>
             </div>
         </form>
@@ -493,4 +691,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
             {children}
         </div>
     );
+}
+
+/** Tell the admin exactly what's wrong with a username, as they type. */
+function usernameFormatError(
+    raw: string,
+    t: (key: TranslationKey) => string,
+): string {
+    const name = raw.trim();
+    if (name.length < 3) return t('user.username.tooShort');
+    if (name.length > 30) return t('user.username.tooLong');
+    return t('user.username.badChars');
 }

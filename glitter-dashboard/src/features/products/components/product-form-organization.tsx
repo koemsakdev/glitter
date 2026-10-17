@@ -2,7 +2,7 @@
 
 import type { Control, UseFormSetValue } from 'react-hook-form';
 import { Controller, useWatch } from 'react-hook-form';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import {
@@ -12,7 +12,6 @@ import {
     FieldGroup,
     FieldLabel,
 } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
 import {
     Select,
     SelectContent,
@@ -52,9 +51,12 @@ export function ProductFormOrganization({
     const { data: categories, isLoading: categoriesLoading } =
         useCategoryOptions();
 
-    // Auto-generate the SKU from brand + category + product name (create mode only).
-    // The field is read-only so the SKU stays consistent and unique-ish without
-    // requiring the user to invent one.
+    // Auto-generate the SKU from brand + category + product name (create mode
+    // only). It isn't shown on the form — it's derived, so there's nothing for
+    // the user to fill in; it appears on the product's detail page.
+    const [skuSuffix] = useState(() =>
+        Math.random().toString(36).slice(2, 6).toUpperCase(),
+    );
     const brandId = useWatch({ control, name: 'brandId' });
     const categoryId = useWatch({ control, name: 'categoryId' });
     const nameEn = useWatch({ control, name: 'nameEn' });
@@ -63,8 +65,13 @@ export function ProductFormOrganization({
         if (isEditMode) return; // never rewrite an existing product's SKU
         const brandName = brands?.find((b) => b.id === brandId)?.name;
         const categoryName = categories?.find((c) => c.id === categoryId)?.nameEn;
-        const sku = generateProductSku(brandName, categoryName, nameEn);
-        setValue('sku', sku, { shouldValidate: true, shouldDirty: true });
+        // A fixed random suffix keeps similar products from colliding (the
+        // field is hidden, so a duplicate-SKU error couldn't be fixed by hand).
+        const base = generateProductSku(brandName, categoryName, nameEn) || 'PRD';
+        setValue('sku', `${base}-${skuSuffix}`, {
+            shouldValidate: true,
+            shouldDirty: true,
+        });
     }, [
         brandId,
         categoryId,
@@ -73,6 +80,7 @@ export function ProductFormOrganization({
         categories,
         isEditMode,
         setValue,
+        skuSuffix,
     ]);
 
     const brandOptions: ComboboxOption[] = useMemo(
@@ -162,45 +170,6 @@ export function ProductFormOrganization({
                 )}
             />
 
-            <Controller
-                name="sku"
-                control={control}
-                render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel htmlFor="product-sku">
-                            {t('product.field.sku')}
-                        </FieldLabel>
-                        <Input
-                            {...field}
-                            id="product-sku"
-                            placeholder="GUC-BAG-MARMON"
-                            readOnly
-                            disabled={!isEditMode}
-                            className={`${inputClass} font-mono ${
-                                !isEditMode
-                                    ? 'cursor-not-allowed bg-muted/40 text-muted-foreground'
-                                    : ''
-                            }`}
-                            aria-invalid={fieldState.invalid}
-                        />
-                        <FieldDescription>
-                            {isEditMode
-                                ? t('product.field.sku.help')
-                                : t('product.field.sku.autoHelp')}
-                        </FieldDescription>
-                        {fieldState.invalid && fieldState.error && (
-                            <FieldError
-                                errors={[
-                                    {
-                                        ...fieldState.error,
-                                        message: translateError(fieldState.error.message),
-                                    },
-                                ]}
-                            />
-                        )}
-                    </Field>
-                )}
-            />
 
             <Controller
                 name="productType"

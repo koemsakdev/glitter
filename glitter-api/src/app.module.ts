@@ -13,7 +13,7 @@
  *
  * For role-based access, add @UseGuards(RolesGuard) + @Roles() to the endpoint:
  *   @UseGuards(RolesGuard)
- *   @Roles('admin', 'super_admin')
+ *   @Roles('admin', 'manager')
  *   @Post()
  *   createProduct() {...}
  *

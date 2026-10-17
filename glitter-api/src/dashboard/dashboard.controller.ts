@@ -57,7 +57,7 @@ export class DashboardController {
     },
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   async getStats(
     @Query('from') from?: string,
     @Query('to') to?: string,

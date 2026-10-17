@@ -1,7 +1,7 @@
 'use client';
 
 import { ImageIcon, Loader2, Trash2 } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@/components/ui/safe-image';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';

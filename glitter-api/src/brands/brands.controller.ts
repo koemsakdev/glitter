@@ -145,7 +145,7 @@ export class BrandsController {
     type: BrandDetailResponseDto,
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiResponse({ status: 400, description: 'Invalid input data or file' })
   @ApiResponse({ status: 409, description: 'Brand slug already exists' })
   async create(
@@ -384,7 +384,7 @@ export class BrandsController {
     type: BrandDetailResponseDto,
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiResponse({ status: 400, description: 'Invalid input data or file' })
   @ApiResponse({ status: 404, description: 'Brand not found' })
   @ApiResponse({ status: 409, description: 'Brand slug already exists' })
@@ -420,7 +420,7 @@ export class BrandsController {
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiResponse({ status: 204, description: 'Brand deleted successfully' })
   @ApiResponse({ status: 404, description: 'Brand not found' })
   async delete(@Param('id') id: string): Promise<void> {

@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-image';
 import {
     GripVertical,
     Loader,
@@ -10,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { DeliveryMethodFormDialog } from '@/features/settings/components/delivery-method-form-dialog';
 import { PaymentOptionFormDialog } from '@/features/settings/components/payment-option-form-dialog';
@@ -317,7 +319,7 @@ export function DeliveryConfigCard({
                     </div>
                 </div>
                 <div className="flex items-center gap-3 px-5 py-4">
-                    <input
+                    <Input
                         type="number"
                         min={1}
                         value={value.holdMinutes ?? 30}
@@ -502,8 +504,7 @@ function Row({
             )}
             <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted/30">
                 {src ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <SafeImg
                         src={src}
                         alt=""
                         className="size-full object-contain"

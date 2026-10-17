@@ -42,10 +42,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           setUser(user);
         }
-      } catch (error) {
+      } catch {
         // /me failed AND refresh failed (interceptor would have caught a fixable 401)
         // Means the session is dead. Clean up + redirect.
-        console.error('[AuthProvider] Session expired:', error);
+        console.warn('[AuthProvider] Session expired, signing out.');
         if (!cancelled) {
           tokenStorage.clearTokens();
           authCookie.clear();

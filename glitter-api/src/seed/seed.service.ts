@@ -7,11 +7,10 @@ import { AuthAccountEntity } from '../users/entities/auth-account.entity';
 import { UserEntity } from '../users/entities/user.entity';
 
 /**
- * On module init, check if any super_admin exists.
- * If none, create one using credentials from .env.
+ * On module init: migrate legacy super_admin rows to admin, then make sure an
+ * admin exists — creating one from .env (SEED_ADMIN_*) on a fresh database.
  *
- * This runs once at app startup. Safe to leave on — it only creates a user
- * if zero super_admins exist in the DB.
+ * Safe to leave on — it only creates a user if zero admins exist.
  */
 @Injectable()
 export class SeedService implements OnModuleInit {
@@ -26,18 +25,45 @@ export class SeedService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.seedSuperAdmin();
+    await this.mergeSuperAdmins();
+    await this.seedAdmin();
   }
 
-  private async seedSuperAdmin(): Promise<void> {
-    const existingSuperAdmin = await this.userRepository.findOne({
-      where: { role: 'super_admin' },
+  /**
+   * One-time, idempotent migration: the separate "super admin" role was
+   * merged into "admin". Converts any remaining rows so they keep full access.
+   */
+  private async mergeSuperAdmins(): Promise<void> {
+    const result = await this.userRepository
+      .createQueryBuilder()
+      .update(UserEntity)
+      .set({ role: 'admin' })
+      .where('role = :legacy', { legacy: 'super_admin' })
+      .execute();
+    if (result.affected) {
+      this.logger.log(`Merged ${result.affected} super admin(s) into admin`);
+    }
+  }
+
+  /** Ensure at least one admin exists (first boot), signing in as "admin". */
+  private async seedAdmin(): Promise<void> {
+    const existingAdmin = await this.userRepository.findOne({
+      where: { role: 'admin' },
+      order: { createdAt: 'ASC' },
     });
 
-    if (existingSuperAdmin) {
-      this.logger.log(
-        `Super admin exists: ${existingSuperAdmin.email} — skipping seed`,
-      );
+    if (existingAdmin) {
+      // Give the original admin a username so it can use the new login.
+      if (!existingAdmin.username) {
+        const taken = await this.userRepository.findOne({
+          where: { username: 'admin' },
+        });
+        if (!taken) {
+          existingAdmin.username = 'admin';
+          await this.userRepository.save(existingAdmin);
+          this.logger.log('Admin account can now sign in as "admin"');
+        }
+      }
       return;
     }
 
@@ -56,11 +82,12 @@ export class SeedService implements OnModuleInit {
     try {
       const user = this.userRepository.create({
         email: email.toLowerCase(),
+        username: 'admin',
         phoneNumber: null,
         fullName,
         profileImageUrl: null,
         profileImageSource: 'none',
-        role: 'super_admin',
+        role: 'admin',
         branchId: null,
         accountStatus: 'active',
         emailVerifiedAt: new Date(),
@@ -80,13 +107,12 @@ export class SeedService implements OnModuleInit {
       await this.authAccountRepository.save(authAccount);
 
       this.logger.log('─────────────────────────────────────────────────');
-      this.logger.log('✅ Super admin seeded successfully');
-      this.logger.log(`   Email:    ${email}`);
-      this.logger.log(`   Password: ${password}`);
+      this.logger.log('✅ Admin account seeded');
+      this.logger.log('   Username: admin  (password: SEED_ADMIN_PASSWORD)');
       this.logger.log('   ⚠️  Change this password after first login!');
       this.logger.log('─────────────────────────────────────────────────');
     } catch (error) {
-      this.logger.error('Failed to seed super admin', error);
+      this.logger.error('Failed to seed admin', error);
     }
   }
 }

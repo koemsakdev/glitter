@@ -14,7 +14,7 @@ import { UpdatePaymentConfigDto } from './dto/update-payment-config.dto';
 @ApiBearerAuth()
 @Controller('payment-config')
 @UseGuards(RolesGuard)
-@Roles('admin', 'super_admin')
+@Roles('admin')
 export class PaymentConfigController {
   constructor(private readonly service: PaymentConfigService) {}
 

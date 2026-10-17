@@ -24,7 +24,7 @@ export class AppSettingsController {
   constructor(private readonly appSettingsService: AppSettingsService) {}
 
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @Post()
   @ApiOperation({ summary: 'Create application setting' })
   @ApiResponse({ status: 201, description: 'Application setting created' })
@@ -33,7 +33,7 @@ export class AppSettingsController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @Get()
   @ApiOperation({ summary: 'Get all application settings (admin only)' })
   @ApiResponse({ status: 200, description: 'List application settings' })
@@ -61,7 +61,7 @@ export class AppSettingsController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @Put(':id')
   @ApiOperation({ summary: 'Update an application setting' })
   @ApiResponse({ status: 200, description: 'Application setting updated' })
@@ -73,7 +73,7 @@ export class AppSettingsController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles('super_admin')
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete an application setting' })
   @ApiResponse({ status: 204, description: 'Application setting deleted' })

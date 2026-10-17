@@ -1,7 +1,7 @@
 'use client';
 
 import { Heart } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@/components/ui/safe-image';
 import Link from 'next/link';
 import { useCustomerWishlist } from '@/features/wishlists/use-wishlists';
 import { getFileUrl } from '@/lib/file-url';

@@ -33,7 +33,7 @@ export class AdvertisementsController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'List all advertisements' })
   async findAll(): Promise<AdvertisementListResponse> {
     return this.service.findAll();
@@ -52,7 +52,7 @@ export class AdvertisementsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'Create an advertisement' })
   async create(
     @Body() dto: CreateAdvertisementDto,
@@ -63,7 +63,7 @@ export class AdvertisementsController {
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'Update an advertisement' })
   async update(
     @Param('id') id: string,
@@ -75,7 +75,7 @@ export class AdvertisementsController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'Delete an advertisement' })
   async delete(@Param('id') id: string): Promise<void> {
     return this.service.delete(id);

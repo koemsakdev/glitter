@@ -1,11 +1,10 @@
 'use client';
 
 import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
-import { TelegramLoginButton } from '@/components/auth/telegram-login-button';
 import { tr, type Lang } from '@/lib/locale';
 
+// Telegram sign-in is disabled for now — only Google + email/password.
 const HAS_GOOGLE = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
-const HAS_TELEGRAM = Boolean(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME);
 
 export function SocialAuth({
     lang,
@@ -14,7 +13,7 @@ export function SocialAuth({
     lang: Lang;
     onError?: (message: string) => void;
 }) {
-    if (!HAS_GOOGLE && !HAS_TELEGRAM) return null;
+    if (!HAS_GOOGLE) return null;
 
     return (
         <div className="mt-6 space-y-3">
@@ -24,7 +23,6 @@ export function SocialAuth({
                 <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
             </div>
             <GoogleSignInButton lang={lang} onError={onError} />
-            <TelegramLoginButton onError={onError} />
         </div>
     );
 }

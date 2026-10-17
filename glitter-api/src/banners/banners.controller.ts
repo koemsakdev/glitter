@@ -33,7 +33,7 @@ export class BannersController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'List all banners' })
   async findAll(): Promise<BannerListResponse> {
     return this.service.findAll();
@@ -52,7 +52,7 @@ export class BannersController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'Create a banner' })
   async create(@Body() dto: CreateBannerDto): Promise<BannerDetailResponse> {
     return { data: await this.service.create(dto) };
@@ -61,7 +61,7 @@ export class BannersController {
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'Update a banner' })
   async update(
     @Param('id') id: string,
@@ -73,7 +73,7 @@ export class BannersController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'Delete a banner' })
   async delete(@Param('id') id: string): Promise<void> {
     return this.service.delete(id);

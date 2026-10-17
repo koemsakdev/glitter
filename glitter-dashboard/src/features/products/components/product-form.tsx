@@ -41,7 +41,8 @@ import { productBadgeApi } from '@/features/product-badges/product-badge-api';
 import { ProductBadgesSection } from './product-badges-section';
 import { SavingOverlay } from '@/components/feedback/saving-overlay';
 import type { BadgeEditorState, BadgeSlot } from '@/types/product';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { inventoryBranchApi } from '@/features/inventory-branch/inventory-branch-api';
 
 import type { VariantStockEntry } from '@/features/inventory-branch/components/variant-stock-dialog';
 import { useSetInventoryStock } from '@/features/inventory-branch/use-inventory-branch';
@@ -97,6 +98,9 @@ type SubmitStep =
     | 'savingBadges'
     | 'savingStock';
 
+/** Placeholder stock row for a new product without variants. */
+const NEW_DEFAULT_ROW = 'new-default';
+
 export function ProductForm({ product, title, subtitle }: ProductFormProps) {
     const { t } = useI18n();
     const router = useRouter();
@@ -130,7 +134,24 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
 
     const { data: serverBadges } = useProductBadges(product?.id);
     const [hasVariants, setHasVariants] = useState(false);
-    const [singleStock, setSingleStock] = useState(0);
+    // Stock row id for a product without variants: its auto-created default
+    // variant (edit) or a placeholder resolved after the product is created.
+    const [defaultRowId, setDefaultRowId] = useState(NEW_DEFAULT_ROW);
+
+    // Saved stock per variant per branch (edit mode) — seeds the stock grid.
+    const { data: availability } = useQuery({
+        queryKey: ['product-availability', product?.id],
+        queryFn: () => inventoryBranchApi.getProductAvailability(product!.id),
+        enabled: !!product?.id,
+    });
+    const initialStock = React.useMemo(() => {
+        const m = new Map<string, Map<string, number>>();
+        for (const row of availability?.branches ?? []) {
+            if (!m.has(row.variantId)) m.set(row.variantId, new Map());
+            m.get(row.variantId)!.set(row.branchId, row.quantityAvailable);
+        }
+        return m;
+    }, [availability]);
 
     // Related products (committed on submit)
     const { data: serverRelated } = useProductRelated(product?.id);
@@ -191,7 +212,7 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
 
             if (isOnlyDefault) {
                 setHasVariants(false);
-                setSingleStock(serverVariants[0].quantityInStock);
+                setDefaultRowId(serverVariants[0].id);
                 setVariantState({ rows: [], deletedIds: [] });
             } else {
                 setHasVariants(true);
@@ -348,17 +369,18 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
     /** Commit variant changes for a given product id. Returns a map of local temp IDs → real server IDs for new variants. */
     async function commitVariants(productId: string): Promise<Map<string, string>> {
         if (!hasVariants) {
-            // Single-variant mode: ensure the default variant's stock matches singleStock.
-            // The product was created/exists with an auto-default variant.
-            const current = await productVariantApi.listByProduct(productId);
-            const defaultVariant =
-                current.find((v) => !v.size && !v.color) ?? current[0];
-            if (defaultVariant && defaultVariant.quantityInStock !== singleStock) {
-                await productVariantApi.update(defaultVariant.id, {
-                    quantityInStock: singleStock,
-                });
+            // Single-variant mode: the product has an auto-created default
+            // variant. Its stock is set per branch (commitStockChanges), which
+            // also keeps the variant's total in sync — here we only map the
+            // placeholder row to that variant's real id.
+            const map = new Map<string, string>();
+            if (pendingStockChanges.has(NEW_DEFAULT_ROW)) {
+                const current = await productVariantApi.listByProduct(productId);
+                const defaultVariant =
+                    current.find((v) => !v.size && !v.color) ?? current[0];
+                if (defaultVariant) map.set(NEW_DEFAULT_ROW, defaultVariant.id);
             }
-            return new Map();
+            return map;
         }
 
         // Multi-variant mode:
@@ -464,10 +486,8 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
             sv.length === 1 && !sv[0].size && !sv[0].color;
         const initialHasVariants = sv.length > 0 && !isOnlyDefault;
         if (hasVariants !== initialHasVariants) return true;
-        if (!hasVariants) {
-            const initialStock = isOnlyDefault ? sv[0].quantityInStock : 0;
-            return singleStock !== initialStock;
-        }
+        // Single-variant stock is saved per branch in commitStockChanges.
+        if (!hasVariants) return false;
         if (variantState.deletedIds.length > 0) return true;
         if (variantState.rows.some((r) => !r.isExisting)) return true;
         return variantState.rows.some((r) => {
@@ -580,6 +600,7 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
             void queryClient.invalidateQueries({ queryKey: ['products'] });
             void queryClient.invalidateQueries({ queryKey: ['product-images', saved.id] });
             void queryClient.invalidateQueries({ queryKey: ['product-variants', saved.id] });
+            void queryClient.invalidateQueries({ queryKey: ['product-availability', saved.id] });
             void queryClient.invalidateQueries({ queryKey: ['product-badges', saved.id] });
             void queryClient.invalidateQueries({ queryKey: ['related-products', saved.id] });
 
@@ -691,8 +712,8 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                             onChange={setVariantState}
                             hasVariants={hasVariants}
                             onHasVariantsChange={setHasVariants}
-                            singleStock={singleStock}
-                            onSingleStockChange={setSingleStock}
+                            defaultRowId={defaultRowId}
+                            initialStock={initialStock}
                             pendingStockChanges={pendingStockChanges}
                             onStockChange={handlePendingStockChange}
                         />

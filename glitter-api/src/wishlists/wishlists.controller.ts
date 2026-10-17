@@ -18,7 +18,7 @@ import type { WishlistProductStat } from './types/wishlist-response.type';
 @ApiTags('Wishlists (admin)')
 @ApiBearerAuth()
 @UseGuards(RolesGuard)
-@Roles('manager', 'admin', 'super_admin')
+@Roles('manager', 'admin')
 @Controller('wishlists')
 export class WishlistsController {
   constructor(private readonly service: WishlistsService) {}

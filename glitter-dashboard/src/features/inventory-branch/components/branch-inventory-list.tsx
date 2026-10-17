@@ -1,7 +1,7 @@
 'use client';
 
 import { ImageIcon, Package, Search } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@/components/ui/safe-image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { DataTablePagination } from '@/components/data-table';

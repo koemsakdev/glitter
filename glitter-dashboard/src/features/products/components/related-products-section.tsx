@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-image';
 import {
     ChevronLeft,
     ChevronRight,
@@ -43,8 +44,7 @@ function Thumb({ product }: { product: Product }) {
         product.images?.[0];
     const url = getFileUrl(primary?.imageUrl ?? null);
     return url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <SafeImg
             src={url}
             alt=""
             className="size-10 shrink-0 rounded-md border object-cover"

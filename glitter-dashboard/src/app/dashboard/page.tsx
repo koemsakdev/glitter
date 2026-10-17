@@ -33,8 +33,7 @@ export default function DashboardHomePage() {
     const role = useAuthStore((s) => s.user?.role);
     // The analytics home (and its stats endpoint) is manager+ only. Cashiers
     // land on Orders instead of hitting a 403 here.
-    const canViewStats =
-        role === 'manager' || role === 'admin' || role === 'super_admin';
+    const canViewStats = role === 'manager' || role === 'admin';
 
     const [preset, setPreset] = useState('30d');
     const [range, setRange] = useState<DateRange>(() =>

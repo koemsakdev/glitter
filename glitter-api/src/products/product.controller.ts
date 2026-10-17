@@ -58,7 +58,7 @@ export class ProductsController {
     type: ProductDetailResponseDto,
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   async create(@Body() dto: CreateProductDto): Promise<ProductDetailResponse> {
     return this.productsService.create(dto);
   }
@@ -130,7 +130,7 @@ export class ProductsController {
     },
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   async syncAllStock(): Promise<{ updated: number }> {
     return this.productsService.syncAllStock();
   }
@@ -175,7 +175,7 @@ export class ProductsController {
       'Partial update. Note: totalStock is not editable here — it is derived from variants. Use variant endpoints to change stock.',
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, type: ProductDetailResponseDto })
   async update(
@@ -197,7 +197,7 @@ export class ProductsController {
       'Recomputes product.totalStock as SUM(variant.quantityInStock). Useful if totalStock has drifted due to manual DB changes or legacy data.',
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, type: ProductDetailResponseDto })
   @ApiResponse({ status: 404, description: 'Product not found' })
@@ -212,7 +212,7 @@ export class ProductsController {
     description: 'Sets status to archived without deleting',
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, type: ProductDetailResponseDto })
   async archive(@Param('id') id: string): Promise<ProductDetailResponse> {
@@ -226,7 +226,7 @@ export class ProductsController {
     description: 'Permanently removes the product and cascades to its variants',
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 204, description: 'Product deleted successfully' })
   async delete(@Param('id') id: string): Promise<void> {

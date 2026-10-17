@@ -31,7 +31,7 @@ const AVATAR_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'avatars');
 const BRANCH_REQUIRED_ROLES: UserRole[] = ['cashier', 'manager'];
 
 // Roles that must NOT have a branch (they work across branches)
-const BRANCH_FORBIDDEN_ROLES: UserRole[] = ['customer', 'admin', 'super_admin'];
+const BRANCH_FORBIDDEN_ROLES: UserRole[] = ['customer', 'admin'];
 
 export interface OAuthProfileData {
   provider: AuthProvider;
@@ -84,21 +84,25 @@ export class UsersService {
       }
     }
 
-    // A login password needs an email to sign in with.
-    if (dto.password && !dto.email) {
+    const role: UserRole = dto.role ?? 'customer';
+    const username = dto.username?.trim().toLowerCase() || null;
+
+    // Staff sign in with a username (email optional); customers with email.
+    if (role !== 'customer' && !username) {
+      throw new BadRequestException('A username is required for staff');
+    }
+    if (dto.password && !username && !dto.email) {
       throw new BadRequestException(
-        'An email is required when setting a login password',
+        'A username or email is required when setting a login password',
       );
     }
+    if (username) await this.assertUsernameFree(username);
 
-    const role: UserRole = dto.role ?? 'customer';
     await this.validateRoleBranchCombination(role, dto.branchId ?? null);
-    if (role === 'super_admin') {
-      await this.assertNoOtherSuperAdmin();
-    }
 
     const entity = this.userRepository.create({
       email: dto.email ? dto.email.toLowerCase() : null,
+      username,
       phoneNumber: dto.phoneNumber ?? null,
       fullName: dto.fullName,
       profileImageUrl: null,
@@ -114,13 +118,15 @@ export class UsersService {
 
     const saved = await this.userRepository.save(entity);
 
-    // Set up email/password sign-in so a created staff member can log in.
-    if (dto.password && saved.email) {
+    // Set up password sign-in so a created staff member can log in. The
+    // password lives on the 'email' auth account, keyed by email when there
+    // is one, else by username (usernames can't contain '@', so no clash).
+    if (dto.password) {
       const passwordHash = await hashPassword(dto.password);
       const authAccount = this.authAccountRepository.create({
         userId: saved.id,
         provider: 'email',
-        providerAccountId: saved.email,
+        providerAccountId: (saved.email ?? saved.username)!,
         passwordHash,
       });
       await this.authAccountRepository.save(authAccount);
@@ -168,7 +174,7 @@ export class UsersService {
 
     if (query.search) {
       qb.andWhere(
-        '(user.email ILIKE :search OR user.phoneNumber ILIKE :search OR user.fullName ILIKE :search)',
+        '(user.email ILIKE :search OR user.username ILIKE :search OR user.phoneNumber ILIKE :search OR user.fullName ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
@@ -180,8 +186,8 @@ export class UsersService {
       );
     }
 
-    // Highest role first (role enum is declared customer→…→super_admin, so
-    // DESC puts super_admin on top), then newest within the same role.
+    // Highest role first (role enum is declared customer→…→admin, so
+    // DESC puts admins on top), then newest within the same role.
     qb.orderBy('user.role', 'DESC')
       .addOrderBy('user.createdAt', 'DESC')
       .skip(skip)
@@ -246,6 +252,23 @@ export class UsersService {
       user.emailVerifiedAt = null;
     }
 
+    if (dto.username !== undefined) {
+      const username = dto.username.trim().toLowerCase();
+      if (username !== user.username) {
+        await this.assertUsernameFree(username, user.id);
+        // Keep a username-keyed password login pointing at the new name.
+        const acct = user.authAccounts?.find(
+          (a) =>
+            a.provider === 'email' && a.providerAccountId === user.username,
+        );
+        if (acct) {
+          acct.providerAccountId = username;
+          await this.authAccountRepository.save(acct);
+        }
+        user.username = username;
+      }
+    }
+
     if (dto.phoneNumber && dto.phoneNumber !== user.phoneNumber) {
       const existing = await this.userRepository.findOne({
         where: { phoneNumber: dto.phoneNumber },
@@ -260,6 +283,14 @@ export class UsersService {
     }
 
     if (dto.fullName !== undefined) user.fullName = dto.fullName;
+
+    // Never leave the shop without an active admin (demote / suspend / delete).
+    const losesAdmin =
+      user.role === 'admin' &&
+      ((dto.role !== undefined && dto.role !== 'admin') ||
+        (dto.accountStatus !== undefined && dto.accountStatus !== 'active'));
+    if (losesAdmin) await this.assertNotLastAdmin(user.id);
+
     if (dto.accountStatus !== undefined) user.accountStatus = dto.accountStatus;
 
     // Role/branch changes need validation
@@ -269,9 +300,6 @@ export class UsersService {
 
     if (dto.role !== undefined || dto.branchId !== undefined) {
       await this.validateRoleBranchCombination(newRole, newBranchId);
-      if (newRole === 'super_admin') {
-        await this.assertNoOtherSuperAdmin(user.id);
-      }
 
       if (dto.role !== undefined) {
         // Role change invalidates tokens so new permissions take effect
@@ -367,7 +395,9 @@ export class UsersService {
     // Release the unique identifiers so the same email/phone can be used to
     // register again, and drop the sign-in methods so the account can no longer
     // log in. The (anonymized) row is kept so past orders still reference it.
+    if (user.role === 'admin') await this.assertNotLastAdmin(user.id);
     user.email = null;
+    user.username = null;
     user.phoneNumber = null;
     user.accountStatus = 'deleted';
     user.tokenVersion += 1;
@@ -384,6 +414,7 @@ export class UsersService {
     if (user === null) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
+    if (user.role === 'admin') await this.assertNotLastAdmin(user.id);
 
     if (
       user.profileImageSource === 'uploaded' &&
@@ -614,11 +645,10 @@ export class UsersService {
   }
 
   /**
-   * ADMIN — set or reset a user's email/password sign-in. Works whether or not
-   * the user already has a password (used to give existing staff credentials or
-   * reset a forgotten one). Requires the user to have an email. Only a
-   * super_admin may reset an admin/super_admin's password. Existing sessions are
-   * invalidated afterwards.
+   * ADMIN — set or reset a user's password sign-in. Works whether or not the
+   * user already has a password (used to give existing staff credentials or
+   * reset a forgotten one). Needs a username or email to sign in with.
+   * Existing sessions are invalidated afterwards.
    */
   async setUserPassword(
     userId: string,
@@ -629,18 +659,14 @@ export class UsersService {
     if (user === null) {
       throw new NotFoundException(`User ${userId} not found`);
     }
-    if (user.email === null) {
+    const loginId = user.email ?? user.username;
+    if (loginId === null) {
       throw new BadRequestException(
-        'This user has no email address to sign in with',
+        'Give this user a username before setting a password',
       );
     }
-    if (
-      (user.role === 'admin' || user.role === 'super_admin') &&
-      actor.role !== 'super_admin'
-    ) {
-      throw new ForbiddenException(
-        "Only a super_admin can reset an admin's password",
-      );
+    if (actor.role !== 'admin') {
+      throw new ForbiddenException('Only an admin can reset passwords');
     }
 
     const passwordHash = await hashPassword(password);
@@ -649,13 +675,13 @@ export class UsersService {
     });
     if (existing !== null) {
       existing.passwordHash = passwordHash;
-      existing.providerAccountId = user.email;
+      existing.providerAccountId = loginId;
       await this.authAccountRepository.save(existing);
     } else {
       const authAccount = this.authAccountRepository.create({
         userId,
         provider: 'email',
-        providerAccountId: user.email,
+        providerAccountId: loginId,
         passwordHash,
       });
       await this.authAccountRepository.save(authAccount);
@@ -807,18 +833,49 @@ export class UsersService {
   /**
    * Enforce the rules:
    *   cashier/manager → MUST have branchId
-   *   customer/admin/super_admin → MUST NOT have branchId
+   *   customer/admin → MUST NOT have branchId
    */
-  /** There can be only one super_admin in the system. */
-  private async assertNoOtherSuperAdmin(excludeId?: string): Promise<void> {
-    const qb = this.userRepository
-      .createQueryBuilder('user')
-      .where('user.role = :role', { role: 'super_admin' });
-    if (excludeId) {
-      qb.andWhere('user.id != :excludeId', { excludeId });
+  /** Same rules as the DTO, plus uniqueness — for the form's live check. */
+  async checkUsername(
+    raw: string,
+    excludeId?: string,
+  ): Promise<{ available: boolean; reason?: 'invalid' | 'taken' }> {
+    const username = raw.trim().toLowerCase();
+    if (!/^[a-z0-9._-]{3,30}$/.test(username)) {
+      return { available: false, reason: 'invalid' };
     }
-    if ((await qb.getCount()) > 0) {
-      throw new ConflictException('There can only be one Super Admin');
+    const existing = await this.userRepository.findOne({
+      where: { username },
+      select: ['id'],
+    });
+    if (existing !== null && existing.id !== excludeId) {
+      return { available: false, reason: 'taken' };
+    }
+    return { available: true };
+  }
+
+  private async assertUsernameFree(
+    username: string,
+    excludeId?: string,
+  ): Promise<void> {
+    const existing = await this.userRepository.findOne({ where: { username } });
+    if (existing !== null && existing.id !== excludeId) {
+      throw new ConflictException(`Username "${username}" is already taken`);
+    }
+  }
+
+  /** At least one active admin must remain (else nobody can manage staff). */
+  private async assertNotLastAdmin(userId: string): Promise<void> {
+    const others = await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.role = :role', { role: 'admin' })
+      .andWhere('user.accountStatus = :active', { active: 'active' })
+      .andWhere('user.id != :userId', { userId })
+      .getCount();
+    if (others === 0) {
+      throw new BadRequestException(
+        'This is the last active admin — add another admin first',
+      );
     }
   }
 
@@ -904,6 +961,7 @@ export class UsersService {
     const response: UserResponse = {
       id: entity.id,
       email: entity.email,
+      username: entity.username,
       emailVerifiedAt: entity.emailVerifiedAt,
       phoneNumber: entity.phoneNumber,
       phoneVerifiedAt: entity.phoneVerifiedAt,

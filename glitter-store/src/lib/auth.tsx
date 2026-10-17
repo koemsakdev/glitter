@@ -46,6 +46,17 @@ export interface TelegramAuthData {
     hash: string;
 }
 
+/** Thrown by login() when the account must verify its email first. */
+export class EmailNotVerifiedError extends Error {
+    constructor(
+        message: string,
+        readonly email: string,
+    ) {
+        super(message);
+        this.name = 'EmailNotVerifiedError';
+    }
+}
+
 interface AuthContextValue {
     user: AuthUser | null;
     loading: boolean;
@@ -57,7 +68,11 @@ interface AuthContextValue {
         provider: 'google' | 'telegram',
         body: Record<string, unknown>,
     ) => Promise<void>;
-    register: (values: RegisterValues) => Promise<void>;
+    /** Creates the account and emails a code; resolves with that email. */
+    register: (values: RegisterValues) => Promise<{ email: string }>;
+    /** Confirm the emailed code — verifies the email and signs in. */
+    confirmEmail: (email: string, code: string) => Promise<void>;
+    resendEmailCode: (email: string) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
     /** Fetch with bearer token + automatic refresh on 401. */
@@ -161,7 +176,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (!res.ok) {
                 const e = (await res.json().catch(() => ({}))) as {
                     message?: string;
+                    code?: string;
+                    email?: string;
                 };
+                if (e.code === 'EMAIL_NOT_VERIFIED') {
+                    throw new EmailNotVerifiedError(
+                        e.message || 'Please verify your email',
+                        e.email || email,
+                    );
+                }
                 throw new Error(e.message || 'Login failed');
             }
             const data = (await res.json()) as {
@@ -230,12 +253,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const msg = Array.isArray(e.message) ? e.message[0] : e.message;
             throw new Error(msg || 'Registration failed');
         }
+        const data = (await res.json()) as { email?: string };
+        return { email: data.email || values.email };
+    }, []);
+
+    const confirmEmail = useCallback(async (email: string, code: string) => {
+        const res = await fetch(`${API_URL}/api/auth/email/confirm`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, code }),
+        });
+        if (!res.ok) {
+            const e = (await res.json().catch(() => ({}))) as {
+                message?: string | string[];
+            };
+            const msg = Array.isArray(e.message) ? e.message[0] : e.message;
+            throw new Error(msg || 'Incorrect code');
+        }
         const data = (await res.json()) as {
             user: AuthUser;
             tokens: { accessToken: string; refreshToken: string };
         };
         saveTokens(data.tokens);
         setUser(data.user);
+    }, []);
+
+    const resendEmailCode = useCallback(async (email: string) => {
+        const res = await fetch(`${API_URL}/api/auth/email/resend`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        });
+        if (!res.ok) {
+            const e = (await res.json().catch(() => ({}))) as {
+                message?: string;
+            };
+            throw new Error(e.message || 'Could not resend the code');
+        }
     }, []);
 
     const linkProvider = useCallback(
@@ -288,6 +342,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 loginWithTelegram,
                 linkProvider,
                 register,
+                confirmEmail,
+                resendEmailCode,
                 logout,
                 refreshUser,
                 authFetch,

@@ -9,7 +9,8 @@ import { apiClient } from '@/lib/api-client';
 import type { LoginResponse, User } from '@/types/api';
 
 export interface LoginDto {
-  email: string;
+  /** Staff username (an email also works for older accounts). */
+  username: string;
   password: string;
 }
 
@@ -28,7 +29,7 @@ interface GetCurrentUserResponse {
 export const authApi = {
   async login(dto: LoginDto): Promise<LoginResponse> {
     const { data } = await apiClient.post<LoginResponse>(
-        '/api/auth/login',
+        '/api/auth/staff/login',
         dto,
     );
     return data;

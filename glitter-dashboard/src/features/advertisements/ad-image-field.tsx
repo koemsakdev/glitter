@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-image';
 import { useQuery } from '@tanstack/react-query';
 import {
     Check,
@@ -262,8 +263,7 @@ export function AdImageField({
                         </div>
                     ) : preview ? (
                         <>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <SafeImg
                                 src={preview}
                                 alt=""
                                 className="size-full object-cover"
@@ -316,8 +316,7 @@ export function AdImageField({
                     />
                     {preview && (
                         <div className="h-28 w-full overflow-hidden rounded-lg border bg-muted">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <SafeImg
                                 src={preview}
                                 alt=""
                                 className="size-full object-cover"
@@ -356,8 +355,7 @@ export function AdImageField({
                                                 : 'border-transparent hover:border-pink-300',
                                         )}
                                     >
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
+                                        <SafeImg
                                             src={getFileUrl(img.url) ?? ''}
                                             alt={img.name}
                                             className="size-full object-cover"

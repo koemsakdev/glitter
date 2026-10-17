@@ -2,7 +2,7 @@
 
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Trash2 } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@/components/ui/safe-image';
 import { Button } from '@/components/ui/button';
 import { getFileUrl } from '@/lib/file-url';
 import type { useI18n } from '@/lib/i18n';
@@ -60,6 +60,7 @@ export function getUserColumns({
                                 <Image
                                     src={avatar}
                                     alt={u.fullName}
+                                    fallback={initials || '?'}
                                     width={36}
                                     height={36}
                                     className="size-full object-cover"

@@ -28,12 +28,16 @@ import {
   RefreshResponseDto,
 } from './dto/auth-response.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
+import {
+  ConfirmEmailDto,
+  ResendEmailCodeDto,
+  VerifyEmailDto,
+} from './dto/verify-email.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginDto } from './dto/login.dto';
+import { StaffLoginDto } from './dto/staff-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
-import { TelegramLoginDto } from './dto/telegram-login.dto';
 import { UserDetailResponseDto } from '../users/dto/user-response.dto';
 
 @ApiTags('Auth')
@@ -57,13 +61,50 @@ export class AuthController {
       'Creates a customer account. Always creates role="customer". For staff/admin, admin must use POST /api/users.',
   })
   @ApiBody({ type: RegisterDto })
-  @ApiResponse({ status: 201, type: AuthResponseDto })
+  @ApiResponse({
+    status: 201,
+    description:
+      'Account created and a verification code emailed. No tokens — confirm via POST /auth/email/confirm.',
+  })
   @ApiResponse({
     status: 409,
     description: 'Email or phone already registered',
   })
-  async register(@Body() dto: RegisterDto) {
-    const { user, tokens } = await this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+  ): Promise<{ requiresVerification: true; email: string }> {
+    return this.authService.register(dto);
+  }
+
+  @Public()
+  @Post('email/resend')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Resend the verification code to an unverified account',
+  })
+  @ApiBody({ type: ResendEmailCodeDto })
+  @ApiResponse({ status: 200 })
+  async resendEmailCode(
+    @Body() dto: ResendEmailCodeDto,
+  ): Promise<{ sent: true }> {
+    return this.authService.resendEmailVerification(dto.email);
+  }
+
+  @Public()
+  @Post('email/confirm')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Confirm the emailed code and sign in',
+    description: 'Marks the email verified and returns tokens.',
+  })
+  @ApiBody({ type: ConfirmEmailDto })
+  @ApiResponse({ status: 200, type: AuthResponseDto })
+  @ApiResponse({ status: 400, description: 'Incorrect or expired code' })
+  async confirmEmail(@Body() dto: ConfirmEmailDto) {
+    const { user, tokens } = await this.authService.confirmEmail(
+      dto.email,
+      dto.code,
+    );
     const userResponse = await this.usersService.findOne(user.id);
     return {
       user: userResponse.data,
@@ -82,8 +123,33 @@ export class AuthController {
   @ApiBody({ type: LoginDto })
   @ApiResponse({ status: 200, type: AuthResponseDto })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'code=EMAIL_NOT_VERIFIED — a fresh code was emailed; confirm via POST /auth/email/confirm',
+  })
   async login(@Body() dto: LoginDto) {
     const { user, tokens } = await this.authService.login(dto);
+    const userResponse = await this.usersService.findOne(user.id);
+    return {
+      user: userResponse.data,
+      tokens,
+    };
+  }
+
+  @Public()
+  @Post('staff/login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Dashboard login with username + password (staff only)',
+    description:
+      'For cashier/manager/admin accounts created by an admin. Customers are rejected.',
+  })
+  @ApiBody({ type: StaffLoginDto })
+  @ApiResponse({ status: 200, type: AuthResponseDto })
+  @ApiResponse({ status: 401, description: 'Invalid username or password' })
+  async staffLogin(@Body() dto: StaffLoginDto) {
+    const { user, tokens } = await this.authService.staffLogin(dto);
     const userResponse = await this.usersService.findOne(user.id);
     return {
       user: userResponse.data,
@@ -105,28 +171,6 @@ export class AuthController {
   async googleLogin(@Body() dto: GoogleLoginDto) {
     const { user, tokens, isNewUser } =
       await this.authService.loginWithGoogle(dto);
-    const userResponse = await this.usersService.findOne(user.id);
-    return {
-      user: userResponse.data,
-      tokens,
-      isNewUser,
-    };
-  }
-
-  @Public()
-  @Post('telegram')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Login or signup with Telegram',
-    description:
-      'Telegram Login Widget payload. Backend verifies the HMAC signature. First-time users auto-registered as customers.',
-  })
-  @ApiBody({ type: TelegramLoginDto })
-  @ApiResponse({ status: 200, type: AuthResponseDto })
-  @ApiResponse({ status: 401, description: 'Invalid Telegram signature' })
-  async telegramLogin(@Body() dto: TelegramLoginDto) {
-    const { user, tokens, isNewUser } =
-      await this.authService.loginWithTelegram(dto);
     const userResponse = await this.usersService.findOne(user.id);
     return {
       user: userResponse.data,
@@ -258,16 +302,5 @@ export class AuthController {
     return { ok: true };
   }
 
-  @Post('telegram/link')
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Link a Telegram account to the current user' })
-  @ApiBody({ type: TelegramLoginDto })
-  async linkTelegram(
-    @CurrentUser('id') userId: string,
-    @Body() dto: TelegramLoginDto,
-  ): Promise<{ ok: true }> {
-    await this.authService.linkTelegram(userId, dto);
-    return { ok: true };
-  }
+  // Telegram login/link routes are disabled for now (service logic kept).
 }

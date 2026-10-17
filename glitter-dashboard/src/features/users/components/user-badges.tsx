@@ -13,8 +13,6 @@ const ROLE_STYLES: Record<UserRole, string> = {
         'bg-indigo-100 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-500/15 dark:text-indigo-300 dark:hover:bg-indigo-500/15',
     admin:
         'bg-pink-100 text-pink-700 hover:bg-pink-100 dark:bg-pink-500/15 dark:text-pink-300 dark:hover:bg-pink-500/15',
-    super_admin:
-        'bg-purple-100 text-purple-700 hover:bg-purple-100 dark:bg-purple-500/15 dark:text-purple-300 dark:hover:bg-purple-500/15',
 };
 
 const ROLE_LABELS: Record<UserRole, TranslationKey> = {
@@ -22,7 +20,6 @@ const ROLE_LABELS: Record<UserRole, TranslationKey> = {
     cashier: 'user.role.cashier',
     manager: 'user.role.manager',
     admin: 'user.role.admin',
-    super_admin: 'user.role.super_admin',
 };
 
 const STATUS_STYLES: Record<AccountStatus, { bg: string; dot: string }> = {

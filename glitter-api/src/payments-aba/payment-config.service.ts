@@ -7,7 +7,7 @@ import { UpdatePaymentConfigDto } from './dto/update-payment-config.dto';
 /**
  * Admin-only view. Includes the secret values (API key + RSA private key) so
  * the admin can review/edit their own credentials in the dashboard — this route
- * is guarded to admin/super_admin roles and is NEVER exposed to the storefront.
+ * is guarded to the admin role and is NEVER exposed to the storefront.
  */
 export interface PaymentConfigAdminView {
   enabled: boolean;

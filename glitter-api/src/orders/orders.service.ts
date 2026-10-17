@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -81,7 +82,6 @@ interface ConfiguredMethod {
   regionId?: string;
 }
 
-
 /** Built-in method config used when the store config row is missing. */
 const DEFAULT_METHOD_CONFIG: ConfiguredMethod[] = [
   { id: 'cod', enabled: true, fee: 1.5, regionId: 'phnom_penh' },
@@ -101,6 +101,8 @@ export interface OrderListParams {
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     @InjectRepository(OrderEntity)
     private readonly orderRepository: Repository<OrderEntity>,
@@ -289,10 +291,27 @@ export class OrdersService {
     }
 
     const result = await this.dataSource.transaction(async (manager) => {
-      // Pickup uses the chosen branch; delivery (and in-store) resolve a branch.
+      // Merge duplicate variant lines so stock is locked/moved once per variant.
+      const qtyByVariant = new Map<string, number>();
+      for (const item of dto.items) {
+        qtyByVariant.set(
+          item.productVariantId,
+          (qtyByVariant.get(item.productVariantId) ?? 0) + item.quantity,
+        );
+      }
+      const variantIds = [...qtyByVariant.keys()];
+
+      // Pickup uses the chosen branch. Delivery ships from the first branch
+      // (primary preferred) that has every item in stock — the storefront
+      // shows stock summed across branches, so always using the primary
+      // branch rejected or under-stocked orders other branches could fill.
       let branchId = dto.branchId ?? null;
       if (isOnline && dto.deliveryMethod !== 'pickup') {
-        branchId = await this.primaryBranchId(manager);
+        branchId =
+          (await this.inventoryService.findFulfillingBranchTx(
+            manager,
+            qtyByVariant,
+          )) ?? (await this.primaryBranchId(manager));
       }
       if (!branchId) {
         throw new BadRequestException('A branch is required for this order');
@@ -303,16 +322,6 @@ export class OrdersService {
       if (branch === null) {
         throw new BadRequestException(`Branch ${branchId} not found`);
       }
-
-      // Merge duplicate variant lines so stock is locked/moved once per variant.
-      const qtyByVariant = new Map<string, number>();
-      for (const item of dto.items) {
-        qtyByVariant.set(
-          item.productVariantId,
-          (qtyByVariant.get(item.productVariantId) ?? 0) + item.quantity,
-        );
-      }
-      const variantIds = [...qtyByVariant.keys()];
 
       const variants = await manager.getRepository(ProductVariantEntity).find({
         where: { id: In(variantIds) },
@@ -378,6 +387,16 @@ export class OrdersService {
       // confirms payment (see applyStatusStock: awaiting_payment → paid).
       const isInStore = dto.source === 'in_store';
       const isPrepay = isOnline && isPrepayMethod(dto.paymentMethod);
+
+      // Pay-first holds nothing until paid, but must never let the customer
+      // pay for items that are out of stock — check availability now.
+      if (isPrepay) {
+        await this.inventoryService.assertAvailableTx(
+          manager,
+          branchId,
+          qtyByVariant,
+        );
+      }
 
       // Move stock: in-store sells now; online (COD/pickup) reserves a hold;
       // pay-first holds nothing until paid.
@@ -465,6 +484,7 @@ export class OrdersService {
         paymentProofUrl: dto.paymentProofUrl ?? null,
         voucherCode: voucher?.code ?? null,
         note: dto.note ?? null,
+        stockHeld: isOnline && !isPrepay,
       });
       const savedOrder = await orderRepo.save(order);
 
@@ -646,9 +666,7 @@ export class OrdersService {
     if (order.paymentStatus === 'paid') {
       throw new BadRequestException('Order is already paid');
     }
-    const tranId = order.orderNumber
-      .replace(/[^A-Za-z0-9]/g, '')
-      .slice(0, 20);
+    const tranId = order.orderNumber.replace(/[^A-Za-z0-9]/g, '').slice(0, 20);
     if (order.abaTranId !== tranId) {
       order.abaTranId = tranId;
       await this.orderRepository.save(order);
@@ -863,31 +881,54 @@ export class OrdersService {
         to === 'paid'
       ) {
         // Pay-first order just got paid — reserve its stock now (deferred from
-        // checkout). If stock ran out during the payment window we keep the
-        // paid order anyway (it's real); staff reconciles the shortfall.
-        for (const item of items) {
-          try {
-            await this.inventoryService.reserveStockTx(
-              manager,
-              item.productVariantId,
+        // checkout). All-or-nothing: if stock ran out during the payment
+        // window the order is still real (it's paid) but holds nothing, and
+        // fulfilment takes the units from available stock instead.
+        try {
+          // Savepoint: a shortfall on a later line undoes earlier lines.
+          await manager.transaction(async (sp) => {
+            await this.inventoryService.assertAvailableTx(
+              sp,
               order.branchId,
-              item.quantity,
+              this.qtyByVariant(items),
             );
-          } catch {
-            // insufficient stock — leave unreserved, the order stays paid.
-          }
+            for (const item of items) {
+              await this.inventoryService.reserveStockTx(
+                sp,
+                item.productVariantId,
+                order.branchId,
+                item.quantity,
+              );
+            }
+          });
+          order.stockHeld = true;
+        } catch (err) {
+          order.stockHeld = false;
+          this.logger.warn(
+            `Paid order ${order.orderNumber} could not reserve stock: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
         }
       } else if (to === 'cancelled' && RESERVED_STATUSES.includes(from)) {
-        await each((v, b, q) =>
-          this.inventoryService.releaseStockTx(manager, v, b, q),
-        );
+        if (order.stockHeld) {
+          await each((v, b, q) =>
+            this.inventoryService.releaseStockTx(manager, v, b, q),
+          );
+        }
+        order.stockHeld = false;
       } else if (
         COMMITTED_STATUSES.includes(to) &&
         RESERVED_STATUSES.includes(from)
       ) {
+        // Held → the reservation is sold. Not held → sell from available
+        // (throws a readable "out of stock" if the branch can't cover it).
         await each((v, b, q) =>
-          this.inventoryService.commitStockTx(manager, v, b, q),
+          order.stockHeld
+            ? this.inventoryService.commitStockTx(manager, v, b, q)
+            : this.inventoryService.sellStockTx(manager, v, b, q),
         );
+        order.stockHeld = false;
       } else if (to === 'refunded' && COMMITTED_STATUSES.includes(from)) {
         await each((v, b, q) =>
           this.inventoryService.returnStockTx(manager, v, b, q),
@@ -905,6 +946,19 @@ export class OrdersService {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+
+  private qtyByVariant(
+    items: { productVariantId: string; quantity: number }[],
+  ) {
+    const m = new Map<string, number>();
+    for (const it of items) {
+      m.set(
+        it.productVariantId,
+        (m.get(it.productVariantId) ?? 0) + it.quantity,
+      );
+    }
+    return m;
+  }
 
   private async generateOrderNumber(
     repo: Repository<OrderEntity>,
@@ -927,7 +981,9 @@ export class OrdersService {
 
     // Attach each line item's product image (first by display order) so the
     // storefront order detail can show a thumbnail. Works for old orders too.
-    const productIds = [...new Set((order.items ?? []).map((i) => i.productId))];
+    const productIds = [
+      ...new Set((order.items ?? []).map((i) => i.productId)),
+    ];
     const imageByProduct = new Map<string, string>();
     if (productIds.length > 0) {
       const images = await manager.getRepository(ProductImageEntity).find({

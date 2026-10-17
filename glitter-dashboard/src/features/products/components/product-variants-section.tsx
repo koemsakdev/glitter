@@ -6,14 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { useColors } from '@/features/colors/use-colors';
-import { useBranches } from '@/features/branches/use-branches';
-import { useSelectedBranchId } from '@/stores/use-branch-context';
 import { useI18n } from '@/lib/i18n';
 import { generateVariantSku } from '@/lib/sku-generator';
 import { cn } from '@/lib/utils';
 import type { Color } from '@/types/color';
 import type { VariantEditorState, VariantRow } from '@/types/product';
 import type { VariantStockEntry } from '@/features/inventory-branch/components/variant-stock-dialog';
+import { VariantStockMatrix } from '@/features/products/components/variant-stock-matrix';
 
 interface ProductVariantsSectionProps {
     productSku: string;
@@ -22,8 +21,10 @@ interface ProductVariantsSectionProps {
     onChange: (state: VariantEditorState) => void;
     hasVariants: boolean;
     onHasVariantsChange: (hasVariants: boolean) => void;
-    singleStock: number;
-    onSingleStockChange: (stock: number) => void;
+    /** Stock row id used when the product has no variants. */
+    defaultRowId: string;
+    /** Saved stock per row per branch (edit mode). */
+    initialStock: Map<string, Map<string, number>>;
     pendingStockChanges: Map<string, VariantStockEntry[]>;
     onStockChange: (variantId: string, entries: VariantStockEntry[]) => void;
 }
@@ -38,26 +39,18 @@ export function ProductVariantsSection({
     onChange,
     hasVariants,
     onHasVariantsChange,
-    singleStock,
-    onSingleStockChange,
+    defaultRowId,
+    initialStock,
     pendingStockChanges,
     onStockChange,
 }: ProductVariantsSectionProps) {
     const { t, language } = useI18n();
     const { data: colors = [] } = useColors();
-    const { data: branchData } = useBranches({ page: 1, limit: 100 });
-    const branches = branchData?.data ?? [];
-    const selectedBranchId = useSelectedBranchId(); // null = "All branches"
 
     // Builder selections (for generating new variants)
     const [sizeInput, setSizeInput] = useState('');
     const [sizes, setSizes] = useState<string[]>([]);
     const [pickedColorIds, setPickedColorIds] = useState<string[]>([]);
-
-    const branchName = (id: string) => {
-        const b = branches.find((x) => x.id === id);
-        return b ? (language === 'km' ? b.branchNameKm : b.branchNameEn) : id;
-    };
 
     function addSize() {
         const v = sizeInput.trim();
@@ -131,35 +124,6 @@ export function ProductVariantsSection({
         });
     }
 
-    /** Set stock for a single branch on a row (updates total + pending entries). */
-    function setBranchStock(row: VariantRow, branchId: string, qty: number) {
-        const prev = pendingStockChanges.get(row.id) ?? [];
-        const others = prev.filter((e) => e.branchId !== branchId);
-        const existing = prev.find((e) => e.branchId === branchId);
-        const next: VariantStockEntry[] = [
-            ...others,
-            {
-                branchId,
-                inventoryId: existing?.inventoryId ?? null,
-                quantityAvailable: qty,
-                quantityReserved: 0,
-                quantityDamaged: 0,
-            },
-        ];
-        onStockChange(row.id, next);
-        const total = next.reduce((s, e) => s + e.quantityAvailable, 0);
-        updateRow(row.id, { quantityInStock: total });
-    }
-
-    function branchQty(row: VariantRow, branchId: string): number {
-        const entry = pendingStockChanges
-            .get(row.id)
-            ?.find((e) => e.branchId === branchId);
-        if (entry) return entry.quantityAvailable;
-        // No pending edit yet: existing single-branch variants show their total.
-        return selectedBranchId ? row.quantityInStock : 0;
-    }
-
     return (
         <div className="space-y-4">
             <label className="flex cursor-pointer items-start gap-3">
@@ -179,35 +143,12 @@ export function ProductVariantsSection({
             </label>
 
             {!hasVariants && (
-                <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <label
-                            htmlFor="single-stock"
-                            className="text-sm font-medium"
-                        >
-                            {t('product.variant.singleStock')}
-                            {selectedBranchId && (
-                                <span className="ml-1 text-xs font-normal text-muted-foreground">
-                                    · {branchName(selectedBranchId)}
-                                </span>
-                            )}
-                        </label>
-                        <Input
-                            id="single-stock"
-                            type="number"
-                            min={0}
-                            value={singleStock}
-                            onChange={(e) =>
-                                onSingleStockChange(
-                                    e.target.value === ''
-                                        ? 0
-                                        : Number(e.target.value),
-                                )
-                            }
-                            className="h-9 w-32"
-                        />
-                    </div>
-                </div>
+                <VariantStockMatrix
+                    rows={[{ id: defaultRowId, label: '' }]}
+                    initialStock={initialStock}
+                    pendingStockChanges={pendingStockChanges}
+                    onStockChange={onStockChange}
+                />
             )}
 
             {hasVariants && (
@@ -347,7 +288,7 @@ export function ProductVariantsSection({
                                         </button>
                                     </div>
 
-                                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <div className="mt-2 max-w-60">
                                         <div>
                                             <label className="mb-1 block text-[11px] text-muted-foreground">
                                                 {t('product.variant.priceOverrideLabel')}
@@ -381,83 +322,28 @@ export function ProductVariantsSection({
                                             </div>
                                         </div>
 
-                                        {selectedBranchId ? (
-                                            <div>
-                                                <label className="mb-1 block text-[11px] text-muted-foreground">
-                                                    {t('product.variant.stockAt')}{' '}
-                                                    {branchName(selectedBranchId)}
-                                                </label>
-                                                <Input
-                                                    type="number"
-                                                    min={0}
-                                                    value={branchQty(
-                                                        row,
-                                                        selectedBranchId,
-                                                    )}
-                                                    onChange={(e) =>
-                                                        setBranchStock(
-                                                            row,
-                                                            selectedBranchId,
-                                                            e.target.value === ''
-                                                                ? 0
-                                                                : Number(
-                                                                      e.target
-                                                                          .value,
-                                                                  ),
-                                                        )
-                                                    }
-                                                    className="h-9"
-                                                />
-                                            </div>
-                                        ) : (
-                                            <div>
-                                                <label className="mb-1 block text-[11px] text-muted-foreground">
-                                                    {t('product.variant.stockPerBranch')}
-                                                </label>
-                                                <div className="space-y-1.5">
-                                                    {branches.map((b) => (
-                                                        <div
-                                                            key={b.id}
-                                                            className="flex items-center gap-2"
-                                                        >
-                                                            <span className="w-24 truncate text-xs text-muted-foreground">
-                                                                {language === 'km'
-                                                                    ? b.branchNameKm
-                                                                    : b.branchNameEn}
-                                                            </span>
-                                                            <Input
-                                                                type="number"
-                                                                min={0}
-                                                                value={branchQty(
-                                                                    row,
-                                                                    b.id,
-                                                                )}
-                                                                onChange={(e) =>
-                                                                    setBranchStock(
-                                                                        row,
-                                                                        b.id,
-                                                                        e.target
-                                                                            .value ===
-                                                                            ''
-                                                                            ? 0
-                                                                            : Number(
-                                                                                  e
-                                                                                      .target
-                                                                                      .value,
-                                                                              ),
-                                                                    )
-                                                                }
-                                                                className="h-8 flex-1"
-                                                            />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             ))}
                         </div>
+                    )}
+
+                    {state.rows.length > 0 && (
+                        <VariantStockMatrix
+                            rows={state.rows.map((r) => ({
+                                id: r.id,
+                                label:
+                                    [r.size, r.color].filter(Boolean).join(' · ') ||
+                                    r.variantSku,
+                                colorHex: r.color ? r.colorHex : undefined,
+                            }))}
+                            initialStock={initialStock}
+                            pendingStockChanges={pendingStockChanges}
+                            onStockChange={onStockChange}
+                            onRowTotal={(rowId, total) =>
+                                updateRow(rowId, { quantityInStock: total })
+                            }
+                        />
                     )}
                 </>
             )}

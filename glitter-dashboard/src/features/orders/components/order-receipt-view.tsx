@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowLeft, Printer } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@/components/ui/safe-image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/feedback/error-state';

@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-image';
 import { Eye, Loader, MousePointerClick, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
@@ -151,8 +152,7 @@ export default function AdvertisementsPage() {
                             >
                                 <div className="size-16 shrink-0 overflow-hidden rounded-lg bg-muted">
                                     {src && (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img
+                                        <SafeImg
                                             src={src}
                                             alt=""
                                             className="size-full object-cover"

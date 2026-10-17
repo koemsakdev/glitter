@@ -67,3 +67,11 @@ export function AuthShell({
 /** Shared input styling for the auth forms (leading icon, brand focus ring). */
 export const authInputCls =
     'h-11 w-full rounded-xl border border-zinc-200 bg-white pl-10 pr-3 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-(--brand) focus:ring-2 focus:ring-(--brand)/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500';
+
+/** Shared social-login button styling — matches authInputCls (height, radius, border). */
+export const authSocialBtnCls =
+    'relative flex h-11 w-full items-center justify-center gap-2.5 overflow-hidden rounded-xl border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-50 focus-within:border-(--brand) focus-within:ring-2 focus-within:ring-(--brand)/20 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-900';
+
+/** Compact pill variant for the connected-accounts rows. */
+export const authSocialCompactBtnCls =
+    'relative inline-flex h-9 items-center justify-center gap-1.5 overflow-hidden rounded-lg border border-zinc-200 bg-white px-3 text-xs font-semibold text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-50 focus-within:ring-2 focus-within:ring-(--brand)/20 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900';

@@ -38,11 +38,11 @@ export class UserQueryDto {
   accountStatus?: AccountStatus;
 
   @ApiPropertyOptional({
-    enum: ['customer', 'cashier', 'manager', 'admin', 'super_admin'],
+    enum: ['customer', 'cashier', 'manager', 'admin'],
     description: 'Filter by role',
   })
   @IsOptional()
-  @IsEnum(['customer', 'cashier', 'manager', 'admin', 'super_admin'])
+  @IsEnum(['customer', 'cashier', 'manager', 'admin'])
   role?: UserRole;
 
   @ApiPropertyOptional({ description: 'Filter by assigned branch UUID' })

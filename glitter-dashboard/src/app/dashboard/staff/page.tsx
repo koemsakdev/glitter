@@ -7,6 +7,7 @@ import { ResourceList } from '@/components/resource/resource-list';
 import { Combobox } from '@/components/ui/combobox';
 import { getUserColumns } from '@/features/users/components/user-columns';
 import { UserFormDialog } from '@/features/users/components/user-form-dialog';
+import { RoleAccessGuide } from '@/features/users/components/role-access';
 import { useDeleteUser, useUsers } from '@/features/users/use-users';
 import { getErrorMessage } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +26,6 @@ const ROLE_LABELS: Record<UserRole, TranslationKey> = {
     cashier: 'user.role.cashier',
     manager: 'user.role.manager',
     admin: 'user.role.admin',
-    super_admin: 'user.role.super_admin',
 };
 const STATUS_LABELS: Record<AccountStatus, TranslationKey> = {
     active: 'user.status.active',
@@ -109,91 +109,96 @@ export default function StaffPage() {
     }
 
     return (
-        <ResourceList
-            title={t('staffAccount.list.title')}
-            subtitle={t('staffAccount.list.subtitle')}
-            createLabel={t('staffAccount.action.create')}
-            onCreate={() => {
-                setEditingUser(null);
-                setFormOpen(true);
-            }}
-            search={search}
-            onSearchChange={(v) => {
-                setSearch(v);
-                setPage(1);
-            }}
-            searchPlaceholder={t('user.list.search')}
-            filters={
-                <div className="flex flex-wrap gap-2">
-                    <div className="w-44">
-                        <Combobox
-                            options={roleOptions}
-                            value={roleFilter}
-                            onChange={(v) => {
-                                setRoleFilter(v as UserRole | '');
-                                setPage(1);
-                            }}
-                            placeholder={t('user.filter.role')}
-                        />
-                    </div>
-                    <div className="w-44">
-                        <Combobox
-                            options={statusOptions}
-                            value={statusFilter}
-                            onChange={(v) => {
-                                setStatusFilter(v as AccountStatus | '');
-                                setPage(1);
-                            }}
-                            placeholder={t('user.filter.status')}
-                        />
-                    </div>
-                </div>
-            }
-            columns={columns}
-            data={data?.data ?? []}
-            isLoading={isLoading}
-            isFetching={isFetching}
-            page={page}
-            pageSize={pageSize}
-            total={data?.total ?? 0}
-            onPageChange={setPage}
-            onPageSizeChange={(size) => {
-                setPageSize(size);
-                setPage(1);
-            }}
-            emptyTitle={t('staffAccount.list.empty')}
-            emptyDescription={t('staffAccount.list.emptyHelp')}
-            emptyFilteredTitle={t('user.list.noMatch')}
-            hasActiveFilters={
-                search !== '' || roleFilter !== '' || statusFilter !== ''
-            }
-        >
-            <UserFormDialog
-                open={formOpen}
-                user={editingUser}
-                mode="staff"
-                onOpenChange={(o) => {
-                    setFormOpen(o);
-                    if (!o) setEditingUser(null);
+        <div className="space-y-6">
+            <ResourceList
+                title={t('staffAccount.list.title')}
+                subtitle={t('staffAccount.list.subtitle')}
+                createLabel={t('staffAccount.action.create')}
+                onCreate={() => {
+                    setEditingUser(null);
+                    setFormOpen(true);
                 }}
-            />
+                search={search}
+                onSearchChange={(v) => {
+                    setSearch(v);
+                    setPage(1);
+                }}
+                searchPlaceholder={t('user.list.search')}
+                filters={
+                    <div className="flex flex-wrap gap-2">
+                        <div className="w-44">
+                            <Combobox
+                                options={roleOptions}
+                                value={roleFilter}
+                                onChange={(v) => {
+                                    setRoleFilter(v as UserRole | '');
+                                    setPage(1);
+                                }}
+                                placeholder={t('user.filter.role')}
+                            />
+                        </div>
+                        <div className="w-44">
+                            <Combobox
+                                options={statusOptions}
+                                value={statusFilter}
+                                onChange={(v) => {
+                                    setStatusFilter(v as AccountStatus | '');
+                                    setPage(1);
+                                }}
+                                placeholder={t('user.filter.status')}
+                            />
+                        </div>
+                    </div>
+                }
+                columns={columns}
+                data={data?.data ?? []}
+                isLoading={isLoading}
+                isFetching={isFetching}
+                page={page}
+                pageSize={pageSize}
+                total={data?.total ?? 0}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setPage(1);
+                }}
+                emptyTitle={t('staffAccount.list.empty')}
+                emptyDescription={t('staffAccount.list.emptyHelp')}
+                emptyFilteredTitle={t('user.list.noMatch')}
+                hasActiveFilters={
+                    search !== '' || roleFilter !== '' || statusFilter !== ''
+                }
+            >
+                <UserFormDialog
+                    open={formOpen}
+                    user={editingUser}
+                    mode="staff"
+                    onOpenChange={(o) => {
+                        setFormOpen(o);
+                        if (!o) setEditingUser(null);
+                    }}
+                />
 
-            <ConfirmDialog
-                open={deletingUser !== null}
-                onOpenChange={(o) => {
-                    if (!o) setDeletingUser(null);
-                }}
-                title={t('user.delete.title')}
-                description={t('user.delete.message').replace(
-                    '{name}',
-                    deletingUser?.fullName ?? '',
-                )}
-                confirmLabel={t('user.delete.confirm')}
-                cancelLabel={t('common.cancel')}
-                variant="danger"
-                isPending={deleteUser.isPending}
-                onConfirm={handleDelete}
-            />
-        </ResourceList>
+                <ConfirmDialog
+                    open={deletingUser !== null}
+                    onOpenChange={(o) => {
+                        if (!o) setDeletingUser(null);
+                    }}
+                    title={t('user.delete.title')}
+                    description={t('user.delete.message').replace(
+                        '{name}',
+                        deletingUser?.fullName ?? '',
+                    )}
+                    confirmLabel={t('user.delete.confirm')}
+                    cancelLabel={t('common.cancel')}
+                    variant="danger"
+                    isPending={deleteUser.isPending}
+                    onConfirm={handleDelete}
+                />
+            </ResourceList>
+
+            {/* Plain-language legend of what each role can open. */}
+            <RoleAccessGuide />
+        </div>
     );
 }

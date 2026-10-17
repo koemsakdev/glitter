@@ -36,7 +36,7 @@ export class BadgesController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles('manager', 'admin', 'super_admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Create a badge' })
   async create(@Body() dto: CreateBadgeDto): Promise<{ data: BadgeEntity }> {
     return { data: await this.service.create(dto) };
@@ -45,7 +45,7 @@ export class BadgesController {
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('manager', 'admin', 'super_admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Update a badge' })
   async update(
     @Param('id') id: string,
@@ -57,7 +57,7 @@ export class BadgesController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
-  @Roles('manager', 'admin', 'super_admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Delete a badge' })
   async delete(@Param('id') id: string): Promise<void> {
     return this.service.delete(id);

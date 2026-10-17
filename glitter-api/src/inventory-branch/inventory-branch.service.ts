@@ -58,10 +58,12 @@ export class InventoryBranchService {
     const T = InventoryBranchService.LOW_STOCK;
     if (!(before > T && after <= T)) return;
     try {
-      const variant = await manager.getRepository(ProductVariantEntity).findOne({
-        where: { id: productVariantId },
-        relations: ['product'],
-      });
+      const variant = await manager
+        .getRepository(ProductVariantEntity)
+        .findOne({
+          where: { id: productVariantId },
+          relations: ['product'],
+        });
       const branch = await manager
         .getRepository(BranchEntity)
         .findOne({ where: { id: branchId } });
@@ -343,11 +345,87 @@ export class InventoryBranchService {
       lock: { mode: 'pessimistic_write' },
     });
     if (record === null) {
-      throw new BadRequestException(
-        'This product is not stocked at the selected branch',
-      );
+      throw await this.outOfStockError(manager, productVariantId, 0, 1);
     }
     return record;
+  }
+
+  /** A customer/staff-readable stock error that names the product. */
+  private async outOfStockError(
+    manager: EntityManager,
+    productVariantId: string,
+    have: number,
+    need: number,
+  ): Promise<BadRequestException> {
+    const variant = await manager.getRepository(ProductVariantEntity).findOne({
+      where: { id: productVariantId },
+      relations: { product: true },
+    });
+    const opts = [variant?.size, variant?.color].filter(Boolean).join(' / ');
+    const name = `${variant?.product?.nameEn ?? 'This product'}${
+      opts ? ` (${opts})` : ''
+    }`;
+    return new BadRequestException(
+      have <= 0
+        ? `"${name}" is out of stock`
+        : `Only ${have} left of "${name}" (${need} requested)`,
+    );
+  }
+
+  /**
+   * Throw a readable out-of-stock error unless every variant has enough
+   * available stock at the branch. Read-only (no hold) — used to stop a
+   * pay-first checkout from charging for items that can't be fulfilled.
+   */
+  async assertAvailableTx(
+    manager: EntityManager,
+    branchId: string,
+    qtyByVariant: Map<string, number>,
+  ): Promise<void> {
+    const ids = [...qtyByVariant.keys()];
+    const rows = await manager.getRepository(InventoryBranchEntity).find({
+      where: { branchId, productVariantId: In(ids) },
+    });
+    const have = new Map(
+      rows.map((r) => [r.productVariantId, r.quantityAvailable]),
+    );
+    for (const [variantId, need] of qtyByVariant) {
+      const available = have.get(variantId) ?? 0;
+      if (available < need) {
+        throw await this.outOfStockError(manager, variantId, available, need);
+      }
+    }
+  }
+
+  /**
+   * The first active branch (oldest first, i.e. the primary branch preferred)
+   * that can fulfil every line, or null if none can on its own.
+   */
+  async findFulfillingBranchTx(
+    manager: EntityManager,
+    qtyByVariant: Map<string, number>,
+  ): Promise<string | null> {
+    const ids = [...qtyByVariant.keys()];
+    const [branches, rows] = await Promise.all([
+      manager.getRepository(BranchEntity).find({
+        where: { branchStatus: 'active' },
+        order: { createdAt: 'ASC' },
+        select: ['id'],
+      }),
+      manager.getRepository(InventoryBranchEntity).find({
+        where: { productVariantId: In(ids) },
+      }),
+    ]);
+    for (const b of branches) {
+      const ok = [...qtyByVariant].every(([variantId, need]) => {
+        const row = rows.find(
+          (r) => r.branchId === b.id && r.productVariantId === variantId,
+        );
+        return (row?.quantityAvailable ?? 0) >= need;
+      });
+      if (ok) return b.id;
+    }
+    return null;
   }
 
   /** In-store sale: goods leave the shelf immediately (available -= qty). */
@@ -360,8 +438,11 @@ export class InventoryBranchService {
     const repo = manager.getRepository(InventoryBranchEntity);
     const record = await this.lockStockRow(manager, productVariantId, branchId);
     if (record.quantityAvailable < quantity) {
-      throw new BadRequestException(
-        `Insufficient stock for ${record.productVariantId}: have ${record.quantityAvailable}, need ${quantity}`,
+      throw await this.outOfStockError(
+        manager,
+        productVariantId,
+        record.quantityAvailable,
+        quantity,
       );
     }
     const before = record.quantityAvailable;
@@ -387,8 +468,11 @@ export class InventoryBranchService {
     const repo = manager.getRepository(InventoryBranchEntity);
     const record = await this.lockStockRow(manager, productVariantId, branchId);
     if (record.quantityAvailable < quantity) {
-      throw new BadRequestException(
-        `Insufficient stock for ${record.productVariantId}: have ${record.quantityAvailable}, need ${quantity}`,
+      throw await this.outOfStockError(
+        manager,
+        productVariantId,
+        record.quantityAvailable,
+        quantity,
       );
     }
     const before = record.quantityAvailable;

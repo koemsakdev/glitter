@@ -4,8 +4,21 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { tr, type Lang } from '@/lib/locale';
+import {
+    authSocialBtnCls,
+    authSocialCompactBtnCls,
+} from '@/components/auth/auth-shell';
+import {
+    SignInOverlay,
+    type SignInPhase,
+} from '@/components/auth/sign-in-overlay';
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+// GIS must be initialized once; the callback routes to the most recently
+// mounted button's handler.
+let gsiInitialized = false;
+let activeHandler: ((credential: string) => void) | null = null;
 
 declare global {
     interface Window {
@@ -16,6 +29,8 @@ declare global {
                         client_id: string;
                         callback: (resp: { credential: string }) => void;
                         auto_select?: boolean;
+                        ux_mode?: 'popup' | 'redirect';
+                        use_fedcm_for_prompt?: boolean;
                     }): void;
                     renderButton(
                         parent: HTMLElement,
@@ -32,11 +47,11 @@ declare global {
 }
 
 /**
- * Google Sign-In button rendered directly via Google Identity Services (GIS).
+ * Google Sign-In button styled like the rest of the auth form.
  *
- * Renders the official Google button to ensure secure ID-token issuance,
- * proper click handling (avoiding cross-origin iframe click blocking),
- * native Khmer and English localization, and automatic dark/light theme switching.
+ * The visible face is our own button (same height/radius/border as the inputs).
+ * The official GIS button is rendered invisibly on top of it, so clicks still
+ * go through Google's iframe and produce a real ID token.
  */
 export function GoogleSignInButton({
     lang,
@@ -56,40 +71,38 @@ export function GoogleSignInButton({
     const gsiRef = useRef<HTMLDivElement>(null);
     const handlerRef = useRef<(credential: string) => void>(() => {});
     const [ready, setReady] = useState(false);
-    const [isDark, setIsDark] = useState(false);
     const [authError, setAuthError] = useState<string | null>(null);
+    const [phase, setPhase] = useState<SignInPhase>('idle');
+
+    // Warm the account route so the redirect after sign-in is instant.
+    useEffect(() => {
+        if (mode === 'login') router.prefetch('/account');
+    }, [mode, router]);
 
     // Keep the latest handler so the GIS callback always uses fresh closures.
-    handlerRef.current = async (credential: string) => {
-        try {
-            setAuthError(null);
-            if (mode === 'link') {
-                await linkProvider('google', { idToken: credential });
-            } else {
-                await loginWithGoogle(credential);
-                router.push('/account');
-            }
-        } catch (e) {
-            const msg =
-                e instanceof Error ? e.message : 'Google sign-in failed';
-            setAuthError(msg);
-            onError?.(msg);
-        }
-    };
-
-    // Track dark mode dynamically so Google button adapts on theme change
     useEffect(() => {
-        const updateDark = () => {
-            setIsDark(document.documentElement.classList.contains('dark'));
+        handlerRef.current = async (credential: string) => {
+            try {
+                setAuthError(null);
+                if (mode === 'link') {
+                    await linkProvider('google', { idToken: credential });
+                } else {
+                    // Acknowledge immediately — the API round-trip + route
+                    // change otherwise leave the login form looking idle.
+                    setPhase('signing');
+                    await loginWithGoogle(credential);
+                    setPhase('done');
+                    router.replace('/account');
+                }
+            } catch (e) {
+                setPhase('idle');
+                const msg =
+                    e instanceof Error ? e.message : 'Google sign-in failed';
+                setAuthError(msg);
+                onError?.(msg);
+            }
         };
-        updateDark();
-        const obs = new MutationObserver(updateDark);
-        obs.observe(document.documentElement, {
-            attributes: true,
-            attributeFilter: ['class'],
-        });
-        return () => obs.disconnect();
-    }, []);
+    });
 
     useEffect(() => {
         if (!CLIENT_ID) return;
@@ -101,25 +114,32 @@ export function GoogleSignInButton({
                 // Clear any stale children before rendering fresh button
                 gsiRef.current.replaceChildren();
 
-                window.google.accounts.id.initialize({
-                    client_id: CLIENT_ID as string,
-                    callback: (resp) => handlerRef.current(resp.credential),
-                });
+                // Initialize GIS only once per page load. Re-initializing on
+                // every theme/lang change breaks the button's click handler.
+                if (!gsiInitialized) {
+                    window.google.accounts.id.initialize({
+                        client_id: CLIENT_ID as string,
+                        callback: (resp) => activeHandler?.(resp.credential),
+                        ux_mode: 'popup',
+                        use_fedcm_for_prompt: false,
+                    });
+                    gsiInitialized = true;
+                }
+                activeHandler = (credential) => handlerRef.current(credential);
 
+                // Size the invisible GIS button to cover our visible one
+                // (GIS accepts widths between 200 and 400px).
+                const width = Math.min(
+                    400,
+                    Math.max(200, gsiRef.current.offsetWidth || 320),
+                );
                 window.google.accounts.id.renderButton(gsiRef.current, {
                     type: 'standard',
-                    theme: isDark ? 'filled_black' : 'outline',
-                    size: compact ? 'medium' : 'large',
+                    size: 'large',
                     text: 'continue_with',
-                    shape: 'pill',
-                    logo_alignment: 'left',
-                    width: compact ? 200 : 320,
+                    width,
                     locale: lang,
                 });
-
-                if (mode === 'login') {
-                    window.google.accounts.id.prompt();
-                }
 
                 setReady(true);
             } catch (err) {
@@ -149,37 +169,30 @@ export function GoogleSignInButton({
             cancelled = true;
             script?.removeEventListener('load', onLoad);
         };
-    }, [lang, compact, mode, isDark]);
+    }, [lang, compact, mode]);
 
     if (!CLIENT_ID) return null;
 
     return (
-        <div className="flex flex-col items-center justify-center">
-            {/* Real rendered Google button */}
+        <div className={compact ? 'inline-flex flex-col' : 'w-full'}>
             <div
-                ref={gsiRef}
-                className={
-                    ready
-                        ? 'flex justify-center'
-                        : 'hidden'
-                }
-            />
-
-            {/* Skeleton / placeholder while loading GIS script */}
-            {!ready && (
+                className={compact ? authSocialCompactBtnCls : authSocialBtnCls}
+            >
+                <GoogleG small={compact} />
+                <span>
+                    {tr(lang, compact ? 'connect' : 'continueWithGoogle')}
+                </span>
+                {/* Official GIS button, invisible, capturing the click. */}
                 <div
-                    className={
-                        compact
-                            ? 'flex h-9 w-[200px] items-center justify-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 text-xs font-semibold text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900'
-                            : 'flex h-10 w-[320px] items-center justify-center gap-2.5 rounded-full border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900'
-                    }
-                >
-                    <GoogleG />
-                    <span>
-                        {tr(lang, compact ? 'connect' : 'continueWithGoogle')}
-                    </span>
-                </div>
-            )}
+                    ref={gsiRef}
+                    aria-hidden={!ready}
+                    className={`absolute inset-0 flex items-center justify-center opacity-0 [&_iframe]:scale-y-125 ${
+                        ready ? 'cursor-pointer' : 'pointer-events-none'
+                    }`}
+                />
+            </div>
+
+            <SignInOverlay lang={lang} phase={phase} />
 
             {authError && !onError && (
                 <p className="mt-2 text-center text-xs font-medium text-red-600 dark:text-red-400">
@@ -190,9 +203,13 @@ export function GoogleSignInButton({
     );
 }
 
-function GoogleG() {
+function GoogleG({ small = false }: { small?: boolean }) {
     return (
-        <svg className="size-5 shrink-0" viewBox="0 0 48 48" aria-hidden>
+        <svg
+            className={small ? 'size-4 shrink-0' : 'size-5 shrink-0'}
+            viewBox="0 0 48 48"
+            aria-hidden
+        >
             <path
                 fill="#FFC107"
                 d="M43.61 20.08H42V20H24v8h11.3c-1.65 4.66-6.08 8-11.3 8-6.63 0-12-5.37-12-12s5.37-12 12-12c3.06 0 5.84 1.15 7.96 3.04l5.66-5.66C34.05 6.05 29.27 4 24 4 12.95 4 4 12.95 4 24s8.95 20 20 20 20-8.95 20-20c0-1.34-.14-2.65-.39-3.92z"

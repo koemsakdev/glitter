@@ -27,6 +27,9 @@ export class UserResponseDto {
   @ApiProperty({ example: 'customer@example.com', nullable: true })
   email!: string | null;
 
+  @ApiProperty({ example: 'dara', nullable: true })
+  username!: string | null;
+
   @ApiProperty({ nullable: true, example: '2026-04-19T10:00:00.000Z' })
   emailVerifiedAt!: Date | null;
 
@@ -52,7 +55,7 @@ export class UserResponseDto {
   profileImageSource!: ProfileImageSource;
 
   @ApiProperty({
-    enum: ['customer', 'cashier', 'manager', 'admin', 'super_admin'],
+    enum: ['customer', 'cashier', 'manager', 'admin'],
     example: 'customer',
   })
   role!: UserRole;

@@ -27,7 +27,7 @@ import {
 @ApiTags('Shipments')
 @ApiBearerAuth()
 @UseGuards(RolesGuard)
-@Roles('cashier', 'manager', 'admin', 'super_admin')
+@Roles('cashier', 'manager', 'admin')
 @Controller('shipments')
 export class ShipmentsController {
   constructor(private readonly service: ShipmentsService) {}
@@ -69,7 +69,7 @@ export class ShipmentsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Roles('manager', 'admin', 'super_admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Delete a shipment' })
   async delete(@Param('id') id: string): Promise<void> {
     return this.service.delete(id);

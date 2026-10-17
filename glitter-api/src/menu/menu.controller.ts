@@ -45,7 +45,7 @@ export class MenuController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'Create a navigation menu item' })
   @ApiResponse({ status: 201, type: MenuDetailResponseDto })
   async create(@Body() dto: CreateMenuItemDto): Promise<MenuDetailResponse> {
@@ -75,7 +75,7 @@ export class MenuController {
   @Patch('reorder')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'Bulk reorder / re-parent menu items' })
   @ApiResponse({ status: 200, type: MenuListResponseDto })
   async reorder(@Body() dto: ReorderMenuDto): Promise<MenuListResponse> {
@@ -96,7 +96,7 @@ export class MenuController {
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: 'Update a menu item' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, type: MenuDetailResponseDto })
@@ -111,7 +111,7 @@ export class MenuController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   @ApiOperation({
     summary: 'Delete a menu item',
     description: 'Also removes its sub-items.',

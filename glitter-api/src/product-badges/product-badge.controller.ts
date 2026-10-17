@@ -73,7 +73,7 @@ export class ProductBadgesController {
     },
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   @ApiResponse({ status: 201, type: ProductBadgeDetailResponseDto })
   async create(
     @Body() dto: CreateProductBadgeDto,
@@ -89,7 +89,7 @@ export class ProductBadgesController {
       'Replaces all of a product’s badges with the given list of badge type slugs. Used by the product editor so the stored set matches exactly.',
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   @ApiParam({ name: 'productId', type: String })
   @ApiBody({ type: SetProductBadgesDto })
   @ApiResponse({ status: 200, type: ProductBadgeListResponseDto })
@@ -108,7 +108,7 @@ export class ProductBadgesController {
       'Returns ALL badges for a product, including expired and scheduled future ones. Use /active for storefront display.',
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   @ApiParam({ name: 'productId', type: String })
   @ApiResponse({ status: 200, type: ProductBadgeListResponseDto })
   async findByProduct(
@@ -150,7 +150,7 @@ export class ProductBadgesController {
     schema: { example: { removed: 5 } },
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin')
+  @Roles('admin')
   async cleanupExpired(): Promise<{ removed: number }> {
     return this.badgesService.cleanupExpired();
   }
@@ -166,7 +166,7 @@ export class ProductBadgesController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a badge' })
@@ -181,7 +181,7 @@ export class ProductBadgesController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a badge' })

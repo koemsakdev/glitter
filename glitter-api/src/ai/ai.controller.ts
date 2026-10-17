@@ -34,7 +34,7 @@ interface GenerateInfoResponse {
 @ApiBearerAuth()
 @Controller('ai')
 @UseGuards(RolesGuard)
-@Roles('admin', 'super_admin')
+@Roles('admin')
 export class AiController {
   constructor(private readonly aiService: AiService) {}
 
@@ -90,7 +90,7 @@ export class AiController {
     schema: { example: { value: 'A refined leather shoulder bag...' } },
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'super_admin', 'manager')
+  @Roles('admin', 'manager')
   async generateProductInfo(
     @Body() dto: GenerateProductInfoDto,
   ): Promise<{ value: string }> {

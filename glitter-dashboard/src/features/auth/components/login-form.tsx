@@ -24,7 +24,7 @@ import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
-    email: z.string().email('login.email.invalid'),
+    username: z.string().trim().min(1, 'login.username.required'),
     password: z.string().min(1, 'login.password.required'),
 });
 
@@ -39,7 +39,7 @@ export function LoginForm() {
 
     const form = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
-        defaultValues: {email: 'admin.glitter@gmail.com', password: 'Gltter@dm1n'},
+        defaultValues: {username: '', password: ''},
     });
 
     async function onSubmit(values: LoginFormValues) {
@@ -108,22 +108,23 @@ export function LoginForm() {
                 <form onSubmit={form.handleSubmit(onSubmit)}>
                     <FieldGroup>
                         <Controller
-                            name="email"
+                            name="username"
                             control={form.control}
                             render={({field, fieldState}) => (
                                 <Field data-invalid={fieldState.invalid}>
-                                    <FieldLabel htmlFor="login-email">
-                                        {t('login.email')}
+                                    <FieldLabel htmlFor="login-username">
+                                        {t('login.username')}
                                     </FieldLabel>
                                     <Input
                                         {...field}
-                                        id="login-email"
-                                        type="email"
-                                        placeholder={t('login.email.placeholder')}
-                                        autoComplete="off"
+                                        id="login-username"
+                                        type="text"
+                                        placeholder={t('login.username.placeholder')}
+                                        autoComplete="username"
+                                        autoCapitalize="none"
+                                        spellCheck={false}
                                         aria-invalid={fieldState.invalid}
                                         className="h-11 shadow-none focus:shadow-none focus-visible:shadow-none focus:outline-0 focus-visible:outline-none focus:ring-0 focus-visible:ring-0 rounded-lg focus-visible:border-pink-500 dark:focus-visible:border-pink-800"
-                                        aria-autocomplete={"none"}
                                     />
                                     {fieldState.invalid && fieldState.error && (
                                         <FieldError
@@ -132,7 +133,7 @@ export function LoginForm() {
                                                     ...fieldState.error,
                                                     message: t(
                                                         (fieldState.error.message ??
-                                                            'login.email.invalid') as never,
+                                                            'login.username.required') as never,
                                                     ),
                                                 },
                                             ]}

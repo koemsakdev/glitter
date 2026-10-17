@@ -1,5 +1,6 @@
 "use client";
 
+import { SafeImg } from '@/components/ui/safe-image';
 import { useQueryClient } from "@tanstack/react-query";
 import { ImageOff, Loader, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -204,8 +205,7 @@ export default function GeneralSettingsPage() {
                       }`}
                     >
                       {src && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <SafeImg
                           src={src}
                           alt={logo.name}
                           className="size-full object-contain"
@@ -454,8 +454,7 @@ function LogoShapeControl({
           style={{ borderRadius: `${value}%` }}
         >
           {logoSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoSrc} alt="" className="size-full object-contain" />
+            <SafeImg src={logoSrc} alt="" className="size-full object-contain" />
           ) : (
             <span className="text-lg font-bold text-pink-500">{initial}</span>
           )}

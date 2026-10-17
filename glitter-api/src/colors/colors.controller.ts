@@ -36,7 +36,7 @@ export class ColorsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
-  @Roles('manager', 'admin', 'super_admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Create a color' })
   async create(@Body() dto: CreateColorDto): Promise<{ data: ColorEntity }> {
     return { data: await this.service.create(dto) };
@@ -45,7 +45,7 @@ export class ColorsController {
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('manager', 'admin', 'super_admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Update a color' })
   async update(
     @Param('id') id: string,
@@ -57,7 +57,7 @@ export class ColorsController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
-  @Roles('manager', 'admin', 'super_admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Delete a color' })
   async delete(@Param('id') id: string): Promise<void> {
     return this.service.delete(id);

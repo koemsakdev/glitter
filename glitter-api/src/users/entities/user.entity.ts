@@ -19,20 +19,15 @@ export type ProfileImageSource = 'none' | 'oauth' | 'uploaded' | 'removed';
 /**
  * User roles — determines what the user can access in the admin dashboard.
  *
- *   customer     — shops at the store (default). No admin dashboard access.
- *   cashier      — can process sales + check stock at their assigned branch.
- *   manager      — full control of one branch (staff, inventory, products visible at their branch).
- *   admin        — manage everything except creating other admins or super admins.
- *   super_admin  — full system access. Can create/manage other admins.
+ *   customer — shops at the store (default). No dashboard access.
+ *   cashier  — sells at their branch: creates orders, views orders, checks stock.
+ *   manager  — runs one branch: catalog, orders, promotions, inventory, stats.
+ *   admin    — everything, incl. staff accounts, settings, branches, storefront.
+ *              Only admins can create or change staff accounts.
  *
- * Roles are ordered by power level; higher roles inherit the permissions below them.
+ * (The old `super_admin` role was merged into `admin`; see SeedService.)
  */
-export type UserRole =
-  | 'customer'
-  | 'cashier'
-  | 'manager'
-  | 'admin'
-  | 'super_admin';
+export type UserRole = 'customer' | 'cashier' | 'manager' | 'admin';
 
 @Entity('users')
 // Customer / staff lists filter by role and account status.
@@ -45,6 +40,11 @@ export class UserEntity {
   @Index({ unique: true, where: '"email" IS NOT NULL' })
   @Column({ type: 'varchar', length: 255, nullable: true })
   email!: string | null;
+
+  /** Dashboard sign-in name for staff (lowercase, unique). Customers: null. */
+  @Index({ unique: true, where: '"username" IS NOT NULL' })
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  username!: string | null;
 
   @Column({
     type: 'timestamp',
@@ -70,7 +70,12 @@ export class UserEntity {
   phoneVerifiedAt!: Date | null;
 
   // ----- Email verification (one-time code) -----
-  @Column({ type: 'varchar', length: 64, nullable: true, name: 'email_otp_hash' })
+  @Column({
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+    name: 'email_otp_hash',
+  })
   emailOtpHash!: string | null;
 
   @Column({
@@ -111,11 +116,13 @@ export class UserEntity {
 
   /**
    * The user's role. Defaults to 'customer'.
-   * Only super_admin and admin can set roles other than 'customer' during user creation.
+   * Only admins can set roles other than 'customer' (staff accounts).
    * Self-registration always creates users with role='customer'.
    */
   @Column({
     type: 'enum',
+    // 'super_admin' is a legacy value kept only so existing databases sync
+    // safely; rows are migrated to 'admin' on startup and it's never assigned.
     enum: ['customer', 'cashier', 'manager', 'admin', 'super_admin'],
     default: 'customer',
   })
@@ -123,7 +130,7 @@ export class UserEntity {
 
   /**
    * Which branch this user is assigned to (for staff roles).
-   * NULL for customers, admins, and super_admins (who aren't tied to one branch).
+   * NULL for customers and admins (who aren't tied to one branch).
    * REQUIRED for cashiers and managers.
    */
   @Column({ type: 'uuid', nullable: true, name: 'branch_id' })
