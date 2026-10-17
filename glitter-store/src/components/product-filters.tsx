@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import {
@@ -43,8 +44,7 @@ function BrandLogo({ logo, name }: { logo?: string | null; name: string }) {
     return (
         <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full">
             {logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logo} alt="" className="size-full object-cover" />
+                <SafeImg src={logo} alt="" className="size-full object-cover" />
             ) : (
                 <span className="flex size-full items-center justify-center rounded-full bg-zinc-100 text-[11px] font-bold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
                     {name.charAt(0).toUpperCase()}

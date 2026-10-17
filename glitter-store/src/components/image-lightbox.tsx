@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import {
     ChevronLeft,
     ChevronRight,
@@ -190,8 +191,7 @@ export function ImageLightbox({
                     }}
                     className="relative max-h-[85vh] max-w-[90vw]"
                 >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <SafeImg
                         src={current.src}
                         alt={current.alt}
                         className="max-h-[85vh] max-w-[90vw] select-none object-contain"

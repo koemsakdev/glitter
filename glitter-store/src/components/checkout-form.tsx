@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
+import { SafeImg } from '@/components/ui/safe-img';
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -941,8 +942,7 @@ export function CheckoutForm({
                         className="size-16 shrink-0 overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-800"
                       >
                         {img && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <SafeImg
                             src={img}
                             alt={name}
                             className="size-full object-cover transition-transform hover:scale-105"
@@ -1043,8 +1043,7 @@ export function CheckoutForm({
                         }`}
                       >
                         {icon ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <SafeImg
                             src={icon}
                             alt=""
                             className="size-full object-cover"
@@ -1619,8 +1618,7 @@ export function CheckoutForm({
                     <span className="absolute right-0 top-0 size-8 rounded-tr-xl border-r-[3px] border-t-[3px] border-[#1fc3c3]" />
                     <span className="absolute bottom-0 left-0 size-8 rounded-bl-xl border-b-[3px] border-l-[3px] border-[#1fc3c3]" />
                     <span className="absolute bottom-0 right-0 size-8 rounded-br-xl border-b-[3px] border-r-[3px] border-[#1fc3c3]" />
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <SafeImg
                       src={abaPay.qrImage}
                       alt="KHQR"
                       className="size-52 object-contain"

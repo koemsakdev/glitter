@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import * as React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useRouter } from 'next/navigation';
@@ -223,8 +224,7 @@ export function HeaderSearch({
                                                 >
                                                     <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-zinc-100 ring-1 ring-zinc-200/70 dark:bg-zinc-800 dark:ring-zinc-700">
                                                         {img ? (
-                                                            // eslint-disable-next-line @next/next/no-img-element
-                                                            <img
+                                                            <SafeImg
                                                                 src={img}
                                                                 alt=""
                                                                 className="size-full object-cover transition-transform duration-300 group-data-[selected=true]/item:scale-110"

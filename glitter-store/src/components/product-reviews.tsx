@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -427,8 +428,7 @@ export function ProductReviews({
                                 key={i}
                                 className="relative size-16 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700"
                             >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
+                                <SafeImg
                                     src={p.preview}
                                     alt=""
                                     className="size-full object-cover"
@@ -511,8 +511,7 @@ export function ProductReviews({
                                     <div className="flex items-center gap-3">
                                         <div className="relative shrink-0">
                                             {avatar ? (
-                                                // eslint-disable-next-line @next/next/no-img-element
-                                                <img
+                                                <SafeImg
                                                     src={avatar}
                                                     alt={r.reviewerName}
                                                     className="size-9 rounded-full object-cover ring-1 ring-black/5 dark:ring-white/10"
@@ -571,8 +570,7 @@ export function ProductReviews({
                                                 }
                                                 className="size-16 overflow-hidden rounded-lg border border-zinc-200 transition-transform hover:scale-105 dark:border-zinc-700"
                                             >
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img
+                                                <SafeImg
                                                     src={im.src}
                                                     alt=""
                                                     className="size-full object-cover"

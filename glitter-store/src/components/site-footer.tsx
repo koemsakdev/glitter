@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import Link from 'next/link';
 import { Mail, MapPin, Phone, type LucideIcon } from 'lucide-react';
 import { fileUrl } from '@/lib/api';
@@ -118,8 +119,7 @@ export function SiteFooter({
                 <div className="lg:col-span-2">
                     <Link href="/" className="flex items-center gap-2.5">
                         {logo ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
+                            <SafeImg
                                 src={logo}
                                 alt={shopName}
                                 style={{ borderRadius: `${config.logoRadius}%` }}
@@ -205,8 +205,7 @@ export function SiteFooter({
                             </span>
                             {acceptedPayments.map((p) =>
                                 p.icon ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
+                                    <SafeImg
                                         key={p.id}
                                         src={p.icon}
                                         alt={p.label}

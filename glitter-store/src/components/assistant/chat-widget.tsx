@@ -1,6 +1,7 @@
 'use client';
 
 /* eslint-disable react-hooks/set-state-in-effect */
+import { SafeImg } from '@/components/ui/safe-img';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -460,8 +461,7 @@ function Avatar({
             }`}
         >
             {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt="" className="size-full object-cover" />
+                <SafeImg src={logoUrl} alt="" className="size-full object-cover" />
             ) : (
                 <ChatGlyph className="size-4 text-(--brand)" />
             )}
@@ -592,8 +592,7 @@ function ProductCard({
         >
             <span className="size-12 shrink-0 overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
                 {img && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={img} alt={product.name} className="size-full object-cover" />
+                    <SafeImg src={img} alt={product.name} className="size-full object-cover" />
                 )}
             </span>
             <span className="min-w-0 flex-1">

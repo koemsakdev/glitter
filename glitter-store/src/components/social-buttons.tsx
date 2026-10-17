@@ -1,3 +1,4 @@
+import { SafeImg } from '@/components/ui/safe-img';
 import { Globe } from 'lucide-react';
 import { fileUrl } from '@/lib/api';
 
@@ -102,8 +103,7 @@ export function SocialButtons({
                         {brand ? (
                             <brand.Icon className="size-4.5" />
                         ) : icon ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
+                            <SafeImg
                                 src={icon}
                                 alt=""
                                 className="size-full object-cover"

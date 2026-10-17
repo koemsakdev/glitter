@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { ProductCard } from '@/components/product-card';
@@ -66,8 +67,7 @@ export function SectionBlock({
                                     {/* subtle sheen */}
                                     <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-linear-to-b from-white/50 to-transparent dark:from-white/10" />
                                     {icon ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img
+                                        <SafeImg
                                             src={icon}
                                             alt=""
                                             className="relative size-full object-contain drop-shadow-sm transition-transform duration-300 group-hover:scale-110"

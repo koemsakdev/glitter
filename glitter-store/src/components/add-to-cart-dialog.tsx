@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import Link from 'next/link';
 import { useState } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
@@ -191,8 +192,7 @@ export function AddToCartDialog({
                             className="size-28 shrink-0 overflow-hidden rounded-2xl bg-zinc-100 dark:bg-zinc-800"
                         >
                             {img && (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
+                                <SafeImg
                                     src={img}
                                     alt={name}
                                     className="size-full object-cover"

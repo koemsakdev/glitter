@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import { useRef, useState } from 'react';
 import { ImagePlus, Loader2, LocateFixed, MapPin, X } from 'lucide-react';
 import { fileUrl } from '@/lib/api';
@@ -345,8 +346,7 @@ export function AddressForm({
                                     key={p.id}
                                     className="relative size-20 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700"
                                 >
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
+                                    <SafeImg
                                         src={p.preview}
                                         alt=""
                                         className="size-full object-cover"

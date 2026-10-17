@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import { useState } from 'react';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
@@ -35,8 +36,7 @@ export function BannerCarousel({
                 sections around it (no hard box). */}
             <div aria-hidden className="absolute inset-0">
                 {bgImage && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <SafeImg
                         key={bgImage}
                         src={bgImage}
                         alt=""
@@ -89,8 +89,7 @@ export function BannerCarousel({
                         return (
                             <SwiperSlide key={b.id}>
                                 <div className="relative bg-zinc-200 dark:bg-zinc-800">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
+                                    <SafeImg
                                         src={img}
                                         alt={b.imageAltText || title || 'Banner'}
                                         className="block w-full"

@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Check, X } from 'lucide-react';
@@ -39,8 +40,7 @@ export function CartToast({ lang: initialLang }: { lang: Lang }) {
                     <Check className="size-5" />
                 </span>
                 {img && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <SafeImg
                         src={img}
                         alt=""
                         className="size-11 shrink-0 rounded-lg object-cover"

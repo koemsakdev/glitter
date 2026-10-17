@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, Loader2, Mail, Phone, Trash2, User } from 'lucide-react';
 import { fileUrl } from '@/lib/api';
@@ -137,8 +138,7 @@ export function ProfileEditSheet({
                         <div className="flex items-center gap-4">
                             <div className="relative">
                                 {previewUrl ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
+                                    <SafeImg
                                         src={previewUrl}
                                         alt=""
                                         className="size-20 rounded-2xl object-cover"

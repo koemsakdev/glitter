@@ -1,3 +1,4 @@
+import { SafeImg } from '@/components/ui/safe-img';
 import { Check, Store, Truck } from "lucide-react";
 import { fileUrl, formatPrice } from "@/lib/api";
 import { pick, tr, type Lang } from "@/lib/locale";
@@ -38,8 +39,7 @@ export function MethodCard({
         }`}
       >
         {icon ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={icon} alt="" className="size-full object-contain" />
+          <SafeImg src={icon} alt="" className="size-full object-contain" />
         ) : (
           <Fallback className="size-6" />
         )}

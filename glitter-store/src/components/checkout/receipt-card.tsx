@@ -1,3 +1,4 @@
+import { SafeImg } from '@/components/ui/safe-img';
 import { forwardRef, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { formatPrice } from '@/lib/api';
@@ -81,8 +82,7 @@ export const ReceiptCard = forwardRef<
             <div className="bg-(--brand)/5 px-6 pb-6 pt-7 text-center dark:bg-(--brand)/12">
                 {logoUrl ? (
                     <div className="mx-auto size-16 overflow-hidden rounded-(--ui-radius) ring-1 ring-black/5 dark:ring-white/10">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                        <SafeImg
                             crossOrigin="anonymous"
                             src={logoUrl}
                             alt={brandName ?? 'logo'}

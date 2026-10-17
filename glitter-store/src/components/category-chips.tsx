@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { LayoutGrid } from 'lucide-react';
@@ -100,8 +101,7 @@ export function CategoryChips({
                         >
                             <span className="flex size-6 items-center justify-center overflow-hidden rounded-full">
                                 {icon ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
+                                    <SafeImg
                                         src={icon}
                                         alt=""
                                         className="size-full object-cover"

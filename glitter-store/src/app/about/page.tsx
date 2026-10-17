@@ -1,3 +1,4 @@
+import { SafeImg } from '@/components/ui/safe-img';
 import Link from 'next/link';
 import {
     ArrowRight,
@@ -64,8 +65,7 @@ export default async function AboutPage() {
             {/* Hero */}
             {heroImg ? (
                 <section className="relative overflow-hidden rounded-3xl shadow-sm">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <SafeImg
                         src={heroImg}
                         alt={brandName}
                         className="absolute inset-0 size-full object-cover"
@@ -87,8 +87,7 @@ export default async function AboutPage() {
                     <span className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-(--brand)/15 blur-3xl" />
                     <div className="relative flex flex-col items-center">
                         {logo ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
+                            <SafeImg
                                 src={logo}
                                 alt={brandName}
                                 className="size-24 rounded-3xl object-cover shadow-md ring-1 ring-zinc-200 dark:ring-zinc-700"

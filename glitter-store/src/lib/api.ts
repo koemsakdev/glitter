@@ -149,18 +149,44 @@ export function formatPrice(value: number | string | null | undefined): string {
     return `$${(Number.isFinite(n) ? (n as number) : 0).toFixed(2)}`;
 }
 
+/** Cache tag for a storefront API path (see src/lib/live-tags.ts). */
+function cacheTagFor(path: string): string | null {
+    const seg = path.split('?')[0].split('/')[2] ?? '';
+    switch (seg) {
+        case 'products':
+        case 'related-products':
+        case 'inventory-branch':
+            return 'products';
+        case 'categories':
+        case 'brands':
+        case 'banners':
+        case 'menu':
+        case 'pages':
+        case 'reviews':
+        case 'branches':
+            return seg;
+        case 'app-settings':
+            return 'store-config';
+        case 'vouchers':
+            return 'promotions';
+        default:
+            return null;
+    }
+}
+
 /**
- * Server-side fetch. Defaults to always-fresh (`no-store`) so a live
- * `router.refresh()` from the SSE stream — or a manual reload — always serves
- * new data and is never pinned by Next's Data Cache. Pass a `revalidate`
- * (seconds) to opt into time-based caching for rarely-changing data.
+ * Server-side fetch. Defaults to always-fresh (`no-store`). Pass a
+ * `revalidate` (seconds) to cache it; cached responses are tagged by
+ * resource (e.g. `products`) so a dashboard change can expire them at once
+ * (LiveUpdates → expireLiveTags) instead of waiting out the timer.
  */
 async function apiGet<T>(path: string, revalidate = 0): Promise<T> {
+    const tag = cacheTagFor(path);
     const res = await fetch(
         `${API_URL}${path}`,
         revalidate === 0
             ? { cache: 'no-store' }
-            : { next: { revalidate } },
+            : { next: { revalidate, ...(tag ? { tags: [tag] } : {}) } },
     );
     if (!res.ok) {
         throw new Error(`API request failed (${res.status}): ${path}`);

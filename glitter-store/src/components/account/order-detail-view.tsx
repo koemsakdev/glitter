@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { MapPin, Package, Receipt, Store } from 'lucide-react';
@@ -269,8 +270,7 @@ export function OrderDetailView({
                             >
                                 <span className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-zinc-100 text-zinc-400 dark:bg-zinc-800">
                                     {img ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img
+                                        <SafeImg
                                             src={img}
                                             alt={it.productName}
                                             className="size-full object-cover"
@@ -372,8 +372,7 @@ export function OrderDetailView({
                             <p className="mb-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
                                 {tr(lang, 'paymentProof')}
                             </p>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <SafeImg
                                 src={proof}
                                 alt="proof"
                                 className="max-h-56 rounded-xl border border-zinc-200 object-contain dark:border-zinc-700"

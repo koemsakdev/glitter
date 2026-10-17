@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import Link from 'next/link';
 import { Search, SearchX, ArrowRight, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -77,8 +78,7 @@ export function BrandSearchGrid({
                         >
                             <div className="flex size-20 items-center justify-center overflow-hidden rounded-full bg-zinc-50 ring-1 ring-zinc-100 dark:bg-zinc-800 dark:ring-zinc-700">
                                 {b.logo ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
+                                    <SafeImg
                                         src={b.logo}
                                         alt={b.name}
                                         className="size-full object-cover"

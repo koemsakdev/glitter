@@ -2,31 +2,25 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { expireLiveTags } from '@/app/actions/live';
+import { LIVE_TAGS } from '@/lib/live-tags';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5001';
-const REFRESH_ON = new Set([
-    'store-config',
-    'banners',
-    'menu',
-    'pages',
-    'reviews',
-    'products',
-    'categories',
-    'brands',
-]);
+const REFRESH_ON = new Set(Object.keys(LIVE_TAGS));
 
 /**
  * Subscribes to the API's SSE stream (a one-way live push, like a socket) and
  * soft-refreshes the page — re-running the server components — whenever
- * storefront-relevant data changes in the dashboard. Because storefront
- * fetches are `no-store`, `router.refresh()` pulls genuinely fresh data, so
- * edits appear without a manual reload or navigation.
+ * storefront-relevant data changes in the dashboard. Cached fetches are
+ * expired first (expireLiveTags), so the refresh pulls genuinely fresh data
+ * and edits/deletes appear without a manual reload or navigation.
  */
 export function LiveUpdates() {
     const router = useRouter();
 
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout> | undefined;
+        const changed = new Set<string>();
         let source: EventSource | null = null;
         let reconnect: ReturnType<typeof setTimeout> | undefined;
         let closed = false;
@@ -37,7 +31,13 @@ export function LiveUpdates() {
             // we refresh once, AFTER the burst settles, and read the final
             // committed state instead of an intermediate one.
             clearTimeout(timer);
-            timer = setTimeout(() => router.refresh(), 400);
+            timer = setTimeout(() => {
+                const events = [...changed];
+                changed.clear();
+                expireLiveTags(events)
+                    .catch(() => {})
+                    .finally(() => router.refresh());
+            }, 400);
         };
 
         const connect = () => {
@@ -51,6 +51,7 @@ export function LiveUpdates() {
                 try {
                     const data = JSON.parse(event.data) as { entity?: string };
                     if (data.entity && REFRESH_ON.has(data.entity)) {
+                        changed.add(data.entity);
                         scheduleRefresh();
                     }
                 } catch {

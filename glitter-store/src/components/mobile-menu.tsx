@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -87,8 +88,7 @@ export function MobileMenu({
                 {/* Brand header */}
                 <div className="flex items-center gap-3 bg-linear-to-br from-(--brand)/10 to-transparent px-5 py-5">
                     {logo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <SafeImg
                             src={logo}
                             alt={shopName}
                             className="size-11 rounded-full object-cover ring-1 ring-zinc-200 dark:ring-zinc-700"

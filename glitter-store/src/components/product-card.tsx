@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import Link from 'next/link';
 import { QuickAddButton } from '@/components/quick-add-button';
 import { WishlistButton } from '@/components/wishlist-button';
@@ -82,8 +83,7 @@ export function ProductCard({
             {/* Image block — radius synced from the dashboard appearance config */}
             <div className="relative aspect-square overflow-hidden rounded-(--ui-radius) bg-zinc-100 shadow-sm ring-1 ring-transparent transition-all duration-300 group-hover:shadow-xl group-hover:ring-(--brand)/25 dark:bg-zinc-800 dark:group-hover:shadow-black/40">
                     {img ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <SafeImg
                             src={img}
                             alt={name}
                             className="size-full object-cover transition-transform duration-500 group-hover:scale-110"

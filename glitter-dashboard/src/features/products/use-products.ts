@@ -69,8 +69,16 @@ export function useDeleteProduct() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => productApi.delete(id),
-        onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: PRODUCTS_KEY });
+        onSuccess: (_data, id) => {
+            // Refresh lists etc., but NOT the deleted product's own detail
+            // query: the detail page is still mounted until the redirect
+            // finishes, and refetching it would 404 and flash "Could not
+            // load product". Its cached copy simply expires later.
+            void queryClient.invalidateQueries({
+                queryKey: PRODUCTS_KEY,
+                predicate: (q) =>
+                    !(q.queryKey[1] === 'detail' && q.queryKey[2] === id),
+            });
         },
     });
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react';
 import { fileUrl } from '@/lib/api';
@@ -71,8 +72,7 @@ export function ProductGallery({
                                     className="relative aspect-square w-full shrink-0 cursor-zoom-in snap-center"
                                 >
                                     {u && (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img
+                                        <SafeImg
                                             src={u}
                                             alt={name}
                                             className="size-full object-cover transition-transform duration-500 group-hover:scale-102"
@@ -156,8 +156,7 @@ export function ProductGallery({
                                 )}
                             >
                                 {u && (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
+                                    <SafeImg
                                         src={u}
                                         alt=""
                                         className="size-full object-cover"

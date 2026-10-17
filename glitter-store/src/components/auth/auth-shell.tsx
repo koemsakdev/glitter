@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import type { ReactNode } from 'react';
 import type { Lang } from '@/lib/locale';
 
@@ -38,8 +39,7 @@ export function AuthShell({
                     {/* Store logo (falls back to the brand initial) */}
                     <span className="mx-auto flex size-16 items-center justify-center overflow-hidden rounded-2xl bg-(--brand)/10 ring-1 ring-(--brand)/15">
                         {logoUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
+                            <SafeImg
                                 src={logoUrl}
                                 alt={brandName ?? ''}
                                 className="size-full object-cover"

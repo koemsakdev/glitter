@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeImg } from '@/components/ui/safe-img';
 import { useEffect, useState } from 'react';
 import { fileUrl } from '@/lib/api';
 import { useLang } from '@/lib/lang-context';
@@ -83,8 +84,7 @@ export function AdSlot({
                 const inner = (
                     <div className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-gradient-to-r from-pink-50 to-rose-50">
                         {img && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
+                            <SafeImg
                                 src={img}
                                 alt={title}
                                 className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-52"
