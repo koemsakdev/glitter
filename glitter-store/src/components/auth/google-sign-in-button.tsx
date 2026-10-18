@@ -47,11 +47,13 @@ declare global {
 }
 
 /**
- * Google Sign-In button styled like the rest of the auth form.
+ * Google Sign-In button, rendered by Google Identity Services (GIS).
  *
- * The visible face is our own button (same height/radius/border as the inputs).
- * The official GIS button is rendered invisibly on top of it, so clicks still
- * go through Google's iframe and produce a real ID token.
+ * It MUST stay visible: Google's button iframe checks that it is actually
+ * shown (anti-clickjacking) and ignores clicks when hidden — an invisible GIS
+ * button layered over a custom one silently does nothing in production. So we
+ * show the official button, themed to match (light/dark, full width), with a
+ * same-sized placeholder while the script loads.
  */
 export function GoogleSignInButton({
     lang,
@@ -71,6 +73,20 @@ export function GoogleSignInButton({
     const gsiRef = useRef<HTMLDivElement>(null);
     const handlerRef = useRef<(credential: string) => void>(() => {});
     const [ready, setReady] = useState(false);
+    const [isDark, setIsDark] = useState(false);
+
+    // Follow the site's light/dark theme so the button matches the form.
+    useEffect(() => {
+        const update = () =>
+            setIsDark(document.documentElement.classList.contains('dark'));
+        update();
+        const obs = new MutationObserver(update);
+        obs.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class'],
+        });
+        return () => obs.disconnect();
+    }, []);
     const [authError, setAuthError] = useState<string | null>(null);
     const [phase, setPhase] = useState<SignInPhase>('idle');
 
@@ -127,16 +143,20 @@ export function GoogleSignInButton({
                 }
                 activeHandler = (credential) => handlerRef.current(credential);
 
-                // Size the invisible GIS button to cover our visible one
-                // (GIS accepts widths between 200 and 400px).
-                const width = Math.min(
-                    400,
-                    Math.max(200, gsiRef.current.offsetWidth || 320),
-                );
+                // Full width of the form (GIS accepts 200–400px).
+                const width = compact
+                    ? 200
+                    : Math.min(
+                          400,
+                          Math.max(200, gsiRef.current.offsetWidth || 320),
+                      );
                 window.google.accounts.id.renderButton(gsiRef.current, {
                     type: 'standard',
-                    size: 'large',
-                    text: 'continue_with',
+                    theme: isDark ? 'filled_black' : 'outline',
+                    size: compact ? 'medium' : 'large',
+                    text: compact ? 'signin' : 'continue_with',
+                    shape: 'rectangular',
+                    logo_alignment: 'center',
                     width,
                     locale: lang,
                 });
@@ -169,27 +189,40 @@ export function GoogleSignInButton({
             cancelled = true;
             script?.removeEventListener('load', onLoad);
         };
-    }, [lang, compact, mode]);
+    }, [lang, compact, mode, isDark]);
 
     if (!CLIENT_ID) return null;
 
     return (
         <div className={compact ? 'inline-flex flex-col' : 'w-full'}>
             <div
-                className={compact ? authSocialCompactBtnCls : authSocialBtnCls}
+                className={
+                    compact
+                        ? 'relative inline-flex min-h-9 items-center'
+                        : 'relative flex min-h-11 w-full items-center justify-center'
+                }
             >
-                <GoogleG small={compact} />
-                <span>
-                    {tr(lang, compact ? 'connect' : 'continueWithGoogle')}
-                </span>
-                {/* Official GIS button, invisible, capturing the click. */}
+                {/* Official Google button — visible, so its clicks count. */}
                 <div
                     ref={gsiRef}
-                    aria-hidden={!ready}
-                    className={`absolute inset-0 flex items-center justify-center opacity-0 [&_iframe]:scale-y-125 ${
-                        ready ? 'cursor-pointer' : 'pointer-events-none'
+                    className={`flex w-full justify-center transition-opacity ${
+                        ready ? 'opacity-100' : 'opacity-0'
                     }`}
                 />
+                {/* Same-sized placeholder while Google's script loads. */}
+                {!ready && (
+                    <div
+                        aria-hidden
+                        className={`pointer-events-none absolute inset-0 ${
+                            compact ? authSocialCompactBtnCls : authSocialBtnCls
+                        } animate-pulse`}
+                    >
+                        <GoogleG small={compact} />
+                        <span>
+                            {tr(lang, compact ? 'connect' : 'continueWithGoogle')}
+                        </span>
+                    </div>
+                )}
             </div>
 
             <SignInOverlay lang={lang} phase={phase} />
