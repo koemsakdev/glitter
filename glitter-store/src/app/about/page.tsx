@@ -87,7 +87,7 @@ export default async function AboutPage() {
                     <span className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-(--brand)/15 blur-3xl" />
                     <div className="relative flex flex-col items-center">
                         {logo ? (
-                            <SafeImg
+                            <img // eslint-disable-line @next/next/no-img-element
                                 src={logo}
                                 alt={brandName}
                                 className="size-24 rounded-3xl object-cover shadow-md ring-1 ring-zinc-200 dark:ring-zinc-700"

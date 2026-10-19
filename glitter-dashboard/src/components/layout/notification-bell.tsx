@@ -84,7 +84,15 @@ export function NotificationBell() {
     function onItemClick(n: AppNotification) {
         if (!n.isRead) markRead.mutate(n.id);
         setOpen(false);
-        if (n.link) router.push(n.link);
+        // Order notifications open that order. (Older "new order" entries
+        // were saved with just the list link — use their orderId instead.)
+        const orderId =
+            typeof n.data?.orderId === 'string' ? n.data.orderId : null;
+        const href =
+            orderId && (!n.link || n.link === '/dashboard/orders')
+                ? `/dashboard/orders/${orderId}`
+                : n.link;
+        if (href) router.push(href);
     }
 
     return (

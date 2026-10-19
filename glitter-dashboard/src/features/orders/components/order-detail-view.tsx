@@ -25,6 +25,7 @@ import {
 import { ErrorState } from '@/components/feedback/error-state';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthStore } from '@/stores/auth-store';
 import {
     useOrder,
     useUpdateOrderStatus,
@@ -93,6 +94,9 @@ export function OrderDetailView({ id }: { id: string }) {
     const { data: order, isLoading, isError, refetch } = useOrder(id);
     const updateStatus = useUpdateOrderStatus();
     const updatePayment = useUpdatePaymentStatus();
+    const canCancelRefund = useAuthStore(
+        (s) => s.user?.role === 'admin' || s.user?.role === 'manager',
+    );
 
     if (isLoading) return <LoadingScreen variant="page" />;
 
@@ -123,11 +127,14 @@ export function OrderDetailView({ id }: { id: string }) {
             : undefined;
     // The one "negative" exit available at this stage (cancel before fulfilment,
     // refund after) — kept subtle so it isn't confused with the main action.
-    const exitNext: OrderStatus | undefined = allowedNext.includes('cancelled')
-        ? 'cancelled'
-        : allowedNext.includes('refunded')
-          ? 'refunded'
-          : undefined;
+    // Cancel / refund return money and stock — managers and admins only.
+    const exitNext: OrderStatus | undefined = !canCancelRefund
+        ? undefined
+        : allowedNext.includes('cancelled')
+          ? 'cancelled'
+          : allowedNext.includes('refunded')
+            ? 'refunded'
+            : undefined;
 
     // Visual progress: the forward stages, and where this order sits.
     const STEP_FLOW: OrderStatus[] = [

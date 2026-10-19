@@ -74,6 +74,21 @@ export function GoogleSignInButton({
     const handlerRef = useRef<(credential: string) => void>(() => {});
     const [ready, setReady] = useState(false);
     const [isDark, setIsDark] = useState(false);
+    // Width of the form row, so Google's button matches the other controls.
+    const boxRef = useRef<HTMLDivElement>(null);
+    const [boxWidth, setBoxWidth] = useState(0);
+
+    useEffect(() => {
+        const el = boxRef.current;
+        if (!el) return;
+        const ro = new ResizeObserver(([entry]) => {
+            const w = Math.round(entry.contentRect.width);
+            // Ignore sub-pixel jitter; redraw only on a real size change.
+            setBoxWidth((prev) => (Math.abs(prev - w) > 4 ? w : prev));
+        });
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
 
     // Follow the site's light/dark theme so the button matches the form.
     useEffect(() => {
@@ -122,6 +137,8 @@ export function GoogleSignInButton({
 
     useEffect(() => {
         if (!CLIENT_ID) return;
+        // Wait until the row has been measured (full-width button).
+        if (!compact && boxWidth === 0) return;
         let cancelled = false;
 
         function init() {
@@ -146,16 +163,13 @@ export function GoogleSignInButton({
                 // Full width of the form (GIS accepts 200–400px).
                 const width = compact
                     ? 200
-                    : Math.min(
-                          400,
-                          Math.max(200, gsiRef.current.offsetWidth || 320),
-                      );
+                    : Math.min(400, Math.max(200, boxWidth || 320));
                 window.google.accounts.id.renderButton(gsiRef.current, {
                     type: 'standard',
                     theme: isDark ? 'filled_black' : 'outline',
                     size: compact ? 'medium' : 'large',
                     text: compact ? 'signin' : 'continue_with',
-                    shape: 'rectangular',
+                    shape: 'pill',
                     logo_alignment: 'center',
                     width,
                     locale: lang,
@@ -189,17 +203,18 @@ export function GoogleSignInButton({
             cancelled = true;
             script?.removeEventListener('load', onLoad);
         };
-    }, [lang, compact, mode, isDark]);
+    }, [lang, compact, mode, isDark, boxWidth]);
 
     if (!CLIENT_ID) return null;
 
     return (
         <div className={compact ? 'inline-flex flex-col' : 'w-full'}>
             <div
+                ref={boxRef}
                 className={
                     compact
                         ? 'relative inline-flex min-h-9 items-center'
-                        : 'relative flex min-h-11 w-full items-center justify-center'
+                        : 'relative flex min-h-10 w-full items-center justify-center'
                 }
             >
                 {/* Official Google button — visible, so its clicks count. */}

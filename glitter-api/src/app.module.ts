@@ -60,6 +60,8 @@ import { WishlistsModule } from './wishlists/wishlists.module';
 import { SeedModule } from './seed/seed.module';
 import { AiModule } from './ai/ai.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { AuditLogModule } from './audit-logs/audit-log.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -122,6 +124,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
     SeedModule,
     AiModule,
     DashboardModule,
+    AuditLogModule,
+    ReportsModule,
   ],
   providers: [
     {

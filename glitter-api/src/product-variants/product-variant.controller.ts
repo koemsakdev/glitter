@@ -60,7 +60,7 @@ export class ProductVariantsController {
     type: ProductVariantDetailResponseDto,
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   async create(
     @Body() dto: CreateProductVariantDto,
   ): Promise<ProductVariantDetailResponse> {
@@ -80,7 +80,7 @@ export class ProductVariantsController {
     type: ProductVariantBulkResponseDto,
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   async createBulk(
     @Body() dto: BulkCreateVariantsDto,
   ): Promise<ProductVariantBulkResponse> {
@@ -163,7 +163,7 @@ export class ProductVariantsController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a variant' })
@@ -185,7 +185,7 @@ export class ProductVariantsController {
       'Positive delta adds, negative subtracts. Prevents negative stock.',
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   @ApiParam({ name: 'id', type: String })
   @ApiQuery({ name: 'delta', type: Number, required: true })
   @ApiResponse({ status: 200, type: ProductVariantDetailResponseDto })
@@ -208,7 +208,7 @@ export class ProductVariantsController {
       'Deletes a variant. Rejected if it is the only default variant of a single-variant product. If this deletes the last real variant, the default is auto-recreated.',
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 204 })
   async delete(@Param('id') id: string): Promise<void> {

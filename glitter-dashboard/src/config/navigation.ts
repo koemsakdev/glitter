@@ -1,5 +1,6 @@
 import {
     Boxes,
+    BarChart3,
     Building2,
     Hexagon,
     LayoutDashboard,
@@ -13,6 +14,7 @@ import {
     Star,
     Ticket,
     UserCog,
+    History,
     Users,
     type LucideIcon,
 } from 'lucide-react';
@@ -50,6 +52,13 @@ export const navigation: NavGroup[] = [
                 icon: LayoutDashboard,
                 roles: MANAGER_PLUS,
             },
+            {
+                // Sales reports: by day, payment, channel, cashier, product.
+                href: '/dashboard/reports',
+                labelKey: 'nav.reports',
+                icon: BarChart3,
+                roles: MANAGER_PLUS,
+            },
         ],
     },
     {
@@ -65,13 +74,13 @@ export const navigation: NavGroup[] = [
                 href: '/dashboard/categories',
                 labelKey: 'nav.categories',
                 icon: Shapes,
-                roles: MANAGER_PLUS,
+                roles: ADMIN_ONLY,
             },
             {
                 href: '/dashboard/brands',
                 labelKey: 'nav.brands',
                 icon: Hexagon,
-                roles: MANAGER_PLUS,
+                roles: ADMIN_ONLY,
             },
             {
                 href: '/dashboard/reviews',
@@ -83,19 +92,20 @@ export const navigation: NavGroup[] = [
                 href: '/dashboard/colors',
                 labelKey: 'nav.colors',
                 icon: Palette,
-                roles: MANAGER_PLUS,
+                roles: ADMIN_ONLY,
             },
             {
                 href: '/dashboard/badges',
                 labelKey: 'nav.badges',
                 icon: Award,
-                roles: MANAGER_PLUS,
+                roles: ADMIN_ONLY,
             },
         ],
     },
     {
         labelKey: 'nav.group.sales',
         items: [
+
             {
                 href: '/dashboard/orders',
                 labelKey: 'nav.orders',
@@ -106,7 +116,7 @@ export const navigation: NavGroup[] = [
                 href: '/dashboard/promotions',
                 labelKey: 'nav.promotions',
                 icon: Ticket,
-                roles: MANAGER_PLUS,
+                roles: ADMIN_ONLY,
             },
             {
                 href: '/dashboard/customers',
@@ -158,6 +168,13 @@ export const navigation: NavGroup[] = [
                 roles: ADMIN_ONLY,
                 comingSoon: false,
             },
+            {
+                // Who did what — every staff create/update/delete + logins.
+                href: '/dashboard/activity',
+                labelKey: 'nav.activity',
+                icon: History,
+                roles: ADMIN_ONLY,
+            },
         ],
     },
 ];
@@ -167,7 +184,16 @@ export const navigation: NavGroup[] = [
  * that matches (so /dashboard/staff/123 follows /dashboard/staff). Paths not
  * in the menu (profile, notifications…) are open to every staff member.
  */
+/** Pages not in the menu that still need a role (create/edit screens). */
+const RESTRICTED_PATHS: { pattern: RegExp; roles: UserRole[] }[] = [
+    // Only admins create or edit catalog products (one shared catalog).
+    { pattern: /^\/dashboard\/products\/new\/?$/, roles: ADMIN_ONLY },
+    { pattern: /^\/dashboard\/products\/[^/]+\/edit\/?$/, roles: ADMIN_ONLY },
+];
+
 export function canAccessPath(role: UserRole, pathname: string): boolean {
+    const rule = RESTRICTED_PATHS.find((r) => r.pattern.test(pathname));
+    if (rule) return rule.roles.includes(role);
     let best: NavItem | null = null;
     for (const group of navigation) {
         for (const item of group.items) {

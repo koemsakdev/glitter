@@ -24,6 +24,7 @@ import {
 import { ErrorState } from '@/components/feedback/error-state';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { DeleteProductDialog } from '@/features/products/components/delete-product-dialog';
+import { useIsAdmin } from '@/lib/permissions';
 import { useDeleteProductModal } from '@/features/products/hooks/use-delete-product-modal';
 import { useProductImages } from '@/features/product-images/use-product-images';
 import { useProduct } from '@/features/products/use-products';
@@ -73,6 +74,7 @@ function formatDate(date: string | Date | undefined | null): string {
 export function ProductDetailView({ id }: ProductDetailViewProps) {
     const { t, language } = useI18n();
     const { data: product, isLoading, isError, refetch } = useProduct(id);
+    const isAdmin = useIsAdmin();
     const { data: images = [] } = useProductImages(id);
 
     const { data: brands } = useBrandOptions();
@@ -222,6 +224,8 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                                     </Link>
                                 }
                             />
+                            {isAdmin && (
+                            <>
                             <Button
                                 variant="outline"
                                 nativeButton={false}
@@ -240,6 +244,8 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                                 <Trash2 className="mr-2 size-4" />
                                 {t('product.action.delete')}
                             </Button>
+                            </>
+                            )}
                         </div>
                     </div>
 

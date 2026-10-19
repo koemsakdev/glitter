@@ -99,7 +99,24 @@ export interface OrderQuery {
     status?: OrderStatus;
     branchId?: string;
     search?: string;
+    paymentStatus?: OrderPaymentStatus;
+    /** Inclusive local dates 'YYYY-MM-DD'. */
+    from?: string;
+    to?: string;
+    sortBy?: OrderSortBy;
+    sortOrder?: 'ASC' | 'DESC';
 }
+
+/** Columns the order list can be sorted by (server-side). */
+export type OrderSortBy =
+    | 'createdAt'
+    | 'orderNumber'
+    | 'grandTotal'
+    | 'status'
+    | 'paymentStatus'
+    | 'customerName'
+    | 'source'
+    | 'branchName';
 
 export interface OrderItemInput {
     productVariantId: string;

@@ -1,6 +1,5 @@
 'use client';
 
-import { SafeImg } from '@/components/ui/safe-img';
 import Link from 'next/link';
 import { AccountButton } from '@/components/account-button';
 import { AnnouncementBar } from '@/components/announcement-bar';
@@ -54,7 +53,7 @@ export function SiteHeader({
                             aria-label={shopName}
                         >
                             {logo ? (
-                                <SafeImg
+                                <img // eslint-disable-line @next/next/no-img-element
                                     src={logo}
                                     alt={shopName}
                                     style={{ borderRadius: `${config.logoRadius}%` }}

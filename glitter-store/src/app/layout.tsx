@@ -15,6 +15,7 @@ import { CartProvider } from '@/lib/cart';
 import { AuthProvider } from '@/lib/auth';
 import { WishlistProvider } from '@/lib/wishlist';
 import { LanguageProvider } from '@/lib/lang-context';
+import { StoreLogoProvider } from '@/lib/store-logo';
 import {
     fileUrl,
     getActivePromotions,
@@ -122,6 +123,7 @@ export default async function RootLayout({
                 }}
             >
                 <LanguageProvider initial={lang}>
+                <StoreLogoProvider logoUrl={fileUrl(config.logoUrl)}>
                 <AuthProvider>
                     <WishlistProvider>
                         <CartProvider>
@@ -163,6 +165,7 @@ export default async function RootLayout({
                         </CartProvider>
                     </WishlistProvider>
                 </AuthProvider>
+                </StoreLogoProvider>
                 </LanguageProvider>
             </body>
         </html>

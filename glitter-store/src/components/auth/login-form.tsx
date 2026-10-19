@@ -5,7 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
 import { SocialAuth } from '@/components/auth/social-auth';
-import { AuthShell, authInputCls } from '@/components/auth/auth-shell';
+import {
+    AuthShell,
+    authInputCls,
+    authPrimaryBtnCls,
+} from '@/components/auth/auth-shell';
 import { VerifyEmailStep } from '@/components/auth/verify-email-step';
 import {
     SignInOverlay,
@@ -96,7 +100,7 @@ export function LoginForm({
                                 {tr(lang, 'email')}
                             </label>
                             <div className="relative">
-                                <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+                                <Mail className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
                                 <input
                                     type="email"
                                     value={email}
@@ -112,7 +116,7 @@ export function LoginForm({
                                 {tr(lang, 'password')}
                             </label>
                             <div className="relative">
-                                <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+                                <Lock className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
                                 <input
                                     type={showPw ? 'text' : 'password'}
                                     value={password}
@@ -132,7 +136,7 @@ export function LoginForm({
                                             ? 'hidePassword'
                                             : 'showPassword',
                                     )}
-                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-(--brand)"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-zinc-400 transition-colors hover:text-(--brand)"
                                 >
                                     {showPw ? (
                                         <EyeOff className="size-4" />
@@ -152,7 +156,7 @@ export function LoginForm({
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-(--brand) px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-all hover:-translate-y-0.5 hover:opacity-95 disabled:translate-y-0 disabled:opacity-60"
+                            className={authPrimaryBtnCls}
                         >
                             {submitting && (
                                 <Loader2 className="size-4 animate-spin" />

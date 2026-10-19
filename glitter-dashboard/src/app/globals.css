@@ -438,3 +438,9 @@ input[type="password"]::placeholder {
   opacity: 0.85;
   animation: nav-progress 1.2s ease-in-out infinite;
 }
+
+/* Indeterminate progress bar (data tables while refetching) */
+@keyframes loading-bar {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(300%); }
+}

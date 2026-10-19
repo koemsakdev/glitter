@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronDown, Globe2, MapPin, Plus } from 'lucide-react';
+import { Check, ChevronDown, Globe2, MapPin, Plus, Lock } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import {
@@ -18,6 +18,7 @@ import { useI18n } from '@/lib/i18n';
 import {
     ALL_BRANCHES,
     useBranchContext,
+    useLockedBranchId,
 } from '@/stores/use-branch-context';
 import type { Branch } from '@/types/branch';
 
@@ -33,6 +34,7 @@ export function BranchSwitcher() {
     } = useBranchContext();
 
     const { data: branches, isLoading } = useActiveBranches();
+    const lockedBranchId = useLockedBranchId();
 
     const isAllBranches = selectedBranchId === ALL_BRANCHES;
 
@@ -67,6 +69,25 @@ export function BranchSwitcher() {
         rehydrateSnapshot,
         setAllBranches,
     ]);
+
+    // Managers/cashiers work at one branch — show it, no switching.
+    if (lockedBranchId) {
+        const mine = branches?.find((b) => b.id === lockedBranchId);
+        const name = mine
+            ? language === 'km'
+                ? mine.branchNameKm || mine.branchNameEn
+                : mine.branchNameEn
+            : '…';
+        return (
+            <div
+                title={t('branchSwitcher.locked')}
+                className="flex max-w-48 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 bg-muted/40 px-3 py-1.5 text-sm font-medium dark:border-neutral-800"
+            >
+                <Lock className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="truncate">{name}</span>
+            </div>
+        );
+    }
 
     // Empty state — no branches at all
     if (!isLoading && branches && branches.length === 0) {

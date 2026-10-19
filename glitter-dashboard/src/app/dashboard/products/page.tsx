@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { DeleteProductDialog } from '@/features/products/components/delete-product-dialog';
 import { getProductColumns } from '@/features/products/components/product-columns';
+import { useIsAdmin } from '@/lib/permissions';
 import {
     DEFAULT_PRODUCT_SORT,
     PRODUCT_SORT_OPTIONS,
@@ -37,6 +38,7 @@ import type {
 import { useSelectedBranchId } from '@/stores/use-branch-context';
 
 export default function ProductsPage() {
+    const isAdmin = useIsAdmin();
     const { t, language } = useI18n();
     const deleteModal = useDeleteProductModal();
     const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
@@ -135,6 +137,7 @@ export default function ProductsPage() {
     const columns = useMemo(
         () =>
             getProductColumns({
+                canManage: isAdmin,
                 t,
                 language,
                 brandsById,
@@ -194,16 +197,18 @@ export default function ProductsPage() {
                         {t('product.list.subtitle')}
                     </p>
                 </div>
+                {isAdmin && (
                 <Button
-                    className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800 sm:shrink-0"
-                    nativeButton={false}
-                    render={
-                        <Link href="/dashboard/products/new">
-                            <Plus className="mr-2 size-4" />
-                            {t('product.action.create')}
-                        </Link>
-                    }
-                />
+                        className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800 sm:shrink-0"
+                        nativeButton={false}
+                        render={
+                            <Link href="/dashboard/products/new">
+                                <Plus className="mr-2 size-4" />
+                                {t('product.action.create')}
+                            </Link>
+                        }
+                    />
+                )}
             </div>
 
             {/* Toolbar — status tabs + sort/search */}
@@ -290,6 +295,7 @@ export default function ProductsPage() {
                             title={t('product.list.empty')}
                             description={t('product.list.emptyHelp')}
                             action={
+                                isAdmin && (
                                 <Button
                                     size="sm"
                                     className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
@@ -301,6 +307,7 @@ export default function ProductsPage() {
                                         </Link>
                                     }
                                 />
+                                )
                             }
                         />
                     )

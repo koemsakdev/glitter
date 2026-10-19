@@ -69,7 +69,9 @@ interface AuthContextValue {
         body: Record<string, unknown>,
     ) => Promise<void>;
     /** Creates the account and emails a code; resolves with that email. */
-    register: (values: RegisterValues) => Promise<{ email: string }>;
+    register: (
+        values: RegisterValues,
+    ) => Promise<{ email: string; emailSent: boolean }>;
     /** Confirm the emailed code — verifies the email and signs in. */
     confirmEmail: (email: string, code: string) => Promise<void>;
     resendEmailCode: (email: string) => Promise<void>;
@@ -147,24 +149,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         [tryRefresh],
     );
 
-    const refreshUser = useCallback(async () => {
-        const res = await authFetch('/api/auth/me');
+    /**
+     * Reload the signed-in user. Returns false when the API couldn't be
+     * reached (offline / API restarting) — then the saved session is KEPT,
+     * not cleared; only a real "not authorised" answer signs the user out.
+     */
+    const loadUser = useCallback(async (): Promise<boolean> => {
+        let res: Response;
+        try {
+            res = await authFetch('/api/auth/me');
+        } catch {
+            return false;
+        }
         if (res.ok) {
             const data = (await res.json()) as { data: AuthUser };
             setUser(data.data);
-        } else {
+        } else if (res.status === 401 || res.status === 403) {
             clearTokens();
             setUser(null);
         }
+        return true;
     }, [authFetch]);
+
+    const refreshUser = useCallback(async () => {
+        await loadUser();
+    }, [loadUser]);
 
     useEffect(() => {
         if (!localStorage.getItem(ACCESS_KEY)) {
             setLoading(false);
             return;
         }
-        refreshUser().finally(() => setLoading(false));
-    }, [refreshUser]);
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        // Retry a few times if the API is briefly unreachable.
+        const attempt = async (tries: number) => {
+            const reached = await loadUser();
+            if (cancelled) return;
+            if (!reached && tries < 4) {
+                timer = setTimeout(() => void attempt(tries + 1), 2000 * (tries + 1));
+                return;
+            }
+            setLoading(false);
+        };
+        void attempt(0);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [loadUser]);
 
     const login = useCallback(
         async (email: string, password: string) => {
@@ -253,8 +286,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const msg = Array.isArray(e.message) ? e.message[0] : e.message;
             throw new Error(msg || 'Registration failed');
         }
-        const data = (await res.json()) as { email?: string };
-        return { email: data.email || values.email };
+        const data = (await res.json()) as {
+            email?: string;
+            emailSent?: boolean;
+        };
+        return {
+            email: data.email || values.email,
+            emailSent: data.emailSent !== false,
+        };
     }, []);
 
     const confirmEmail = useCallback(async (email: string, code: string) => {

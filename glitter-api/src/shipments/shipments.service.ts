@@ -51,13 +51,36 @@ export class ShipmentsService {
     return this.findOneOrThrow(saved.id);
   }
 
-  async findAll(status?: ShipmentStatus): Promise<ShipmentListResponse> {
+  async findAll(
+    status?: ShipmentStatus,
+    branchId?: string,
+  ): Promise<ShipmentListResponse> {
     const [rows, total] = await this.shipmentRepo.findAndCount({
-      where: status ? { status } : {},
+      where: {
+        ...(status ? { status } : {}),
+        ...(branchId ? { order: { branchId } } : {}),
+      },
       relations: ['order', 'branch'],
       order: { createdAt: 'DESC' },
     });
     return { data: rows.map((r) => this.toResponse(r)), total };
+  }
+
+  /** Branch of the order a shipment (or order id) belongs to. */
+  async branchOfOrder(orderId: string): Promise<string | null> {
+    const row = await this.shipmentRepo.manager.query<{ branch_id: string }[]>(
+      'SELECT branch_id FROM orders WHERE id = $1',
+      [orderId],
+    );
+    return row[0]?.branch_id ?? null;
+  }
+
+  async branchOfShipment(id: string): Promise<string | null> {
+    const row = await this.shipmentRepo.findOne({
+      where: { id },
+      relations: ['order'],
+    });
+    return row?.order?.branchId ?? null;
   }
 
   async findByOrder(orderId: string): Promise<ShipmentResponse | null> {

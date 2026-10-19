@@ -18,6 +18,12 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import {
+  assertBranchAccess,
+  resolveBranchScope,
+} from '../common/helpers/branch-scope.helper';
+import { UserEntity } from '../users/entities/user.entity';
 import { CreateInventoryBranchDto } from './dto/create-inventory-branch.dto';
 import { UpdateInventoryBranchDto } from './dto/update-inventory-branch.dto';
 import { ReserveStockDto } from './dto/reserve-stock.dto';
@@ -65,7 +71,9 @@ export class InventoryBranchController {
   @Roles('admin', 'manager')
   async create(
     @Body() dto: CreateInventoryBranchDto,
+    @CurrentUser() user: UserEntity,
   ): Promise<InventoryBranchDetailResponse> {
+    assertBranchAccess(user, dto.branchId);
     return this.service.create(dto);
   }
 
@@ -79,7 +87,9 @@ export class InventoryBranchController {
   @Roles('admin', 'manager')
   async setStock(
     @Body() dto: CreateInventoryBranchDto,
+    @CurrentUser() user: UserEntity,
   ): Promise<InventoryBranchDetailResponse> {
+    assertBranchAccess(user, dto.branchId);
     return this.service.setStock(dto);
   }
 
@@ -100,11 +110,12 @@ export class InventoryBranchController {
     @Query('limit') limit: string = '10',
     @Query('branchId') branchId?: string,
     @Query('productVariantId') productVariantId?: string,
+    @CurrentUser() user?: UserEntity,
   ): Promise<InventoryBranchListResponse> {
     return this.service.findAll(
       parseInt(page, 10),
       parseInt(limit, 10),
-      branchId,
+      resolveBranchScope(user!, branchId),
       productVariantId,
     );
   }
@@ -152,7 +163,9 @@ export class InventoryBranchController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @CurrentUser() user?: UserEntity,
   ): Promise<BranchInventoryGroupedResponse> {
+    assertBranchAccess(user!, branchId);
     return this.service.findByBranch(
       branchId,
       page ? Number(page) : 1,
@@ -178,7 +191,9 @@ export class InventoryBranchController {
   @ApiResponse({ status: 200, type: BranchInventorySummaryResponseDto })
   async getBranchSummary(
     @Param('branchId') branchId: string,
+    @CurrentUser() user: UserEntity,
   ): Promise<BranchInventorySummaryResponse> {
+    assertBranchAccess(user, branchId);
     return this.service.getBranchSummary(branchId);
   }
 
@@ -210,8 +225,11 @@ export class InventoryBranchController {
   @ApiResponse({ status: 200, type: InventoryBranchDetailResponseDto })
   async findOne(
     @Param('id') id: string,
+    @CurrentUser() user: UserEntity,
   ): Promise<InventoryBranchDetailResponse> {
-    return this.service.findOne(id);
+    const record = await this.service.findOne(id);
+    assertBranchAccess(user, record.data.branchId);
+    return record;
   }
 
   /**
@@ -231,7 +249,9 @@ export class InventoryBranchController {
   @ApiResponse({ status: 200, type: InventoryBranchDetailResponseDto })
   async reserve(
     @Body() dto: ReserveStockDto,
+    @CurrentUser() user: UserEntity,
   ): Promise<InventoryBranchDetailResponse> {
+    assertBranchAccess(user, dto.branchId);
     return this.service.reserve(dto);
   }
 
@@ -252,7 +272,9 @@ export class InventoryBranchController {
   @ApiResponse({ status: 200, type: InventoryBranchDetailResponseDto })
   async releaseReservation(
     @Body() dto: ReserveStockDto,
+    @CurrentUser() user: UserEntity,
   ): Promise<InventoryBranchDetailResponse> {
+    assertBranchAccess(user, dto.branchId);
     return this.service.releaseReservation(dto);
   }
 
@@ -273,7 +295,9 @@ export class InventoryBranchController {
   @ApiResponse({ status: 200, type: InventoryBranchDetailResponseDto })
   async commitReservation(
     @Body() dto: ReserveStockDto,
+    @CurrentUser() user: UserEntity,
   ): Promise<InventoryBranchDetailResponse> {
+    assertBranchAccess(user, dto.branchId);
     return this.service.commitReservation(dto);
   }
 
@@ -295,10 +319,15 @@ export class InventoryBranchController {
   })
   @UseGuards(RolesGuard)
   @Roles('admin', 'manager')
-  async transfer(@Body() dto: TransferStockDto): Promise<{
+  async transfer(
+    @Body() dto: TransferStockDto,
+    @CurrentUser() user: UserEntity,
+  ): Promise<{
     from: InventoryBranchResponse;
     to: InventoryBranchResponse;
   }> {
+    // A manager can send stock out of their own branch (to any branch).
+    assertBranchAccess(user, dto.fromBranchId);
     return this.service.transfer(dto);
   }
 
@@ -317,7 +346,9 @@ export class InventoryBranchController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateInventoryBranchDto,
+    @CurrentUser() user: UserEntity,
   ): Promise<InventoryBranchDetailResponse> {
+    assertBranchAccess(user, (await this.service.findOne(id)).data.branchId);
     return this.service.update(id, dto);
   }
 
@@ -332,7 +363,11 @@ export class InventoryBranchController {
   @Roles('admin', 'manager')
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 204 })
-  async delete(@Param('id') id: string): Promise<void> {
+  async delete(
+    @Param('id') id: string,
+    @CurrentUser() user: UserEntity,
+  ): Promise<void> {
+    assertBranchAccess(user, (await this.service.findOne(id)).data.branchId);
     return this.service.delete(id);
   }
 }

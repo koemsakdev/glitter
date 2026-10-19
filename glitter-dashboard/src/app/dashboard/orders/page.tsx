@@ -1,18 +1,23 @@
 'use client';
 
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, Plus } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { ChevronRight, Phone, Plus, Store, X } from 'lucide-react';
 import Link from 'next/link';
-import React, { useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useMemo } from 'react';
 import {
     DataTable,
     DataTableEmpty,
     DataTableFilterTabs,
     DataTablePagination,
     DataTableSearch,
-    DataTableToolbar,
 } from '@/components/data-table';
-import type { FilterTabOption } from '@/components/data-table';
+import type {
+    DataTableColumnMeta,
+    DataTableSort,
+    FilterTabOption,
+} from '@/components/data-table';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { OrderStatsCards } from '@/features/orders/components/order-stats-cards';
@@ -27,12 +32,11 @@ import { useI18n } from '@/lib/i18n';
 import { useSelectedBranchId } from '@/stores/use-branch-context';
 import type {
     OrderListItem,
+    OrderPaymentStatus,
+    OrderSortBy,
     OrderSource,
     OrderStatus,
 } from '@/types/order';
-
-type SourceFilter = OrderSource | 'all';
-type StatusFilter = OrderStatus | 'all';
 
 const STATUS_VALUES: OrderStatus[] = [
     'pending',
@@ -43,44 +47,108 @@ const STATUS_VALUES: OrderStatus[] = [
     'cancelled',
     'refunded',
 ];
+const PAYMENT_VALUES: OrderPaymentStatus[] = [
+    'unpaid',
+    'partial',
+    'paid',
+    'refunded',
+];
+const SORTABLE: OrderSortBy[] = [
+    'createdAt',
+    'orderNumber',
+    'grandTotal',
+    'status',
+    'paymentStatus',
+    'customerName',
+    'source',
+    'branchName',
+];
+type DatePreset = 'all' | 'today' | '7d' | '30d' | 'month';
 
-function formatDate(value: string): string {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return '—';
-    return new Intl.DateTimeFormat('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(d);
+/** Local 'YYYY-MM-DD'. */
+function ymd(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function OrdersPage() {
+function presetRange(p: DatePreset): { from?: string; to?: string } {
+    const now = new Date();
+    if (p === 'today') return { from: ymd(now), to: ymd(now) };
+    if (p === '7d' || p === '30d') {
+        const from = new Date(now);
+        from.setDate(now.getDate() - (p === '7d' ? 6 : 29));
+        return { from: ymd(from), to: ymd(now) };
+    }
+    if (p === 'month') {
+        return {
+            from: ymd(new Date(now.getFullYear(), now.getMonth(), 1)),
+            to: ymd(now),
+        };
+    }
+    return {};
+}
+
+function formatDateTime(value: string): { date: string; time: string } {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return { date: '—', time: '' };
+    return {
+        date: new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(d),
+        time: new Intl.DateTimeFormat('en-US', { timeStyle: 'short' }).format(d),
+    };
+}
+
+function OrdersPageContent() {
     const { t } = useI18n();
+    const router = useRouter();
+    const pathname = usePathname();
+    const params = useSearchParams();
     const selectedBranchId = useSelectedBranchId();
 
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
-    const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-    const [search, setSearch] = useState('');
+    // All list state lives in the URL, so Back from an order keeps the view.
+    const page = Math.max(1, Number(params.get('page')) || 1);
+    const pageSize = Number(params.get('size')) || 10;
+    const source = (params.get('source') ?? 'all') as OrderSource | 'all';
+    const status = (params.get('status') ?? '') as OrderStatus | '';
+    const payment = (params.get('payment') ?? '') as OrderPaymentStatus | '';
+    const datePreset = (params.get('date') ?? 'all') as DatePreset;
+    const search = params.get('q') ?? '';
+    const sortBy = SORTABLE.includes(params.get('sort') as OrderSortBy)
+        ? (params.get('sort') as OrderSortBy)
+        : 'createdAt';
+    const sortDesc = params.get('dir') !== 'asc';
 
-    React.useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setPage(1);
-    }, [selectedBranchId]);
+    function update(
+        patch: Record<string, string | number | null>,
+        resetPage = true,
+    ) {
+        const next = new URLSearchParams(params.toString());
+        for (const [k, v] of Object.entries(patch)) {
+            if (v === null || v === '' || v === 'all') next.delete(k);
+            else next.set(k, String(v));
+        }
+        if (resetPage) next.delete('page');
+        const qs = next.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    }
 
+    const { from, to } = presetRange(datePreset);
     const { data, isLoading, isFetching } = useOrders({
         page,
         limit: pageSize,
-        source: sourceFilter === 'all' ? undefined : sourceFilter,
-        status: statusFilter === 'all' ? undefined : statusFilter,
+        source: source === 'all' ? undefined : source,
+        status: status || undefined,
+        paymentStatus: payment || undefined,
         branchId: selectedBranchId ?? undefined,
         search: search || undefined,
+        from,
+        to,
+        sortBy,
+        sortOrder: sortDesc ? 'DESC' : 'ASC',
     });
 
     const orders = data?.data ?? [];
     const total = data?.total ?? 0;
 
-    const sourceTabs: FilterTabOption<SourceFilter>[] = useMemo(
+    const sourceTabs: FilterTabOption<OrderSource | 'all'>[] = useMemo(
         () => [
             { value: 'all', label: t('order.source.all') },
             { value: 'in_store', label: t('order.source.in_store') },
@@ -88,7 +156,6 @@ export default function OrdersPage() {
         ],
         [t],
     );
-
     const statusOptions = useMemo(
         () => [
             { value: '', label: t('order.status.all') },
@@ -99,69 +166,162 @@ export default function OrdersPage() {
         ],
         [t],
     );
-
-    const columns = useMemo<ColumnDef<OrderListItem>[]>(
+    const paymentOptions = useMemo(
         () => [
+            { value: '', label: t('order.filter.allPayments') },
+            ...PAYMENT_VALUES.map((p) => ({
+                value: p,
+                label: t(`order.payment.${p}` as const),
+            })),
+        ],
+        [t],
+    );
+    const dateOptions = useMemo(
+        () =>
+            (
+                [
+                    ['all', 'order.date.all'],
+                    ['today', 'order.date.today'],
+                    ['7d', 'order.date.7d'],
+                    ['30d', 'order.date.30d'],
+                    ['month', 'order.date.month'],
+                ] as const
+            ).map(([value, key]) => ({ value, label: t(key) })),
+        [t],
+    );
+
+    // Branch column only when looking across branches.
+    const showBranch = !selectedBranchId;
+
+    const columns = useMemo<ColumnDef<OrderListItem, unknown>[]>(() => {
+        const sortable = (extra: DataTableColumnMeta = {}) => ({
+            sortable: true,
+            ...extra,
+        });
+        const cols: ColumnDef<OrderListItem, unknown>[] = [
             {
+                id: 'orderNumber',
                 accessorKey: 'orderNumber',
                 header: t('order.col.orderNumber'),
+                meta: sortable(),
                 cell: ({ row }) => (
                     <Link
                         href={`/dashboard/orders/${row.original.id}`}
-                        className="font-mono text-sm font-semibold hover:text-pink-600 dark:hover:text-pink-300"
+                        className="whitespace-nowrap font-mono text-sm font-semibold hover:text-pink-600 dark:hover:text-pink-300"
                     >
                         {row.original.orderNumber}
                     </Link>
                 ),
             },
             {
+                id: 'createdAt',
+                accessorKey: 'createdAt',
+                header: t('order.col.date'),
+                meta: sortable(),
+                cell: ({ row }) => {
+                    const { date, time } = formatDateTime(row.original.createdAt);
+                    return (
+                        <div
+                            className="whitespace-nowrap"
+                            title={formatDistanceToNow(
+                                new Date(row.original.createdAt),
+                                { addSuffix: true },
+                            )}
+                        >
+                            <div className="text-sm">{date}</div>
+                            <div className="text-xs text-muted-foreground">
+                                {time}
+                            </div>
+                        </div>
+                    );
+                },
+            },
+            {
+                id: 'customerName',
+                accessorKey: 'customerName',
+                header: t('order.col.customer'),
+                meta: sortable(),
+                cell: ({ row }) => {
+                    const o = row.original;
+                    if (!o.customerName) {
+                        return (
+                            <span className="text-sm italic text-muted-foreground">
+                                {t('order.customer.walkIn')}
+                            </span>
+                        );
+                    }
+                    return (
+                        <div className="min-w-0 max-w-48">
+                            <div className="truncate text-sm font-medium">
+                                {o.customerName}
+                            </div>
+                            {o.customerPhone && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Phone className="size-3" />
+                                    {o.customerPhone}
+                                </div>
+                            )}
+                        </div>
+                    );
+                },
+            },
+            {
+                id: 'source',
                 accessorKey: 'source',
                 header: t('order.col.source'),
+                meta: sortable(),
                 cell: ({ row }) => <OrderSourceBadge source={row.original.source} />,
             },
             {
+                id: 'status',
                 accessorKey: 'status',
                 header: t('order.col.status'),
+                meta: sortable(),
                 cell: ({ row }) => <OrderStatusBadge status={row.original.status} />,
             },
             {
+                id: 'paymentStatus',
                 accessorKey: 'paymentStatus',
                 header: t('order.col.payment'),
+                meta: sortable(),
                 cell: ({ row }) => (
                     <PaymentStatusBadge status={row.original.paymentStatus} />
                 ),
             },
-            {
-                accessorKey: 'customerName',
-                header: t('order.col.customer'),
-                cell: ({ row }) =>
-                    row.original.customerName ? (
-                        <span className="text-sm">{row.original.customerName}</span>
-                    ) : (
-                        <span className="text-sm italic text-muted-foreground">
-                            {t('order.customer.walkIn')}
-                        </span>
-                    ),
-            },
-            {
+        ];
+        if (showBranch) {
+            cols.push({
+                id: 'branchName',
                 accessorKey: 'branchName',
                 header: t('order.col.branch'),
+                meta: sortable(),
                 cell: ({ row }) => (
-                    <span className="text-sm text-muted-foreground">
-                        {row.original.branchName ?? '—'}
+                    <span className="flex max-w-40 items-center gap-1.5 truncate text-sm text-muted-foreground">
+                        <Store className="size-3.5 shrink-0" />
+                        <span className="truncate">
+                            {row.original.branchName ?? '—'}
+                        </span>
+                    </span>
+                ),
+            });
+        }
+        cols.push(
+            {
+                id: 'itemCount',
+                accessorKey: 'itemCount',
+                header: t('order.col.items'),
+                meta: { align: 'right' },
+                cell: ({ row }) => (
+                    <span className="tabular-nums text-muted-foreground">
+                        {row.original.itemCount}
                     </span>
                 ),
             },
             {
-                accessorKey: 'itemCount',
-                header: t('order.col.items'),
-                cell: ({ row }) => (
-                    <span className="tabular-nums">{row.original.itemCount}</span>
-                ),
-            },
-            {
+                id: 'grandTotal',
                 accessorKey: 'grandTotal',
                 header: t('order.col.total'),
+                meta: sortable({ align: 'right' }),
                 cell: ({ row }) => (
                     <span className="font-semibold tabular-nums">
                         {formatPrice(row.original.grandTotal)}
@@ -169,44 +329,35 @@ export default function OrdersPage() {
                 ),
             },
             {
-                accessorKey: 'createdAt',
-                header: t('order.col.date'),
-                cell: ({ row }) => (
-                    <span className="whitespace-nowrap text-sm text-muted-foreground">
-                        {formatDate(row.original.createdAt)}
-                    </span>
-                ),
-            },
-            {
-                id: 'actions',
+                id: 'open',
                 header: '',
+                meta: { align: 'right' },
                 cell: ({ row }) => (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        nativeButton={false}
-                        className="size-8 text-muted-foreground hover:text-foreground"
-                        render={
-                            <Link href={`/dashboard/orders/${row.original.id}`}>
-                                <Eye className="size-4" />
-                            </Link>
-                        }
-                    />
+                    <Link
+                        href={`/dashboard/orders/${row.original.id}`}
+                        aria-label={t('order.action.view')}
+                        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-pink-600 hover:bg-muted"
+                    >
+                        <ChevronRight className="size-4" />
+                    </Link>
                 ),
             },
-        ],
-        [t],
-    );
+        );
+        return cols;
+    }, [t, showBranch]);
 
     const hasActiveFilters =
-        search !== '' || sourceFilter !== 'all' || statusFilter !== 'all';
+        search !== '' ||
+        source !== 'all' ||
+        status !== '' ||
+        payment !== '' ||
+        datePreset !== 'all';
 
-    function handleClearFilters() {
-        setSearch('');
-        setSourceFilter('all');
-        setStatusFilter('all');
-        setPage(1);
+    function clearFilters() {
+        update({ q: null, source: null, status: null, payment: null, date: null });
     }
+
+    const sort: DataTableSort = { id: sortBy, desc: sortDesc };
 
     return (
         <div className="space-y-6">
@@ -235,89 +386,123 @@ export default function OrdersPage() {
             {/* Summary stat cards */}
             <OrderStatsCards branchId={selectedBranchId} />
 
-            {/* Toolbar — source tabs + search */}
-            <DataTableToolbar
-                left={
+            {/* Filters + table as one card */}
+            <div className="space-y-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <DataTableFilterTabs
                         options={sourceTabs}
-                        value={sourceFilter}
-                        onChange={(v) => {
-                            setSourceFilter(v);
-                            setPage(1);
-                        }}
+                        value={source}
+                        onChange={(v) => update({ source: v })}
                     />
-                }
-                right={
                     <DataTableSearch
                         value={search}
-                        onChange={(v) => {
-                            setSearch(v);
-                            setPage(1);
-                        }}
+                        onChange={(v) => update({ q: v })}
                         placeholder={t('order.list.search')}
-                        className="w-full sm:w-65"
+                        className="w-full lg:w-72"
                     />
-                }
-            />
+                </div>
 
-            {/* Status filter */}
-            <div className="sm:w-65">
-                <Combobox
-                    options={statusOptions}
-                    value={statusFilter === 'all' ? '' : statusFilter}
-                    onChange={(v) => {
-                        setStatusFilter((v || 'all') as StatusFilter);
-                        setPage(1);
-                    }}
-                    placeholder={t('order.filter.status')}
-                    searchPlaceholder={t('order.filter.status')}
-                    emptyMessage={t('order.list.noMatch')}
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="w-full sm:w-44">
+                        <Combobox
+                            options={statusOptions}
+                            value={status}
+                            onChange={(v) => update({ status: v })}
+                            placeholder={t('order.filter.status')}
+                            searchPlaceholder={t('order.filter.status')}
+                            emptyMessage={t('order.list.noMatch')}
+                        />
+                    </div>
+                    <div className="w-full sm:w-44">
+                        <Combobox
+                            options={paymentOptions}
+                            value={payment}
+                            onChange={(v) => update({ payment: v })}
+                            placeholder={t('order.filter.allPayments')}
+                        />
+                    </div>
+                    <div className="w-full sm:w-44">
+                        <Combobox
+                            options={dateOptions}
+                            value={datePreset}
+                            onChange={(v) => update({ date: v || 'all' })}
+                            placeholder={t('order.date.all')}
+                        />
+                    </div>
+                    {hasActiveFilters && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearFilters}
+                            className="text-muted-foreground"
+                        >
+                            <X className="mr-1 size-3.5" />
+                            {t('order.list.clearFilters')}
+                        </Button>
+                    )}
+                    <span className="ml-auto text-sm text-muted-foreground tabular-nums">
+                        {t('order.list.count').replace('{count}', String(total))}
+                    </span>
+                </div>
+
+                <DataTable
+                    data={orders}
+                    columns={columns}
+                    isLoading={isLoading}
+                    isFetching={isFetching}
+                    skeletonRows={Math.min(pageSize, 10)}
+                    sort={sort}
+                    onSortChange={(s) =>
+                        update(
+                            { sort: s.id, dir: s.desc ? null : 'asc' },
+                            true,
+                        )
+                    }
+                    onRowClick={(o) => router.push(`/dashboard/orders/${o.id}`)}
+                    emptyState={
+                        hasActiveFilters ? (
+                            <DataTableEmpty
+                                title={t('order.list.noMatch')}
+                                description=""
+                                action={
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={clearFilters}
+                                    >
+                                        {t('order.list.clearFilters')}
+                                    </Button>
+                                }
+                            />
+                        ) : (
+                            <DataTableEmpty
+                                title={t('order.list.empty')}
+                                description={t('order.list.emptyHelp')}
+                            />
+                        )
+                    }
                 />
+
+                {!isLoading && total > 0 && (
+                    <DataTablePagination
+                        page={page}
+                        pageSize={pageSize}
+                        total={total}
+                        onPageChange={(p) => update({ page: p }, false)}
+                        onPageSizeChange={(size) => update({ size })}
+                        disabled={isFetching}
+                    />
+                )}
             </div>
-
-            {/* Table */}
-            <DataTable
-                data={orders}
-                columns={columns}
-                isLoading={isLoading}
-                isFetching={isFetching}
-                emptyState={
-                    hasActiveFilters ? (
-                        <DataTableEmpty
-                            title={t('order.list.noMatch')}
-                            description=""
-                            action={
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={handleClearFilters}
-                                >
-                                    {t('order.list.clearFilters')}
-                                </Button>
-                            }
-                        />
-                    ) : (
-                        <DataTableEmpty
-                            title={t('order.list.empty')}
-                            description={t('order.list.emptyHelp')}
-                        />
-                    )
-                }
-            />
-
-            {!isLoading && (
-                <DataTablePagination
-                    page={page}
-                    pageSize={pageSize}
-                    total={total}
-                    onPageChange={setPage}
-                    onPageSizeChange={(size) => {
-                        setPageSize(size);
-                        setPage(1);
-                    }}
-                    disabled={isFetching}
-                />
-            )}
         </div>
+    );
+}
+
+/** URL-driven list state needs a Suspense boundary (useSearchParams). */
+export default function OrdersPage() {
+    return (
+        <Suspense>
+            <OrdersPageContent />
+        </Suspense>
     );
 }

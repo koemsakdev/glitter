@@ -44,15 +44,21 @@ export const ROLE_INFO: {
  */
 export const ACCESS_MATRIX: { labelKey: TranslationKey; roles: StaffRole[] }[] = [
     { labelKey: 'role.can.sell', roles: ['admin', 'manager', 'cashier'] },
+    { labelKey: 'role.can.shipments', roles: ['admin', 'manager', 'cashier'] },
+    { labelKey: 'role.can.cancelRefund', roles: ['admin', 'manager'] },
     { labelKey: 'role.can.checkStock', roles: ['admin', 'manager', 'cashier'] },
-    { labelKey: 'role.can.catalog', roles: ['admin', 'manager'] },
     { labelKey: 'role.can.inventory', roles: ['admin', 'manager'] },
-    { labelKey: 'role.can.promotions', roles: ['admin', 'manager'] },
+    { labelKey: 'role.can.reviews', roles: ['admin', 'manager'] },
     { labelKey: 'role.can.reports', roles: ['admin', 'manager'] },
+    // One shared catalog for every branch — admin only, so branches can't
+    // create duplicate products.
+    { labelKey: 'role.can.catalog', roles: ['admin'] },
+    { labelKey: 'role.can.promotions', roles: ['admin'] },
     { labelKey: 'role.can.customers', roles: ['admin'] },
     { labelKey: 'role.can.branches', roles: ['admin'] },
     { labelKey: 'role.can.settings', roles: ['admin'] },
     { labelKey: 'role.can.staff', roles: ['admin'] },
+    { labelKey: 'role.can.activity', roles: ['admin'] },
 ];
 
 /** Role picker for the staff form: one card per role with what it can do. */

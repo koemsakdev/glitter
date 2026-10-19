@@ -46,15 +46,22 @@ export class DashboardService {
    * concurrent burst also shares one in-flight computation (no thundering herd).
    */
   private static readonly CACHE_TTL_MS = 20_000;
-  private cache = new Map<string, { at: number; data: DashboardStatsResponse }>();
+  private cache = new Map<
+    string,
+    { at: number; data: DashboardStatsResponse }
+  >();
   private inFlight = new Map<string, Promise<DashboardStatsResponse>>();
 
-  async getStats(range?: {
-    from?: string;
-    to?: string;
-  }): Promise<DashboardStatsResponse> {
+  async getStats(
+    range?: {
+      from?: string;
+      to?: string;
+    },
+    /** Limit sales figures to one branch (managers; admin's branch filter). */
+    branchId?: string,
+  ): Promise<DashboardStatsResponse> {
     const win = this.resolveWindow(range);
-    const key = `${win.from.getTime()}|${win.to.getTime()}`;
+    const key = `${win.from.getTime()}|${win.to.getTime()}|${branchId ?? 'all'}`;
     const now = Date.now();
 
     const cached = this.cache.get(key);
@@ -64,7 +71,7 @@ export class DashboardService {
     const existing = this.inFlight.get(key);
     if (existing) return existing;
 
-    const p = this.computeStats(win)
+    const p = this.computeStats(win, branchId)
       .then((data) => {
         this.cache.set(key, { at: Date.now(), data });
         return data;
@@ -85,7 +92,15 @@ export class DashboardService {
     const now = new Date();
     const to = range?.to
       ? new Date(`${range.to}T23:59:59.999`)
-      : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      : new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          23,
+          59,
+          59,
+          999,
+        );
     let from: Date;
     if (range?.from) {
       from = new Date(`${range.from}T00:00:00`);
@@ -105,11 +120,14 @@ export class DashboardService {
     return { from, to, granularity };
   }
 
-  private async computeStats(win: {
-    from: Date;
-    to: Date;
-    granularity: 'day' | 'week' | 'month';
-  }): Promise<DashboardStatsResponse> {
+  private async computeStats(
+    win: {
+      from: Date;
+      to: Date;
+      granularity: 'day' | 'week' | 'month';
+    },
+    branchId?: string,
+  ): Promise<DashboardStatsResponse> {
     const { from, to, granularity } = win;
     const [
       productCounts,
@@ -139,12 +157,12 @@ export class DashboardService {
       this.getTopBrands(),
       this.getTopCategories(),
       this.getInventoryStats(),
-      this.getTopProducts('SUM(oi.quantity)', from, to),
-      this.getTopProducts('COUNT(DISTINCT oi.order_id)', from, to),
-      this.getSales(from, to),
-      this.getOrdersByStatus(from, to),
-      this.getSalesSeries(from, to, granularity),
-      this.getRecentOrders(),
+      this.getTopProducts('SUM(oi.quantity)', from, to, branchId),
+      this.getTopProducts('COUNT(DISTINCT oi.order_id)', from, to, branchId),
+      this.getSales(from, to, branchId),
+      this.getOrdersByStatus(from, to, branchId),
+      this.getSalesSeries(from, to, granularity, branchId),
+      this.getRecentOrders(branchId),
     ]);
 
     return {
@@ -185,7 +203,7 @@ export class DashboardService {
   }
 
   /** Revenue + orders in the window, with the preceding equal-length window. */
-  private async getSales(from: Date, to: Date) {
+  private async getSales(from: Date, to: Date, branchId?: string) {
     const spanMs = to.getTime() - from.getTime();
     const prevTo = new Date(from.getTime() - 1);
     const prevFrom = new Date(from.getTime() - spanMs - 1);
@@ -197,6 +215,7 @@ export class DashboardService {
         .addSelect('COUNT(*)', 'orders')
         .where('o.status NOT IN (:...ex)', { ex: REVENUE_EXCLUDED })
         .andWhere('o.created_at BETWEEN :a AND :b', { a, b })
+        .andWhere(branchId ? 'o.branch_id = :branchId' : '1=1', { branchId })
         .getRawOne<{ revenue: string; orders: string }>();
       return {
         revenue: parseFloat(row?.revenue ?? '0'),
@@ -207,7 +226,9 @@ export class DashboardService {
     const [cur, prev, pendingOrders, customers] = await Promise.all([
       sumBetween(from, to),
       sumBetween(prevFrom, prevTo),
-      this.orderRepo.count({ where: { status: 'pending' } }),
+      this.orderRepo.count({
+        where: { status: 'pending', ...(branchId ? { branchId } : {}) },
+      }),
       this.userRepo.count({ where: { role: 'customer' } }),
     ]);
 
@@ -222,12 +243,13 @@ export class DashboardService {
     };
   }
 
-  private async getOrdersByStatus(from: Date, to: Date) {
+  private async getOrdersByStatus(from: Date, to: Date, branchId?: string) {
     const rows = await this.orderRepo
       .createQueryBuilder('o')
       .select('o.status', 'status')
       .addSelect('COUNT(*)', 'count')
       .where('o.created_at BETWEEN :from AND :to', { from, to })
+      .andWhere(branchId ? 'o.branch_id = :branchId' : '1=1', { branchId })
       .groupBy('o.status')
       .getRawMany<{ status: string; count: string }>();
 
@@ -253,6 +275,7 @@ export class DashboardService {
     from: Date,
     to: Date,
     granularity: 'day' | 'week' | 'month',
+    branchId?: string,
   ) {
     const rows = await this.orderRepo
       .createQueryBuilder('o')
@@ -260,6 +283,7 @@ export class DashboardService {
       .addSelect('o.grand_total', 'grandTotal')
       .where('o.status NOT IN (:...ex)', { ex: REVENUE_EXCLUDED })
       .andWhere('o.created_at BETWEEN :from AND :to', { from, to })
+      .andWhere(branchId ? 'o.branch_id = :branchId' : '1=1', { branchId })
       .getRawMany<{ createdAt: Date; grandTotal: string }>();
 
     const bucketKey = (d: Date): string => {
@@ -318,8 +342,9 @@ export class DashboardService {
     return series;
   }
 
-  private async getRecentOrders() {
+  private async getRecentOrders(branchId?: string) {
     const orders = await this.orderRepo.find({
+      where: branchId ? { branchId } : {},
       order: { createdAt: 'DESC' },
       take: RECENT_ORDERS_LIMIT,
     });
@@ -343,6 +368,7 @@ export class DashboardService {
     metricSql: string,
     from?: Date,
     to?: Date,
+    branchId?: string,
   ): Promise<
     Array<{
       id: string;
@@ -354,17 +380,29 @@ export class DashboardService {
       count: number;
     }>
   > {
-    const scoped = from && to;
+    // Build WHERE from parameterised conditions (window and/or branch).
+    const params: unknown[] = [TOP_PRODUCTS_LIMIT];
+    const where: string[] = [];
+    if (from && to) {
+      params.push(from, to);
+      where.push(
+        `o.created_at BETWEEN $${params.length - 1} AND $${params.length}`,
+      );
+    }
+    if (branchId) {
+      params.push(branchId);
+      where.push(`o.branch_id = $${params.length}`);
+    }
     const rows: Array<{ product_id: string; metric: string }> =
       await this.productRepo.query(
         `SELECT oi.product_id, ${metricSql} AS metric
          FROM order_items oi
-         ${scoped ? 'JOIN orders o ON o.id = oi.order_id' : ''}
-         ${scoped ? 'WHERE o.created_at BETWEEN $2 AND $3' : ''}
+         ${where.length ? 'JOIN orders o ON o.id = oi.order_id' : ''}
+         ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
          GROUP BY oi.product_id
          ORDER BY metric DESC
          LIMIT $1`,
-        scoped ? [TOP_PRODUCTS_LIMIT, from, to] : [TOP_PRODUCTS_LIMIT],
+        params,
       );
     const ids = rows.map((r) => r.product_id);
     if (ids.length === 0) return [];

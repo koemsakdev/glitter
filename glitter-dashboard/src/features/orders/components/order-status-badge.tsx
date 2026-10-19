@@ -73,7 +73,7 @@ export function OrderStatusBadge({ status }: { status: OrderStatus }) {
     const { t } = useI18n();
     const style = STATUS_STYLES[status];
     return (
-        <Badge className={style.bg}>
+        <Badge className={`whitespace-nowrap ${style.bg}`}>
             <span
                 className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`}
             />
@@ -102,7 +102,7 @@ export function PaymentStatusBadge({
 }) {
     const { t } = useI18n();
     return (
-        <Badge className={PAYMENT_STATUS_STYLES[status]}>
+        <Badge className={`whitespace-nowrap ${PAYMENT_STATUS_STYLES[status]}`}>
             {t(PAYMENT_STATUS_LABELS[status])}
         </Badge>
     );
@@ -114,7 +114,7 @@ export function OrderSourceBadge({ source }: { source: OrderSource }) {
     return (
         <Badge
             variant="outline"
-            className="border-border bg-muted/50 text-muted-foreground"
+            className="whitespace-nowrap border-border bg-muted/50 text-muted-foreground"
         >
             <Icon className="mr-1 size-3" />
             {t(

@@ -90,7 +90,7 @@ export class AiController {
     schema: { example: { value: 'A refined leather shoulder bag...' } },
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   async generateProductInfo(
     @Body() dto: GenerateProductInfoDto,
   ): Promise<{ value: string }> {

@@ -1,3 +1,4 @@
+import { useSelectedBranchId } from '@/stores/use-branch-context';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardApi } from './dashboard-api';
 
@@ -7,9 +8,17 @@ export function useDashboardStats(
     range?: { from?: string; to?: string },
     enabled = true,
 ) {
+    // Admin's header branch filter, or the manager's own branch.
+    const branchId = useSelectedBranchId();
     return useQuery({
-        queryKey: [...DASHBOARD_KEY, 'stats', range?.from ?? '', range?.to ?? ''],
-        queryFn: () => dashboardApi.getStats(range),
+        queryKey: [
+            ...DASHBOARD_KEY,
+            'stats',
+            range?.from ?? '',
+            range?.to ?? '',
+            branchId ?? 'all',
+        ],
+        queryFn: () => dashboardApi.getStats(range, branchId),
         // The stats endpoint is manager+ only — cashiers must not call it.
         enabled,
         // Server memoizes the payload for ~20s, so revisits render instantly

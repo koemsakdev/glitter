@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Branch } from '@/types/branch';
+import { useAuthStore } from '@/stores/auth-store';
 
 /** Sentinel value meaning "show data across all branches" */
 export const ALL_BRANCHES = 'all' as const;
@@ -52,9 +53,24 @@ export const useBranchContext = create<BranchContextState>()(
     ),
 );
 
-/** Selector — returns the selected branch ID, or null if 'all' is selected */
+/**
+ * The branch a manager/cashier is locked to (their assigned branch), or null
+ * for admins, who can switch freely. The API enforces the same rule.
+ */
+export function useLockedBranchId(): string | null {
+    return useAuthStore((s) =>
+        s.user && s.user.role !== 'admin' ? (s.user.branchId ?? null) : null,
+    );
+}
+
+/**
+ * Selector — the branch the dashboard is showing, or null for "all".
+ * Managers/cashiers always get their own branch.
+ */
 export function useSelectedBranchId(): string | null {
+    const locked = useLockedBranchId();
     const id = useBranchContext((s) => s.selectedBranchId);
+    if (locked) return locked;
     return id === ALL_BRANCHES ? null : id;
 }
 

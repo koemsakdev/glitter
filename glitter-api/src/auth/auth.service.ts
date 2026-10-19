@@ -19,6 +19,9 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginDto } from './dto/login.dto';
 import { StaffLoginDto } from './dto/staff-login.dto';
+import { AuditLogService } from '../audit-logs/audit-log.service';
+import { LoginSecurityService } from '../audit-logs/security/login-security.service';
+import { clientIp, type ReqLike } from '../audit-logs/security/client-info';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { TelegramLoginDto } from './dto/telegram-login.dto';
@@ -34,6 +37,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly mail: MailService,
+    private readonly audit: AuditLogService,
+    private readonly loginSecurity: LoginSecurityService,
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
     @InjectRepository(AuthAccountEntity)
@@ -146,9 +151,11 @@ export class AuthService {
    * Create the account and email a verification code. No tokens are issued —
    * the user signs in by confirming the code (POST /auth/email/confirm).
    */
-  async register(
-    dto: RegisterDto,
-  ): Promise<{ requiresVerification: true; email: string }> {
+  async register(dto: RegisterDto): Promise<{
+    requiresVerification: true;
+    email: string;
+    emailSent: boolean;
+  }> {
     const user = await this.usersService.registerWithEmail({
       email: dto.email,
       password: dto.password,
@@ -156,11 +163,19 @@ export class AuthService {
       phoneNumber: dto.phoneNumber,
     });
 
-    // Don't fail the sign-up if delivery hiccups — the verify screen can resend.
-    await this.sendEmailVerification(user.id).catch((err: unknown) =>
-      this.logger.error(`Could not send verification email: ${String(err)}`),
-    );
-    return { requiresVerification: true, email: user.email ?? dto.email };
+    // Don't fail the sign-up if delivery hiccups — the verify screen can
+    // resend — but tell the client so it can say so instead of waiting.
+    const emailSent = await this.sendEmailVerification(user.id)
+      .then(() => true)
+      .catch((err: unknown) => {
+        this.logger.error(`Could not send verification email: ${String(err)}`);
+        return false;
+      });
+    return {
+      requiresVerification: true,
+      email: user.email ?? dto.email,
+      emailSent,
+    };
   }
 
   /** Customers must verify their email before email/password sign-in. */
@@ -253,13 +268,44 @@ export class AuthService {
    */
   async staffLogin(
     dto: StaffLoginDto,
+    req: ReqLike,
   ): Promise<{ user: UserEntity; tokens: AuthTokenResponse }> {
     const id = dto.username.trim().toLowerCase();
     const user = await this.userRepo.findOne({
       where: id.includes('@') ? { email: id } : { username: id },
     });
-    const invalid = new UnauthorizedException('Invalid username or password');
-    if (user === null || user.role === 'customer') throw invalid;
+    const { ip } = clientIp(req);
+
+    // Every attempt is recorded (never the password) with IP, place and
+    // device, so admins can spot someone trying to break in.
+    const fail = (reason: string, message = 'Invalid username or password') => {
+      const staff = user && user.role !== 'customer' ? user : null;
+      void this.loginSecurity.record(req, {
+        success: false,
+        failureReason: reason,
+        usernameTried: id,
+        user: staff,
+        clientInfo: dto.client,
+      });
+      void this.audit.record({
+        actor: staff ?? {
+          id: null,
+          fullName: id.slice(0, 100),
+          role: 'unknown',
+        },
+        action: 'login_failed',
+        entity: 'auth',
+        label: `Failed sign-in as "${id.slice(0, 100)}"`,
+        details: { reason },
+        method: 'POST',
+        path: '/api/auth/staff/login',
+        ip,
+      });
+      return new UnauthorizedException(message);
+    };
+
+    if (user === null) throw fail('unknown_user');
+    if (user.role === 'customer') throw fail('not_staff');
 
     const account = await this.authAccountRepo
       .createQueryBuilder('auth')
@@ -267,16 +313,32 @@ export class AuthService {
       .where('auth.userId = :userId', { userId: user.id })
       .andWhere('auth.provider = :provider', { provider: 'email' })
       .getOne();
-    if (!account?.passwordHash) throw invalid;
+    if (!account?.passwordHash) throw fail('no_password');
     if (!(await verifyPassword(dto.password, account.passwordHash))) {
-      throw invalid;
+      throw fail('wrong_password');
     }
-
     if (user.accountStatus !== 'active') {
-      throw new UnauthorizedException(
+      throw fail(
+        user.accountStatus,
         `Account is ${user.accountStatus}. Contact your admin.`,
       );
     }
+
+    void this.loginSecurity.record(req, {
+      success: true,
+      usernameTried: id,
+      user,
+      clientInfo: dto.client,
+    });
+    void this.audit.record({
+      actor: user,
+      action: 'login',
+      entity: 'auth',
+      label: 'Signed in to the dashboard',
+      method: 'POST',
+      path: '/api/auth/staff/login',
+      ip,
+    });
     return { user, tokens: this.issueTokens(user) };
   }
 

@@ -1,5 +1,6 @@
 import {
   Body,
+  ForbiddenException,
   Controller,
   Get,
   HttpCode,
@@ -18,6 +19,11 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import {
+  assertBranchAccess,
+  resolveBranchScope,
+} from '../common/helpers/branch-scope.helper';
+import { UserEntity } from '../users/entities/user.entity';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -47,9 +53,13 @@ export class OrdersController {
   })
   async create(
     @Body() dto: CreateOrderDto,
-    @CurrentUser('id') currentUserId: string,
+    @CurrentUser() user: UserEntity,
   ): Promise<OrderDetailResponse> {
-    return this.service.create(dto, currentUserId);
+    // Managers/cashiers always sell from their own branch.
+    if (user.role !== 'admin') {
+      dto.branchId = resolveBranchScope(user, dto.branchId);
+    }
+    return this.service.create(dto, user.id);
   }
 
   @Get()
@@ -68,14 +78,25 @@ export class OrdersController {
     @Query('status') status?: string,
     @Query('branchId') branchId?: string,
     @Query('search') search?: string,
+    @Query('paymentStatus') paymentStatus?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: string,
+    @CurrentUser() user?: UserEntity,
   ): Promise<OrderListResponse> {
     return this.service.findAll({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 10,
       source,
       status,
-      branchId,
+      branchId: resolveBranchScope(user!, branchId),
       search,
+      paymentStatus,
+      from,
+      to,
+      sortBy,
+      sortOrder: sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC',
     });
   }
 
@@ -84,17 +105,23 @@ export class OrdersController {
   @ApiOperation({ summary: 'Order summary stats (optionally per branch)' })
   @ApiQuery({ name: 'branchId', required: false, type: String })
   async getStats(
+    @CurrentUser() user: UserEntity,
     @Query('branchId') branchId?: string,
   ): Promise<OrderStatsResponse> {
-    return this.service.getStats(branchId);
+    return this.service.getStats(resolveBranchScope(user, branchId));
   }
 
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get a single order with items and payments' })
   @ApiParam({ name: 'id', type: String })
-  async findOne(@Param('id') id: string): Promise<OrderDetailResponse> {
-    return this.service.findOne(id);
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: UserEntity,
+  ): Promise<OrderDetailResponse> {
+    const order = await this.service.findOne(id);
+    assertBranchAccess(user, order.data.branchId);
+    return order;
   }
 
   @Patch(':id/status')
@@ -108,7 +135,18 @@ export class OrdersController {
   async updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateOrderStatusDto,
+    @CurrentUser() user: UserEntity,
   ): Promise<OrderDetailResponse> {
+    assertBranchAccess(user, await this.service.getBranchId(id));
+    // Cancelling / refunding gives money and stock back — manager or admin.
+    if (
+      user.role === 'cashier' &&
+      (dto.status === 'cancelled' || dto.status === 'refunded')
+    ) {
+      throw new ForbiddenException(
+        'Only a manager or admin can cancel or refund an order',
+      );
+    }
     return this.service.updateStatus(id, dto.status);
   }
 
@@ -119,7 +157,14 @@ export class OrdersController {
   async updatePaymentStatus(
     @Param('id') id: string,
     @Body() dto: UpdatePaymentStatusDto,
+    @CurrentUser() user: UserEntity,
   ): Promise<OrderDetailResponse> {
+    assertBranchAccess(user, await this.service.getBranchId(id));
+    if (user.role === 'cashier' && dto.paymentStatus === 'refunded') {
+      throw new ForbiddenException(
+        'Only a manager or admin can mark a payment refunded',
+      );
+    }
     return this.service.updatePaymentStatus(id, dto.paymentStatus);
   }
 }

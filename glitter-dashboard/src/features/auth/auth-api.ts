@@ -12,6 +12,8 @@ export interface LoginDto {
   /** Staff username (an email also works for older accounts). */
   username: string;
   password: string;
+  /** Device details for the security log (see lib/client-info). */
+  client?: Record<string, unknown>;
 }
 
 export interface RegisterDto {

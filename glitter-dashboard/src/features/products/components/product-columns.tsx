@@ -37,6 +37,8 @@ interface ProductColumnsContext {
     hasBranchFilter?: boolean;
     wishlistCounts?: Record<string, number>;
     onDelete: (product: Product) => void;
+    /** Admin only: show Edit / Delete (others can just view). */
+    canManage?: boolean;
 }
 
 const STATUS_STYLES: Record<ProductStatus, { bg: string; dot: string }> = {
@@ -120,6 +122,7 @@ export function getProductColumns({
                                       hasBranchFilter,
                                       wishlistCounts,
                                       onDelete,
+                                      canManage = false,
                                   }: ProductColumnsContext): ColumnDef<Product>[] {
     return [
         {
@@ -349,22 +352,26 @@ export function getProductColumns({
                                         </Link>
                                     }
                                 />
-                                <DropdownMenuItem
-                                    render={
-                                        <Link href={`/dashboard/products/${product.id}/edit`}>
-                                            <Edit className="mr-2 size-4"/>
-                                            {t('product.action.edit')}
-                                        </Link>
-                                    }
-                                />
-                                <DropdownMenuSeparator/>
-                                <DropdownMenuItem
-                                    onClick={() => onDelete(product)}
-                                    className="text-destructive focus:text-destructive"
-                                >
-                                    <Trash2 className="mr-2 size-4"/>
-                                    {t('product.action.delete')}
-                                </DropdownMenuItem>
+                                {canManage && (
+                                    <>
+                                        <DropdownMenuItem
+                                            render={
+                                                <Link href={`/dashboard/products/${product.id}/edit`}>
+                                                    <Edit className="mr-2 size-4"/>
+                                                    {t('product.action.edit')}
+                                                </Link>
+                                            }
+                                        />
+                                        <DropdownMenuSeparator/>
+                                        <DropdownMenuItem
+                                            onClick={() => onDelete(product)}
+                                            className="text-destructive focus:text-destructive"
+                                        >
+                                            <Trash2 className="mr-2 size-4"/>
+                                            {t('product.action.delete')}
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>

@@ -119,7 +119,7 @@ export function SiteFooter({
                 <div className="lg:col-span-2">
                     <Link href="/" className="flex items-center gap-2.5">
                         {logo ? (
-                            <SafeImg
+                            <img // eslint-disable-line @next/next/no-img-element
                                 src={logo}
                                 alt={shopName}
                                 style={{ borderRadius: `${config.logoRadius}%` }}

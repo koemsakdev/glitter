@@ -3,7 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { KeyRound, Loader2 } from 'lucide-react';
-import { authInputCls } from '@/components/auth/auth-shell';
+import {
+    authInputCls,
+    authPrimaryBtnCls,
+} from '@/components/auth/auth-shell';
 import { useAuth } from '@/lib/auth';
 import { tr, type Lang } from '@/lib/locale';
 
@@ -18,20 +21,25 @@ export function VerifyEmailStep({
     lang,
     email,
     onBack,
+    initialError = '',
 }: {
     lang: Lang;
     email: string;
     onBack: () => void;
+    /** e.g. the code couldn't be emailed at sign-up — shown until resend. */
+    initialError?: string;
 }) {
     const router = useRouter();
     const { confirmEmail, resendEmailCode } = useAuth();
     const [code, setCode] = useState('');
-    const [error, setError] = useState('');
+    const [error, setError] = useState(initialError);
     const [notice, setNotice] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [resending, setResending] = useState(false);
     // A code was just sent when this step opened.
-    const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
+    const [cooldown, setCooldown] = useState(
+        initialError ? 0 : RESEND_COOLDOWN,
+    );
 
     useEffect(() => {
         if (cooldown <= 0) return;
@@ -81,7 +89,7 @@ export function VerifyEmailStep({
                     {tr(lang, 'verificationCode')}
                 </label>
                 <div className="relative">
-                    <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+                    <KeyRound className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
                     <input
                         value={code}
                         onChange={(e) =>
@@ -112,7 +120,7 @@ export function VerifyEmailStep({
             <button
                 type="submit"
                 disabled={submitting}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-(--brand) px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-all hover:-translate-y-0.5 hover:opacity-95 disabled:translate-y-0 disabled:opacity-60"
+                className={authPrimaryBtnCls}
             >
                 {submitting && <Loader2 className="size-4 animate-spin" />}
                 {submitting

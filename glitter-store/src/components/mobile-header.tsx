@@ -1,6 +1,5 @@
 'use client';
 
-import { SafeImg } from '@/components/ui/safe-img';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { HeaderSearch } from '@/components/header-search';
@@ -79,7 +78,7 @@ export function MobileHeader({
                     className="flex min-w-0 items-center gap-2"
                 >
                     {logo ? (
-                        <SafeImg
+                        <img // eslint-disable-line @next/next/no-img-element
                             src={logo}
                             alt={brand}
                             style={{ borderRadius: `${config.logoRadius}%` }}

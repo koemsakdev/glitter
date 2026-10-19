@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/field';
 import {Input} from '@/components/ui/input';
 import {useLogin} from '@/features/auth/use-auth';
+import { collectClientInfo } from '@/lib/client-info';
 import {getErrorMessage} from '@/lib/api-client';
 import {useI18n} from '@/lib/i18n';
 import Image from 'next/image';
@@ -44,7 +45,10 @@ export function LoginForm() {
 
     async function onSubmit(values: LoginFormValues) {
         try {
-            const result = await login.mutateAsync(values);
+            const result = await login.mutateAsync({
+                ...values,
+                client: collectClientInfo(),
+            });
 
             if (result.user.role === 'customer') {
                 toast({

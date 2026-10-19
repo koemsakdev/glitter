@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { useActiveBranches } from '@/features/branches/use-branches';
-import { useSelectedBranchId } from '@/stores/use-branch-context';
+import {
+    useLockedBranchId,
+    useSelectedBranchId,
+} from '@/stores/use-branch-context';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import type { VariantStockEntry } from '@/features/inventory-branch/components/variant-stock-dialog';
@@ -77,7 +80,11 @@ export function VariantStockMatrix({
 
     // null = still following the defaults (until the user edits the list).
     const [picked, setPicked] = useState<string[] | null>(null);
-    const locations = picked ?? defaultLocations;
+    // Managers can only stock their own branch (the API enforces it too).
+    const lockedBranchId = useLockedBranchId();
+    const locations = lockedBranchId
+        ? [lockedBranchId]
+        : (picked ?? defaultLocations);
 
     const options: ComboboxOption[] = branches
         .filter((b) => !locations.includes(b.id))
@@ -149,7 +156,7 @@ export function VariantStockMatrix({
                         <MapPin className="size-4 text-pink-500" />
                         {t('product.stock.locations')}
                     </span>
-                    {branches.length > locations.length && (
+                    {!lockedBranchId && branches.length > locations.length && (
                         <button
                             type="button"
                             onClick={() => setPicked(branches.map((b) => b.id))}
@@ -170,7 +177,7 @@ export function VariantStockMatrix({
                         >
                             <Store className="size-3" />
                             {name(id)}
-                            {locations.length > 1 && (
+                            {locations.length > 1 && !lockedBranchId && (
                                 <button
                                     type="button"
                                     onClick={() => removeLocation(id)}
@@ -182,7 +189,7 @@ export function VariantStockMatrix({
                             )}
                         </span>
                     ))}
-                    {options.length > 0 && (
+                    {options.length > 0 && !lockedBranchId && (
                         <div className="w-52">
                             <Combobox
                                 options={options}

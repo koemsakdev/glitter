@@ -3,17 +3,19 @@ import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 
 /**
- * Provider-agnostic SMTP mailer. Reads standard SMTP env vars, so it works with
- * Gmail, Brevo, a cPanel mailbox, etc. without code changes:
+ * Outgoing email. Two transports, picked from env:
  *
- *   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM
- *
- * Port 465 uses implicit SSL; anything else (e.g. 587) uses STARTTLS.
+ *   1. Your own Gmail via a Google Apps Script web app, over HTTPS — works on
+ *      hosts like Render whose free plan blocks outbound SMTP ports:
+ *      GMAIL_SCRIPT_URL + GMAIL_SCRIPT_SECRET (see docs/gmail-sender.gs)
+ *   2. Any SMTP server (Gmail app password, cPanel, …):
+ *      SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM
  */
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly transporter: Transporter | null = null;
+  private readonly scriptUrl = process.env.GMAIL_SCRIPT_URL || null;
   private readonly from: string;
 
   constructor() {
@@ -23,24 +25,29 @@ export class MailService {
     const pass = process.env.SMTP_PASS;
     this.from = process.env.MAIL_FROM || (user ? `Glitter <${user}>` : '');
 
-    if (host && user && pass) {
+    if (this.scriptUrl) {
+      this.logger.log('Email via Gmail (Apps Script) ready.');
+    } else if (host && user && pass) {
       this.transporter = nodemailer.createTransport({
         host,
         port,
         secure: port === 465,
         auth: { user, pass },
+        // Fail fast instead of hanging when a host blocks SMTP ports.
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
       });
       this.logger.log(`SMTP mailer ready (${host}:${port}).`);
     } else {
       this.logger.warn(
-        'SMTP not configured (SMTP_HOST/USER/PASS missing) — emails will not be sent.',
+        'Email not configured (set GMAIL_SCRIPT_URL or SMTP_*) — emails will not be sent.',
       );
     }
   }
 
-  /** Whether the mailer has valid SMTP credentials. */
+  /** Whether some email transport is configured. */
   get isConfigured(): boolean {
-    return this.transporter !== null;
+    return this.scriptUrl !== null || this.transporter !== null;
   }
 
   async send(params: {
@@ -49,6 +56,10 @@ export class MailService {
     html: string;
     text?: string;
   }): Promise<void> {
+    if (this.scriptUrl) {
+      await this.sendViaGmailScript(params);
+      return;
+    }
     if (!this.transporter) {
       throw new Error('Email service is not configured');
     }
@@ -59,6 +70,39 @@ export class MailService {
       html: params.html,
       text: params.text,
     });
+  }
+
+  /** POST to the Apps Script web app, which sends from your Gmail. */
+  private async sendViaGmailScript(params: {
+    to: string;
+    subject: string;
+    html: string;
+    text?: string;
+  }): Promise<void> {
+    const res = await fetch(this.scriptUrl!, {
+      method: 'POST',
+      // text/plain avoids a CORS preflight Apps Script can't answer.
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        secret: process.env.GMAIL_SCRIPT_SECRET ?? '',
+        to: params.to,
+        subject: params.subject,
+        html: params.html,
+        text: params.text ?? '',
+        name: process.env.MAIL_FROM_NAME || 'Glitter Shop',
+      }),
+      redirect: 'follow',
+      signal: AbortSignal.timeout(20_000),
+    });
+    const body = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      error?: string;
+    } | null;
+    if (!res.ok || !body?.ok) {
+      const reason = body?.error ?? `HTTP ${res.status}`;
+      this.logger.error(`Gmail script send failed: ${reason}`);
+      throw new Error(`Could not send email (${reason})`);
+    }
   }
 
   /** A simple branded one-time-code email. */

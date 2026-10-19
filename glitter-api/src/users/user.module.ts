@@ -4,7 +4,7 @@ import { UsersService } from './user.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthAccountEntity } from './entities/auth-account.entity';
 import { UserEntity } from './entities/user.entity';
-import { BranchEntity } from 'src/branch/entities/branch.entity';
+import { BranchEntity } from '../branch/entities/branch.entity';
 
 @Module({
   imports: [

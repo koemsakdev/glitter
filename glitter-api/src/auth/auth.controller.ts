@@ -8,7 +8,9 @@ import {
   HttpStatus,
   Param,
   Post,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import type { AuthProvider } from '../users/entities/auth-account.entity';
 import {
   ApiBearerAuth,
@@ -70,9 +72,11 @@ export class AuthController {
     status: 409,
     description: 'Email or phone already registered',
   })
-  async register(
-    @Body() dto: RegisterDto,
-  ): Promise<{ requiresVerification: true; email: string }> {
+  async register(@Body() dto: RegisterDto): Promise<{
+    requiresVerification: true;
+    email: string;
+    emailSent: boolean;
+  }> {
     return this.authService.register(dto);
   }
 
@@ -148,8 +152,8 @@ export class AuthController {
   @ApiBody({ type: StaffLoginDto })
   @ApiResponse({ status: 200, type: AuthResponseDto })
   @ApiResponse({ status: 401, description: 'Invalid username or password' })
-  async staffLogin(@Body() dto: StaffLoginDto) {
-    const { user, tokens } = await this.authService.staffLogin(dto);
+  async staffLogin(@Body() dto: StaffLoginDto, @Req() req: Request) {
+    const { user, tokens } = await this.authService.staffLogin(dto, req);
     const userResponse = await this.usersService.findOne(user.id);
     return {
       user: userResponse.data,

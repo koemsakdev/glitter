@@ -1,5 +1,11 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class StaffLoginDto {
   @ApiProperty({
@@ -15,4 +21,12 @@ export class StaffLoginDto {
   @IsString()
   @IsNotEmpty()
   password!: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Device details from the login page (timezone, language, screen…) for the security log',
+  })
+  @IsOptional()
+  @IsObject()
+  client?: Record<string, unknown>;
 }

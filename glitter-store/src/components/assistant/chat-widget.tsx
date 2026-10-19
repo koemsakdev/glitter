@@ -461,7 +461,8 @@ function Avatar({
             }`}
         >
             {logoUrl ? (
-                <SafeImg src={logoUrl} alt="" className="size-full object-cover" />
+                <img // eslint-disable-line @next/next/no-img-element
+ src={logoUrl} alt="" className="size-full object-cover" />
             ) : (
                 <ChatGlyph className="size-4 text-(--brand)" />
             )}

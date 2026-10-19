@@ -1,4 +1,5 @@
 export { DataTable } from "./data-table";
+export type { DataTableColumnMeta, DataTableSort } from "./data-table";
 export { DataTableEmpty } from "./data-table-empty";
 export { DataTableFilterTabs } from "./data-table-filter-tabs";
 export { DataTablePagination } from "./data-table-pagination";

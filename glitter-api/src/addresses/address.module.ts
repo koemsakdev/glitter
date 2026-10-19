@@ -3,7 +3,7 @@ import { AddressesController } from './address.controller';
 import { AddressesCustomerController } from './address-customer.controller';
 import { AddressesService } from './address.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { UserEntity } from 'src/users/entities/user.entity';
+import { UserEntity } from '../users/entities/user.entity';
 import { AddressEntity } from './entities/address.entity';
 import { CommonModule } from '../common/common.module';
 

@@ -146,7 +146,7 @@ export class ProductImagesController {
     type: ProductImageDetailResponseDto,
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   @ApiResponse({
     status: 400,
     description: 'Invalid input or product not found',
@@ -217,7 +217,7 @@ export class ProductImagesController {
     type: ProductImageBulkResponseDto,
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   async createBulk(
     @Body('productId') productId: string,
     @Body('imageType') imageType: ImageType = 'gallery',
@@ -367,7 +367,7 @@ export class ProductImagesController {
     type: ProductImageDetailResponseDto,
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   @ApiResponse({ status: 404, description: 'Image not found' })
   async update(
     @Param('id') id: string,
@@ -406,7 +406,7 @@ export class ProductImagesController {
     type: ProductImageListResponseDto,
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   @ApiResponse({ status: 400, description: 'Invalid image IDs' })
   @ApiResponse({ status: 404, description: 'Product not found' })
   async reorder(
@@ -432,7 +432,7 @@ export class ProductImagesController {
     description: 'Image UUID',
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   @ApiResponse({ status: 204, description: 'Image deleted successfully' })
   @ApiResponse({ status: 404, description: 'Image not found' })
   async delete(@Param('id') id: string): Promise<void> {
@@ -456,7 +456,7 @@ export class ProductImagesController {
     description: 'Product UUID',
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   @ApiResponse({ status: 204, description: 'All images deleted successfully' })
   async deleteByProduct(@Param('productId') productId: string): Promise<void> {
     return this.productImagesService.deleteByProduct(productId);

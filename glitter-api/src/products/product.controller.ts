@@ -58,7 +58,7 @@ export class ProductsController {
     type: ProductDetailResponseDto,
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   async create(@Body() dto: CreateProductDto): Promise<ProductDetailResponse> {
     return this.productsService.create(dto);
   }
@@ -175,7 +175,7 @@ export class ProductsController {
       'Partial update. Note: totalStock is not editable here — it is derived from variants. Use variant endpoints to change stock.',
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, type: ProductDetailResponseDto })
   async update(
@@ -197,7 +197,7 @@ export class ProductsController {
       'Recomputes product.totalStock as SUM(variant.quantityInStock). Useful if totalStock has drifted due to manual DB changes or legacy data.',
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, type: ProductDetailResponseDto })
   @ApiResponse({ status: 404, description: 'Product not found' })
@@ -212,7 +212,7 @@ export class ProductsController {
     description: 'Sets status to archived without deleting',
   })
   @UseGuards(RolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, type: ProductDetailResponseDto })
   async archive(@Param('id') id: string): Promise<ProductDetailResponse> {

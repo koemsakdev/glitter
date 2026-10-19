@@ -23,6 +23,14 @@ export const orderApi = {
                 ...(query.status ? { status: query.status } : {}),
                 ...(query.branchId ? { branchId: query.branchId } : {}),
                 ...(query.search ? { search: query.search } : {}),
+                ...(query.paymentStatus
+                    ? { paymentStatus: query.paymentStatus }
+                    : {}),
+                ...(query.from ? { from: query.from } : {}),
+                ...(query.to ? { to: query.to } : {}),
+                ...(query.sortBy
+                    ? { sortBy: query.sortBy, sortOrder: query.sortOrder }
+                    : {}),
             },
         });
         return data;

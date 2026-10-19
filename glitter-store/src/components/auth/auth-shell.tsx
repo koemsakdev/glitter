@@ -1,6 +1,5 @@
 'use client';
 
-import { SafeImg } from '@/components/ui/safe-img';
 import type { ReactNode } from 'react';
 import type { Lang } from '@/lib/locale';
 
@@ -39,7 +38,7 @@ export function AuthShell({
                     {/* Store logo (falls back to the brand initial) */}
                     <span className="mx-auto flex size-16 items-center justify-center overflow-hidden rounded-2xl bg-(--brand)/10 ring-1 ring-(--brand)/15">
                         {logoUrl ? (
-                            <SafeImg
+                            <img // eslint-disable-line @next/next/no-img-element
                                 src={logoUrl}
                                 alt={brandName ?? ''}
                                 className="size-full object-cover"
@@ -66,11 +65,18 @@ export function AuthShell({
 
 /** Shared input styling for the auth forms (leading icon, brand focus ring). */
 export const authInputCls =
-    'h-11 w-full rounded-xl border border-zinc-200 bg-white pl-10 pr-3 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-(--brand) focus:ring-2 focus:ring-(--brand)/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500';
+    'h-11 w-full rounded-full border border-zinc-200 bg-zinc-50/60 pl-11 pr-4 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 hover:border-zinc-300 focus:border-(--brand) focus:bg-white focus:ring-4 focus:ring-(--brand)/15 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:hover:border-zinc-600 dark:focus:bg-zinc-950';
+
+/**
+ * Primary form button (Log in / Sign up / Verify). Same pill shape, width
+ * and 40px height as the Google button below it, so the two line up.
+ */
+export const authPrimaryBtnCls =
+    'flex h-10 w-full items-center justify-center gap-2 rounded-full bg-(--brand) px-5 text-sm font-semibold text-white shadow-md shadow-(--brand)/25 transition-all hover:opacity-95 hover:shadow-lg hover:shadow-(--brand)/30 active:scale-[0.99] disabled:opacity-60 disabled:shadow-none';
 
 /** Shared social-login button styling — matches authInputCls (height, radius, border). */
 export const authSocialBtnCls =
-    'relative flex h-11 w-full items-center justify-center gap-2.5 overflow-hidden rounded-xl border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-50 focus-within:border-(--brand) focus-within:ring-2 focus-within:ring-(--brand)/20 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-900';
+    'relative flex h-10 w-full items-center justify-center gap-2.5 overflow-hidden rounded-full border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-50 focus-within:border-(--brand) focus-within:ring-2 focus-within:ring-(--brand)/20 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-900';
 
 /** Compact pill variant for the connected-accounts rows. */
 export const authSocialCompactBtnCls =

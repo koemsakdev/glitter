@@ -26,6 +26,7 @@ import { ResponsiveModal } from '@/components/responsive-modal';
 import { MarqueeText } from '@/components/ui/marquee-text';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { useActiveBranches } from '@/features/branches/use-branches';
+import { useLockedBranchId } from '@/stores/use-branch-context';
 import {
     INVENTORY_PAGE_SIZE,
     LOW_STOCK_THRESHOLD,
@@ -60,7 +61,9 @@ export default function InventoryPage() {
         variant: InventoryVariantRow;
     } | null>(null);
 
-    const branchId = picked || branches?.[0]?.id || '';
+    // Managers/cashiers only see their own branch.
+    const lockedBranchId = useLockedBranchId();
+    const branchId = lockedBranchId || picked || branches?.[0]?.id || '';
 
     // Reset to the first page (and collapse rows) when the branch or search changes.
     useEffect(() => {
@@ -115,6 +118,7 @@ export default function InventoryPage() {
                     {/* Branch filter — a single outlined dropdown button */}
                     <Select
                         value={branchId}
+                        disabled={Boolean(lockedBranchId)}
                         onValueChange={(v) => v && setPicked(v)}
                     >
                         <SelectTrigger

@@ -97,7 +97,25 @@ export interface OrderListParams {
   status?: string;
   branchId?: string;
   search?: string;
+  paymentStatus?: string;
+  /** Inclusive local dates, 'YYYY-MM-DD'. */
+  from?: string;
+  to?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
 }
+
+/** Sortable list columns → SQL (allow-list: never interpolate user input). */
+const ORDER_SORT_COLUMNS: Record<string, string> = {
+  createdAt: 'order.createdAt',
+  orderNumber: 'order.orderNumber',
+  grandTotal: 'order.grandTotal',
+  status: 'order.status',
+  paymentStatus: 'order.paymentStatus',
+  customerName: 'order.customerName',
+  source: 'order.source',
+  branchName: 'branch.branchNameEn',
+};
 
 @Injectable()
 export class OrdersService {
@@ -530,7 +548,7 @@ export class OrdersService {
           orderId: o.id,
           hasProof: Boolean(o.paymentProofUrl),
         },
-        '/dashboard/orders',
+        `/dashboard/orders/${o.id}`,
       );
     }
 
@@ -565,6 +583,21 @@ export class OrdersService {
     if (params.branchId) {
       qb.andWhere('order.branchId = :branchId', { branchId: params.branchId });
     }
+    if (params.paymentStatus) {
+      qb.andWhere('order.paymentStatus = :paymentStatus', {
+        paymentStatus: params.paymentStatus,
+      });
+    }
+    if (params.from) {
+      qb.andWhere('order.createdAt >= :from', {
+        from: new Date(`${params.from}T00:00:00`),
+      });
+    }
+    if (params.to) {
+      qb.andWhere('order.createdAt <= :to', {
+        to: new Date(`${params.to}T23:59:59.999`),
+      });
+    }
     const term = params.search?.trim();
     if (term) {
       qb.andWhere(
@@ -573,7 +606,17 @@ export class OrdersService {
       );
     }
 
-    qb.orderBy('order.createdAt', 'DESC').skip(skip).take(limit);
+    const sortCol =
+      ORDER_SORT_COLUMNS[params.sortBy ?? ''] ?? 'order.createdAt';
+    const sortDir = params.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    qb.orderBy(
+      sortCol,
+      sortDir,
+      sortDir === 'ASC' ? 'NULLS FIRST' : 'NULLS LAST',
+    );
+    // Stable order for ties (same status/total…): newest first.
+    if (sortCol !== 'order.createdAt') qb.addOrderBy('order.createdAt', 'DESC');
+    qb.skip(skip).take(limit);
 
     const [orders, total] = await qb.getManyAndCount();
 
@@ -800,6 +843,16 @@ export class OrdersService {
   // ---------------------------------------------------------------------------
   // Update status (with stock side effects)
   // ---------------------------------------------------------------------------
+
+  /** The branch an order belongs to (for staff branch checks). */
+  async getBranchId(id: string): Promise<string> {
+    const order = await this.orderRepository.findOne({
+      where: { id },
+      select: ['id', 'branchId'],
+    });
+    if (order === null) throw new NotFoundException(`Order ${id} not found`);
+    return order.branchId;
+  }
 
   async updateStatus(
     id: string,

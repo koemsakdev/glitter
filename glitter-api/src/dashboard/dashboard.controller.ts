@@ -1,16 +1,13 @@
-import {
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { resolveBranchScope } from '../common/helpers/branch-scope.helper';
+import { UserEntity } from '../users/entities/user.entity';
 import { UseGuards } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -59,13 +56,16 @@ export class DashboardController {
   @UseGuards(RolesGuard)
   @Roles('admin', 'manager')
   async getStats(
+    @CurrentUser() user: UserEntity,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('branchId') branchId?: string,
   ): Promise<{ data: DashboardStatsResponse }> {
-    const stats: DashboardStatsResponse = await this.dashboardService.getStats({
-      from,
-      to,
-    });
+    // Managers only ever see their own branch's sales; admins may filter.
+    const stats: DashboardStatsResponse = await this.dashboardService.getStats(
+      { from, to },
+      resolveBranchScope(user, branchId),
+    );
     return { data: stats };
   }
 }
