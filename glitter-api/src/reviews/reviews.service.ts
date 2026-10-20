@@ -195,7 +195,7 @@ export class ReviewsService {
       throw new NotFoundException(`Review ${id} not found`);
     }
     const productId = review.productId;
-    await this.reviewRepo.remove(review);
+    await this.reviewRepo.softRemove(review);
     await this.recompute(productId);
     this.realtime.publish('reviews');
     this.realtime.publish('products');

@@ -11,6 +11,7 @@ import { RoleAccessGuide } from '@/features/users/components/role-access';
 import { useDeleteUser, useUsers } from '@/features/users/use-users';
 import { getErrorMessage } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
+import { useTableSort } from '@/hooks/use-table-sort';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/auth-store';
 import {
@@ -41,6 +42,8 @@ export default function StaffPage() {
     const deleteUser = useDeleteUser();
 
     const [page, setPage] = useState(1);
+    // Click-to-sort columns (server-side).
+    const tableSort = useTableSort('role', true, () => setPage(1));
     const [pageSize, setPageSize] = useState(10);
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState<UserRole | ''>('');
@@ -51,6 +54,8 @@ export default function StaffPage() {
     const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
     const { data, isLoading, isFetching } = useUsers({
+        sortBy: tableSort.sortBy,
+        sortOrder: tableSort.sortOrder,
         page,
         limit: pageSize,
         staffOnly: true,
@@ -151,6 +156,8 @@ export default function StaffPage() {
                     </div>
                 }
                 columns={columns}
+            sort={tableSort.sort}
+            onSortChange={tableSort.onSortChange}
                 data={data?.data ?? []}
                 isLoading={isLoading}
                 isFetching={isFetching}

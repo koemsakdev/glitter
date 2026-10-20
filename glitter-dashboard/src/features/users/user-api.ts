@@ -31,6 +31,9 @@ export const userApi = {
                     : {}),
                 ...(query.branchId ? { branchId: query.branchId } : {}),
                 ...(query.staffOnly ? { staffOnly: true } : {}),
+                ...(query.sortBy
+                    ? { sortBy: query.sortBy, sortOrder: query.sortOrder }
+                    : {}),
             },
         });
         return data;

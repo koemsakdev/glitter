@@ -324,11 +324,13 @@ export class AuthService {
       );
     }
 
+    const tokens = this.issueTokens(user);
     void this.loginSecurity.record(req, {
       success: true,
       usernameTried: id,
       user,
       clientInfo: dto.client,
+      refreshToken: tokens.refreshToken,
     });
     void this.audit.record({
       actor: user,
@@ -339,7 +341,7 @@ export class AuthService {
       path: '/api/auth/staff/login',
       ip,
     });
-    return { user, tokens: this.issueTokens(user) };
+    return { user, tokens };
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
@@ -611,6 +613,8 @@ export class AuthService {
    */
   async logout(userId: string): Promise<void> {
     await this.usersService.invalidateTokens(userId);
+    // Sign-out ends every session (tokens invalidated) — stamp them all.
+    await this.loginSecurity.recordLogout(userId);
   }
 
   // ==========================================================================

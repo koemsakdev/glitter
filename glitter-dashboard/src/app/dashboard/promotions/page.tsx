@@ -3,17 +3,16 @@
 import {
     CalendarClock,
     Loader,
-    Pencil,
     Plus,
     Search,
     Sparkles,
     Ticket,
-    Trash2,
     X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { Button } from '@/components/ui/button';
+import { RowActions } from '@/components/resource/row-actions';
 import { Switch } from '@/components/ui/switch';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { VoucherFormDialog } from '@/features/vouchers/voucher-form-dialog';
@@ -235,125 +234,129 @@ export default function PromotionsPage() {
                     ) : (
                         <div className="stagger grid grid-cols-1 gap-3 lg:grid-cols-2">
                             {filtered.map((v) => {
-                        const expired = !!v.endAt && v.endAt < today();
-                        const scheduled = !!v.startAt && v.startAt > today();
-                        const usedUp =
-                            v.usageLimit != null &&
-                            v.usedCount >= v.usageLimit;
-                        return (
-                            <div
-                                key={v.id}
-                                className={cn(
-                                    'flex flex-col gap-3 rounded-xl border bg-card p-4 transition-opacity sm:flex-row sm:items-center',
-                                    (!v.active || expired || usedUp) &&
-                                        'opacity-60',
-                                )}
-                            >
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <span className="font-semibold">
-                                            {vName(v)}
-                                        </span>
-                                        {v.code ? (
-                                            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-mono text-xs font-semibold uppercase">
-                                                <Ticket className="size-3" />
-                                                {v.code}
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
-                                                <Sparkles className="size-3" />
-                                                {t('voucher.automatic')}
-                                            </span>
+                                const expired = !!v.endAt && v.endAt < today();
+                                const scheduled =
+                                    !!v.startAt && v.startAt > today();
+                                const usedUp =
+                                    v.usageLimit != null &&
+                                    v.usedCount >= v.usageLimit;
+                                return (
+                                    <div
+                                        key={v.id}
+                                        className={cn(
+                                            'flex flex-col gap-3 rounded-xl border bg-card p-4 transition-opacity sm:flex-row sm:items-center',
+                                            (!v.active || expired || usedUp) &&
+                                                'opacity-60',
                                         )}
-                                        {expired && (
-                                            <span className="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
-                                                {t('voucher.expired')}
-                                            </span>
-                                        )}
-                                        {scheduled && !expired && (
-                                            <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
-                                                {t('voucher.scheduled')}
-                                            </span>
-                                        )}
-                                        {(v.firstOrderOnly ||
-                                            v.newAccountDays != null) && (
-                                            <span className="rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600 dark:bg-violet-500/10 dark:text-violet-300">
-                                                {t('voucher.newCustomers')}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <p className="mt-1 text-sm">
-                                        <span className="font-bold text-pink-600 dark:text-pink-400">
-                                            {discountText(v)}
-                                        </span>
-                                        {v.minSpend > 0 && (
-                                            <span className="text-muted-foreground">
-                                                {' · '}
-                                                {t('voucher.minSpendShort')} $
-                                                {v.minSpend}
-                                            </span>
-                                        )}
-                                        {v.discountType === 'percent' &&
-                                            !!v.maxDiscount &&
-                                            v.maxDiscount > 0 && (
-                                                <span className="text-muted-foreground">
-                                                    {' · '}
-                                                    {t('voucher.capShort')} $
-                                                    {v.maxDiscount}
+                                    >
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="font-semibold">
+                                                    {vName(v)}
                                                 </span>
-                                            )}
-                                    </p>
+                                                {v.code ? (
+                                                    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-mono text-xs font-semibold uppercase">
+                                                        <Ticket className="size-3" />
+                                                        {v.code}
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
+                                                        <Sparkles className="size-3" />
+                                                        {t('voucher.automatic')}
+                                                    </span>
+                                                )}
+                                                {expired && (
+                                                    <span className="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+                                                        {t('voucher.expired')}
+                                                    </span>
+                                                )}
+                                                {scheduled && !expired && (
+                                                    <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
+                                                        {t('voucher.scheduled')}
+                                                    </span>
+                                                )}
+                                                {(v.firstOrderOnly ||
+                                                    v.newAccountDays !=
+                                                        null) && (
+                                                    <span className="rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600 dark:bg-violet-500/10 dark:text-violet-300">
+                                                        {t(
+                                                            'voucher.newCustomers',
+                                                        )}
+                                                    </span>
+                                                )}
+                                            </div>
 
-                                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                        {(v.startAt || v.endAt) && (
-                                            <span className="flex items-center gap-1">
-                                                <CalendarClock className="size-3" />
-                                                {v.startAt ?? '…'} →{' '}
-                                                {v.endAt ?? '…'}
-                                            </span>
-                                        )}
-                                        <span>
-                                            {t('voucher.used')}: {v.usedCount}
-                                            {v.usageLimit != null
-                                                ? ` / ${v.usageLimit}`
-                                                : ''}
-                                        </span>
+                                            <p className="mt-1 text-sm">
+                                                <span className="font-bold text-pink-600 dark:text-pink-400">
+                                                    {discountText(v)}
+                                                </span>
+                                                {v.minSpend > 0 && (
+                                                    <span className="text-muted-foreground">
+                                                        {' · '}
+                                                        {t(
+                                                            'voucher.minSpendShort',
+                                                        )}{' '}
+                                                        ${v.minSpend}
+                                                    </span>
+                                                )}
+                                                {v.discountType === 'percent' &&
+                                                    !!v.maxDiscount &&
+                                                    v.maxDiscount > 0 && (
+                                                        <span className="text-muted-foreground">
+                                                            {' · '}
+                                                            {t(
+                                                                'voucher.capShort',
+                                                            )}{' '}
+                                                            ${v.maxDiscount}
+                                                        </span>
+                                                    )}
+                                            </p>
+
+                                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                {(v.startAt || v.endAt) && (
+                                                    <span className="flex items-center gap-1">
+                                                        <CalendarClock className="size-3" />
+                                                        {v.startAt ?? '…'} →{' '}
+                                                        {v.endAt ?? '…'}
+                                                    </span>
+                                                )}
+                                                <span>
+                                                    {t('voucher.used')}:{' '}
+                                                    {v.usedCount}
+                                                    {v.usageLimit != null
+                                                        ? ` / ${v.usageLimit}`
+                                                        : ''}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-1 self-end sm:self-center">
+                                            <Switch
+                                                size="lg"
+                                                checked={v.active}
+                                                onCheckedChange={() =>
+                                                    toggleActive(v)
+                                                }
+                                                title={
+                                                    v.active
+                                                        ? t(
+                                                              'voucher.deactivate',
+                                                          )
+                                                        : t('voucher.activate')
+                                                }
+                                            />
+                                            <RowActions
+                                                onEdit={() => openForm(v)}
+                                                onDelete={() => setDeleting(v)}
+                                                audit={{
+                                                    entity: 'vouchers',
+                                                    id: v.id,
+                                                    label: v.nameEn,
+                                                }}
+                                            />
+                                        </div>
                                     </div>
-                                </div>
-
-                                <div className="flex items-center gap-1 self-end sm:self-center">
-                                    <Switch
-                                        size="lg"
-                                        checked={v.active}
-                                        onCheckedChange={() => toggleActive(v)}
-                                        title={
-                                            v.active
-                                                ? t('voucher.deactivate')
-                                                : t('voucher.activate')
-                                        }
-                                    />
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="size-8 text-muted-foreground hover:bg-blue-50 hover:text-blue-600"
-                                        title={t('common.edit')}
-                                        onClick={() => openForm(v)}
-                                    >
-                                        <Pencil className="size-4" />
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="size-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                        title={t('common.delete')}
-                                        onClick={() => setDeleting(v)}
-                                    >
-                                        <Trash2 className="size-4" />
-                                    </Button>
-                                </div>
-                            </div>
-                        );
+                                );
                             })}
                         </div>
                     )}

@@ -1,31 +1,17 @@
 'use client';
 
-import type {ColumnDef} from '@tanstack/react-table';
-import {
-    Edit,
-    Eye,
-    Heart,
-    ImageIcon,
-    MoreHorizontal,
-    Trash2,
-} from 'lucide-react';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Heart, ImageIcon } from 'lucide-react';
 import { SafeImage as Image } from '@/components/ui/safe-image';
 import Link from 'next/link';
-import {Badge} from '@/components/ui/badge';
-import {Button} from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {getFileUrl} from '@/lib/file-url';
-import {formatPrice} from '@/lib/formatters';
-import type {useI18n} from '@/lib/i18n';
-import type {Brand} from '@/types/brand';
-import type {Category} from '@/types/category';
-import type {Product, ProductStatus, ProductType} from '@/types/product';
+import { Badge } from '@/components/ui/badge';
+import { RowActions } from '@/components/resource/row-actions';
+import { getFileUrl } from '@/lib/file-url';
+import { formatPrice } from '@/lib/formatters';
+import type { useI18n } from '@/lib/i18n';
+import type { Brand } from '@/types/brand';
+import type { Category } from '@/types/category';
+import type { Product, ProductStatus, ProductType } from '@/types/product';
 
 type TFunction = ReturnType<typeof useI18n>['t'];
 
@@ -79,10 +65,7 @@ const STATUS_LABELS: Record<
     archived: 'product.status.archived',
 };
 
-const TYPE_STYLES: Record<
-    ProductType,
-    { bg: string; dot: string }
-> = {
+const TYPE_STYLES: Record<ProductType, { bg: string; dot: string }> = {
     standard: {
         bg: 'border-border bg-muted/50 text-muted-foreground',
         dot: 'bg-muted-foreground/60',
@@ -115,127 +98,134 @@ const TYPE_LABELS: Record<
 };
 
 export function getProductColumns({
-                                      t,
-                                      language,
-                                      brandsById,
-                                      categoriesById,
-                                      hasBranchFilter,
-                                      wishlistCounts,
-                                      onDelete,
-                                      canManage = false,
-                                  }: ProductColumnsContext): ColumnDef<Product>[] {
+    t,
+    language,
+    brandsById,
+    categoriesById,
+    hasBranchFilter,
+    wishlistCounts,
+    onDelete,
+    canManage = false,
+}: ProductColumnsContext): ColumnDef<Product>[] {
     return [
         {
-            id: 'image',
-            header: () => t('product.field.image'),
-            size: 80,
-            cell: ({row}) => {
+            // Photo + name + SKU in one cell — easier to scan than 3 columns.
+            id: 'name',
+            meta: { sortKey: 'nameEn' },
+            header: () => t('product.field.product'),
+            cell: ({ row }) => {
                 const product = row.original;
                 const primaryImage =
-                    product.images?.find((img) => img.imageType === 'primary') ??
-                    product.images?.[0];
+                    product.images?.find(
+                        (img) => img.imageType === 'primary',
+                    ) ?? product.images?.[0];
                 const imageUrl = getFileUrl(primaryImage?.imageUrl ?? null);
-                const altName = language === 'km' ? product.nameKm : product.nameEn;
+                const name =
+                    language === 'km' ? product.nameKm : product.nameEn;
+                const other =
+                    language === 'km' ? product.nameEn : product.nameKm;
+                const showOther =
+                    other.trim() !== '' &&
+                    other.trim().toLowerCase() !== name.trim().toLowerCase();
 
                 return (
-                    <div
-                        className="flex size-12 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-muted/40 ring-1 ring-pink-200/30 dark:ring-pink-400/15">
-                        {imageUrl ? (
-                            <Image
-                                src={imageUrl}
-                                alt={altName}
-                                width={48}
-                                height={48}
-                                className="size-full object-cover"
-                                unoptimized
-                            />
-                        ) : (
-                            <ImageIcon className="size-5 text-muted-foreground/40"/>
-                        )}
+                    <div className="flex min-w-60 items-center gap-3">
+                        <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/40">
+                            {imageUrl ? (
+                                <Image
+                                    src={imageUrl}
+                                    alt={name}
+                                    width={44}
+                                    height={44}
+                                    className="size-full object-cover"
+                                    unoptimized
+                                />
+                            ) : (
+                                <ImageIcon className="size-5 text-muted-foreground/40" />
+                            )}
+                        </div>
+                        <div className="min-w-0 max-w-72">
+                            <Link
+                                href={`/dashboard/products/${product.id}`}
+                                className="block truncate font-medium text-foreground transition-colors hover:text-pink-600 dark:hover:text-pink-300"
+                                title={name}
+                            >
+                                {name}
+                            </Link>
+                            <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                                <span className="truncate font-mono text-[11px] uppercase tracking-wide">
+                                    {product.sku}
+                                </span>
+                                {showOther && (
+                                    <>
+                                        <span className="text-muted-foreground/40">
+                                            ·
+                                        </span>
+                                        <span className="truncate">
+                                            {other}
+                                        </span>
+                                    </>
+                                )}
+                            </p>
+                        </div>
                     </div>
-                );
-            },
-        },
-        {
-            id: 'name',
-            header: () => t('product.field.name'),
-            cell: ({row}) => {
-                const product = row.original;
-                const primary = language === 'km' ? product.nameKm : product.nameEn;
-                const secondary = language === 'km' ? product.nameEn : product.nameKm;
-                // Hide the secondary line when it equals the primary (your test data case)
-                const showSecondary =
-                    secondary.trim() !== '' &&
-                    secondary.trim().toLowerCase() !== primary.trim().toLowerCase();
-
-                return (
-                    <div className="flex min-w-0 flex-col">
-                        <Link
-                            href={`/dashboard/products/${product.id}`}
-                            className="truncate font-medium text-foreground transition-colors hover:text-pink-600 dark:hover:text-pink-300"
-                        >
-                            {primary}
-                        </Link>
-                        {showSecondary && (
-                            <span className="truncate text-xs text-muted-foreground">
-                {secondary}
-              </span>
-                        )}
-                    </div>
-                );
-            },
-        },
-        {
-            id: 'sku',
-            header: () => t('product.field.sku'),
-            cell: ({row}) => (
-                <span
-                    className="inline-block whitespace-nowrap rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-                  {row.original.sku}
-                </span>
-            ),
-        },
-        {
-            id: 'brand',
-            header: () => t('product.field.brand'),
-            cell: ({row}) => {
-                const brand = brandsById.get(row.original.brandId);
-                return brand ? (
-                    <span className="text-sm">{brand.name}</span>
-                ) : (
-                    <span className="text-sm text-muted-foreground">—</span>
                 );
             },
         },
         {
             id: 'category',
             header: () => t('product.field.category'),
-            cell: ({row}) => {
+            cell: ({ row }) => {
                 const category = categoriesById.get(row.original.categoryId);
-                if (!category)
-                    return <span className="text-sm text-muted-foreground">—</span>;
+                const brand = brandsById.get(row.original.brandId);
+                if (!category && !brand)
+                    return (
+                        <span className="text-sm text-muted-foreground">—</span>
+                    );
                 return (
-                    <span className="text-sm">
-            {language === 'km' ? category.nameKm : category.nameEn}
-          </span>
+                    <div className="min-w-0 max-w-44 leading-tight">
+                        <p className="truncate text-sm">
+                            {category
+                                ? language === 'km'
+                                    ? category.nameKm
+                                    : category.nameEn
+                                : '—'}
+                        </p>
+                        {brand && (
+                            <p className="truncate text-xs text-muted-foreground">
+                                {brand.name}
+                            </p>
+                        )}
+                    </div>
                 );
             },
         },
         {
             id: 'price',
+            meta: { sortKey: 'price', align: 'right' },
             header: () => t('product.field.price'),
-            cell: ({row}) => {
+            cell: ({ row }) => {
                 const product = row.original;
+                const original = product.originalPrice;
                 const hasDiscount =
-                    product.originalPrice !== null &&
-                    product.originalPrice > product.price;
+                    original !== null && original > product.price;
+                const pct = hasDiscount
+                    ? Math.round((1 - product.price / original) * 100)
+                    : 0;
                 return (
-                    <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-                        <span className="font-semibold">{formatPrice(product.price)}</span>
+                    <div className="whitespace-nowrap leading-tight">
+                        <p className="font-semibold tabular-nums">
+                            {formatPrice(product.price)}
+                        </p>
                         {hasDiscount && (
-                            <span className="text-xs text-muted-foreground line-through">
-                {formatPrice(product.originalPrice)}
-              </span>
+                            <p className="flex items-center justify-end gap-1 text-xs">
+                                <span className="text-muted-foreground line-through tabular-nums">
+                                    {formatPrice(original)}
+                                </span>
+                                <span className="rounded bg-pink-100 px-1 text-[10px] font-semibold text-pink-700 dark:bg-pink-500/15 dark:text-pink-300">
+                                    -{pct}%
+                                </span>
+                            </p>
                         )}
                     </div>
                 );
@@ -243,40 +233,58 @@ export function getProductColumns({
         },
         {
             id: 'stock',
+            meta: { sortKey: 'totalStock', align: 'right' },
             header: () => t('product.field.stock'),
             cell: ({ row }) => {
                 const product = row.original;
                 // When filtering by branch, show stock at that branch; otherwise show total
-                const displayStock = hasBranchFilter
+                const stock = hasBranchFilter
                     ? (product.branchStock ?? 0)
                     : product.totalStock;
-
-                const isOutOfStock = displayStock === 0;
-                const isLowStock = displayStock > 0 && displayStock < 10;
-
+                const tone =
+                    stock === 0
+                        ? 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'
+                        : stock < 10
+                          ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
+                          : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300';
+                const dot =
+                    stock === 0
+                        ? 'bg-red-500'
+                        : stock < 10
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500';
                 return (
                     <span
-                        className={`font-mono text-sm ${
-                            isOutOfStock
-                                ? 'text-destructive'
-                                : isLowStock
-                                    ? 'text-amber-600 dark:text-amber-400'
-                                    : 'text-foreground'
-                        }`}
+                        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${tone}`}
+                        title={
+                            stock === 0
+                                ? t('product.stock.outOfStock')
+                                : stock < 10
+                                  ? t('product.stock.low')
+                                  : undefined
+                        }
                     >
-                      {displayStock}
+                        <span className={`size-1.5 rounded-full ${dot}`} />
+                        {stock === 0 ? t('product.stock.outOfStock') : stock}
                     </span>
                 );
             },
-            size: 100,
+            size: 110,
         },
         {
             id: 'wishlists',
+            meta: { align: 'right' },
             header: () => t('product.field.wishlists'),
             cell: ({ row }) => {
                 const count = wishlistCounts?.[row.original.id] ?? 0;
                 return (
-                    <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                    <span
+                        className={`inline-flex items-center gap-1 text-sm tabular-nums ${
+                            count > 0
+                                ? 'text-foreground'
+                                : 'text-muted-foreground/60'
+                        }`}
+                    >
                         <Heart
                             className={`size-3.5 ${
                                 count > 0
@@ -292,91 +300,49 @@ export function getProductColumns({
         },
         {
             id: 'status',
+            meta: { sortKey: 'status' },
             header: () => t('product.field.status'),
-            cell: ({row}) => {
-                const status = row.original.status;
+            cell: ({ row }) => {
+                const { status, productType } = row.original;
                 const style = STATUS_STYLES[status];
+                const typeStyle = TYPE_STYLES[productType];
                 return (
-                    <Badge className={style.bg}>
-            <span
-                className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`}
-            />
-                        {t(STATUS_LABELS[status])}
-                    </Badge>
-                );
-            },
-        },
-        {
-            id: 'type',
-            header: () => t('product.field.type'),
-            cell: ({row}) => {
-                const type = row.original.productType;
-                const style = TYPE_STYLES[type];
-                return (
-                    <Badge variant="outline" className={style.bg}>
-            <span
-                className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`}
-            />
-                        {t(TYPE_LABELS[type])}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge className={style.bg}>
+                            <span
+                                className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`}
+                            />
+                            {t(STATUS_LABELS[status])}
+                        </Badge>
+                        {/* Type only when it's special — "Standard" is noise. */}
+                        {productType !== 'standard' && (
+                            <Badge variant="outline" className={typeStyle.bg}>
+                                {t(TYPE_LABELS[productType])}
+                            </Badge>
+                        )}
+                    </div>
                 );
             },
         },
         {
             id: 'actions',
-            header: () => <span className="sr-only">{t('common.actions')}</span>,
+            header: () => (
+                <span className="sr-only">{t('common.actions')}</span>
+            ),
             size: 60,
-            cell: ({row}) => {
-                const product = row.original;
-                return (
-                    <div className="text-right">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger
-                                render={
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="size-8 opacity-60 transition-opacity hover:opacity-100"
-                                    >
-                                        <MoreHorizontal className="size-4"/>
-                                        <span className="sr-only">{t('common.actions')}</span>
-                                    </Button>
-                                }
-                            />
-                            <DropdownMenuContent align="end" className="w-52">
-                                <DropdownMenuItem
-                                    render={
-                                        <Link href={`/dashboard/products/${product.id}`}>
-                                            <Eye className="mr-2 size-4"/>
-                                            {t('product.action.view')}
-                                        </Link>
-                                    }
-                                />
-                                {canManage && (
-                                    <>
-                                        <DropdownMenuItem
-                                            render={
-                                                <Link href={`/dashboard/products/${product.id}/edit`}>
-                                                    <Edit className="mr-2 size-4"/>
-                                                    {t('product.action.edit')}
-                                                </Link>
-                                            }
-                                        />
-                                        <DropdownMenuSeparator/>
-                                        <DropdownMenuItem
-                                            onClick={() => onDelete(product)}
-                                            className="text-destructive focus:text-destructive"
-                                        >
-                                            <Trash2 className="mr-2 size-4"/>
-                                            {t('product.action.delete')}
-                                        </DropdownMenuItem>
-                                    </>
-                                )}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                );
-            },
+            cell: ({ row }) => (
+                <RowActions
+                    viewHref={`/dashboard/products/${row.original.id}`}
+                    editHref={`/dashboard/products/${row.original.id}/edit`}
+                    onDelete={() => onDelete(row.original)}
+                    canManage={canManage}
+                    audit={{
+                        entity: 'products',
+                        id: row.original.id,
+                        label: row.original.nameEn,
+                    }}
+                />
+            ),
         },
     ];
 }

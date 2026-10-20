@@ -25,6 +25,8 @@ export interface DataTableSort {
  */
 export interface DataTableColumnMeta {
   sortable?: boolean;
+  /** API sort field when it differs from the column id (implies sortable). */
+  sortKey?: string;
   align?: "left" | "right" | "center";
   className?: string;
 }
@@ -118,8 +120,11 @@ export function DataTable<TData>({
                         header.column.columnDef.header,
                         header.getContext(),
                       );
-                  const sortable = Boolean(meta?.sortable && onSortChange);
-                  const active = sort?.id === header.column.id;
+                  const sortId = meta?.sortKey ?? header.column.id;
+                  const sortable = Boolean(
+                    (meta?.sortable || meta?.sortKey) && onSortChange,
+                  );
+                  const active = sort?.id === sortId;
                   return (
                     <th
                       key={header.id}
@@ -146,7 +151,7 @@ export function DataTable<TData>({
                           type="button"
                           onClick={() =>
                             onSortChange!({
-                              id: header.column.id,
+                              id: sortId,
                               // New column: start descending (biggest /
                               // newest first); same column: flip.
                               desc: active ? !sort!.desc : true,

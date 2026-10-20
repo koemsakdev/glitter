@@ -1,9 +1,10 @@
 'use client';
 
-import { Loader, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Loader, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { Button } from '@/components/ui/button';
+import { RowActions } from '@/components/resource/row-actions';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { ColorFormDialog } from '@/features/colors/color-form-dialog';
 import {
@@ -125,22 +126,15 @@ export default function ColorsPage() {
                                     {c.hex}
                                 </p>
                             </div>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-8 text-muted-foreground hover:bg-blue-50 hover:text-blue-600"
-                                onClick={() => openForm(c)}
-                            >
-                                <Pencil className="size-4" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                onClick={() => setDeleting(c)}
-                            >
-                                <Trash2 className="size-4" />
-                            </Button>
+                            <RowActions
+                                onEdit={() => openForm(c)}
+                                onDelete={() => setDeleting(c)}
+                                audit={{
+                                    entity: 'colors',
+                                    id: c.id,
+                                    label: c.nameEn,
+                                }}
+                            />
                         </div>
                     ))}
                 </div>

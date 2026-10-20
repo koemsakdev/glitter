@@ -150,7 +150,7 @@ export default function ProductsPage() {
                 },
             }),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [t, language, brandsById, categoriesById, selectedBranchId, wishlistCounts],
+        [t, language, brandsById, categoriesById, selectedBranchId, wishlistCounts, isAdmin],
     );
 
     function handleStatusChange(value: ProductStatusFilter) {
@@ -273,6 +273,13 @@ export default function ProductsPage() {
             <DataTable
                 data={products}
                 columns={columns}
+                // Click a column header to sort (same state as the Sort menu).
+                sort={{ id: sortBy, desc: sortOrder === 'DESC' }}
+                onSortChange={(s) => {
+                    setSortBy(s.id as ProductSortBy);
+                    setSortOrder(s.desc ? 'DESC' : 'ASC');
+                    setPage(1);
+                }}
                 isLoading={isLoading}
                 isFetching={isFetching}
                 emptyState={

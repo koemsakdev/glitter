@@ -88,7 +88,7 @@ export class PagesService {
     if (page === null) {
       throw new NotFoundException(`Page with ID ${id} not found`);
     }
-    await this.pageRepository.remove(page);
+    await this.pageRepository.softRemove(page);
     this.realtime.publish('pages');
   }
 

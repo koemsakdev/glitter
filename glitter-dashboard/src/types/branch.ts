@@ -31,7 +31,13 @@ export interface BranchFormValues {
     branchStatus?: BranchStatus;
 }
 
-export type BranchSortBy = 'createdAt' | 'updatedAt' | 'branchNameEn';
+export type BranchSortBy =
+    | 'createdAt'
+    | 'updatedAt'
+    | 'branchNameEn'
+    | 'branchCode'
+    | 'branchStatus'
+    | 'city';
 export type BranchSortOrder = 'ASC' | 'DESC';
 
 export interface BranchListParams {

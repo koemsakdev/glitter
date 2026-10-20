@@ -204,6 +204,7 @@ export class ProductsService {
           INNER JOIN product_variants pv ON pv.id = ib.product_variant_id
           WHERE pv.product_id = product.id
             AND ib.branch_id = :branchId
+            AND ib.deleted_at IS NULL AND pv.deleted_at IS NULL
         )`,
         { branchId: query.branchId },
       );
@@ -242,8 +243,13 @@ export class ProductsService {
       price: 'product.price',
       nameEn: 'product.nameEn',
       averageRating: 'product.averageRating',
+      sku: 'product.sku',
+      totalStock: 'product.totalStock',
+      status: 'product.status',
     };
-    qb.orderBy(sortFieldMap[sortBy], sortOrder);
+    qb.orderBy(sortFieldMap[sortBy] ?? 'product.createdAt', sortOrder);
+    // Stable order for ties (same status / stock…).
+    if (sortBy !== 'createdAt') qb.addOrderBy('product.createdAt', 'DESC');
     qb.skip(skip).take(limit);
 
     // Page + count in parallel (each is a full DB round trip).
@@ -458,7 +464,7 @@ export class ProductsService {
          FROM wishlist_items
          GROUP BY product_id
        ) w ON w.product_id = p.id
-       WHERE p.status = 'active'
+       WHERE p.status = 'active' AND p.deleted_at IS NULL
        ORDER BY (
          COALESCE(s.sold, 0) * 5
          + COALESCE(w.wishes, 0) * 3
@@ -661,7 +667,7 @@ export class ProductsService {
       throw new NotFoundException(`Product with ID ${id} not found`);
     }
 
-    await this.productRepository.remove(product);
+    await this.productRepository.softRemove(product);
     this.realtime.publish('products');
   }
 

@@ -6,6 +6,7 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 import { AdPlacementEntity } from './ad-placement.entity';
 
@@ -76,4 +77,11 @@ export class AdvertisementEntity {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
+
+  /**
+   * Soft delete: "deleting" stamps this instead of erasing the row, so the
+   * record and its history stay traceable. Normal queries skip these rows.
+   */
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt!: Date | null;
 }

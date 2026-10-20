@@ -47,12 +47,16 @@ function DrawerOverlay({
 
 function DrawerContent({
   className,
+  overlayClassName,
   children,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+}: React.ComponentProps<typeof DrawerPrimitive.Content> & {
+  /** Extra classes for the backdrop (e.g. a stronger blur). */
+  overlayClassName?: string
+}) {
   return (
     <DrawerPortal data-slot="drawer-portal">
-      <DrawerOverlay />
+      <DrawerOverlay className={overlayClassName} />
       <DrawerPrimitive.Content
         data-slot="drawer-content"
         className={cn(

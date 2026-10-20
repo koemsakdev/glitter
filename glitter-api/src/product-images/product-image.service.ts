@@ -283,10 +283,8 @@ export class ProductImagesService {
       throw new NotFoundException(`Image with ID ${id} not found`);
     }
 
-    // Deletes original + medium + thumb variants
-    await this.deleteImageFile(image.imageUrl);
-
-    await this.imageRepository.remove(image);
+    // Soft delete: the files stay so the image can be restored/audited.
+    await this.imageRepository.softRemove(image);
   }
 
   async deleteByProduct(productId: string): Promise<void> {
@@ -296,11 +294,8 @@ export class ProductImagesService {
       return;
     }
 
-    await Promise.all(
-      images.map((image) => this.deleteImageFile(image.imageUrl)),
-    );
-
-    await this.imageRepository.remove(images);
+    // Soft delete: the files stay so the images can be restored/audited.
+    await this.imageRepository.softRemove(images);
   }
 
   private async demoteExistingPrimary(productId: string): Promise<void> {

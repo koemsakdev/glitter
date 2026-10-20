@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
+  IsIn,
   IsBoolean,
   IsEnum,
   IsInt,
@@ -65,4 +66,34 @@ export class UserQueryDto {
   @IsOptional()
   @IsEnum(['email', 'google', 'facebook', 'apple', 'telegram'])
   provider?: AuthProvider;
+
+  @ApiPropertyOptional({
+    enum: [
+      'fullName',
+      'username',
+      'email',
+      'phoneNumber',
+      'role',
+      'accountStatus',
+      'createdAt',
+      'branch',
+    ],
+  })
+  @IsOptional()
+  @IsIn([
+    'fullName',
+    'username',
+    'email',
+    'phoneNumber',
+    'role',
+    'accountStatus',
+    'createdAt',
+    'branch',
+  ])
+  sortBy?: string;
+
+  @ApiPropertyOptional({ enum: ['ASC', 'DESC'] })
+  @IsOptional()
+  @IsIn(['ASC', 'DESC'])
+  sortOrder?: 'ASC' | 'DESC';
 }

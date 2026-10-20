@@ -22,8 +22,25 @@ export class LoginAttemptEntity {
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
+  /** login_attempt (failed/blocked) | login_success | logout */
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: 'login_attempt',
+    name: 'event_type',
+  })
+  eventType!: 'login_attempt' | 'login_success' | 'logout';
+
+  /** success | failed | blocked (IP was blocked before checking) */
+  @Column({ type: 'varchar', length: 10, default: 'failed' })
+  status!: 'success' | 'failed' | 'blocked';
+
   @Column({ type: 'boolean' })
   success!: boolean;
+
+  /** Failures for this username or IP in the last 15 minutes (incl. this). */
+  @Column({ type: 'int', default: 0, name: 'failed_attempt_count' })
+  failedAttemptCount!: number;
 
   /** unknown_user | wrong_password | not_staff | no_password | suspended | deleted */
   @Column({
@@ -85,6 +102,30 @@ export class LoginAttemptEntity {
 
   @Column({ type: 'varchar', length: 64, nullable: true, name: 'ip_timezone' })
   ipTimezone!: string | null;
+
+  /** IP belongs to a VPN, proxy or Tor exit. */
+  @Column({ type: 'boolean', nullable: true, name: 'is_vpn_or_proxy' })
+  isVpnOrProxy!: boolean | null;
+
+  /** IP belongs to a hosting / data-centre provider (servers, not homes). */
+  @Column({ type: 'boolean', nullable: true, name: 'is_hosting' })
+  isHosting!: boolean | null;
+
+  // ---- Session (successful sign-ins) ----
+  @Column({ type: 'varchar', length: 64, nullable: true, name: 'session_id' })
+  sessionId!: string | null;
+
+  /** SHA-256 of the refresh token issued — never the token itself. */
+  @Column({
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+    name: 'session_token_hash',
+  })
+  sessionTokenHash!: string | null;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'logout_at' })
+  logoutAt!: Date | null;
 
   // ---- Device ----
   @Column({ type: 'text', nullable: true, name: 'user_agent' })

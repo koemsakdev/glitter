@@ -16,7 +16,10 @@ export type ProductSortField =
   | 'updatedAt'
   | 'price'
   | 'nameEn'
-  | 'averageRating';
+  | 'averageRating'
+  | 'sku'
+  | 'totalStock'
+  | 'status';
 export type SortOrder = 'ASC' | 'DESC';
 
 export class ProductQueryDto {
@@ -114,11 +117,29 @@ export class ProductQueryDto {
 
   @ApiPropertyOptional({
     description: 'Sort field',
-    enum: ['createdAt', 'updatedAt', 'price', 'nameEn', 'averageRating'],
+    enum: [
+      'createdAt',
+      'updatedAt',
+      'price',
+      'nameEn',
+      'averageRating',
+      'sku',
+      'totalStock',
+      'status',
+    ],
     default: 'createdAt',
   })
   @IsOptional()
-  @IsEnum(['createdAt', 'updatedAt', 'price', 'nameEn', 'averageRating'])
+  @IsEnum([
+    'createdAt',
+    'updatedAt',
+    'price',
+    'nameEn',
+    'averageRating',
+    'sku',
+    'totalStock',
+    'status',
+  ])
   sortBy?: ProductSortField;
 
   @ApiPropertyOptional({

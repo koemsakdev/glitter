@@ -711,7 +711,7 @@ export class InventoryBranchService {
     }
 
     const variantId = record.productVariantId;
-    await this.inventoryRepository.remove(record);
+    await this.inventoryRepository.softRemove(record);
 
     // Resync global stock after removal
     await this.syncVariantGlobalStock(variantId);

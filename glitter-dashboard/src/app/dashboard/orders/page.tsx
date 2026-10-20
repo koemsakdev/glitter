@@ -2,7 +2,8 @@
 
 import type { ColumnDef } from '@tanstack/react-table';
 import { formatDistanceToNow } from 'date-fns';
-import { ChevronRight, Phone, Plus, Store, X } from 'lucide-react';
+import { Phone, Plus, Store, X } from 'lucide-react';
+import { RowActions } from '@/components/resource/row-actions';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useMemo } from 'react';
@@ -91,8 +92,12 @@ function formatDateTime(value: string): { date: string; time: string } {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return { date: '—', time: '' };
     return {
-        date: new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(d),
-        time: new Intl.DateTimeFormat('en-US', { timeStyle: 'short' }).format(d),
+        date: new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(
+            d,
+        ),
+        time: new Intl.DateTimeFormat('en-US', { timeStyle: 'short' }).format(
+            d,
+        ),
     };
 }
 
@@ -219,7 +224,9 @@ function OrdersPageContent() {
                 header: t('order.col.date'),
                 meta: sortable(),
                 cell: ({ row }) => {
-                    const { date, time } = formatDateTime(row.original.createdAt);
+                    const { date, time } = formatDateTime(
+                        row.original.createdAt,
+                    );
                     return (
                         <div
                             className="whitespace-nowrap"
@@ -270,14 +277,18 @@ function OrdersPageContent() {
                 accessorKey: 'source',
                 header: t('order.col.source'),
                 meta: sortable(),
-                cell: ({ row }) => <OrderSourceBadge source={row.original.source} />,
+                cell: ({ row }) => (
+                    <OrderSourceBadge source={row.original.source} />
+                ),
             },
             {
                 id: 'status',
                 accessorKey: 'status',
                 header: t('order.col.status'),
                 meta: sortable(),
-                cell: ({ row }) => <OrderStatusBadge status={row.original.status} />,
+                cell: ({ row }) => (
+                    <OrderStatusBadge status={row.original.status} />
+                ),
             },
             {
                 id: 'paymentStatus',
@@ -330,16 +341,20 @@ function OrdersPageContent() {
             },
             {
                 id: 'open',
-                header: '',
+                header: () => (
+                    <span className="sr-only">{t('common.actions')}</span>
+                ),
+                size: 60,
                 meta: { align: 'right' },
                 cell: ({ row }) => (
-                    <Link
-                        href={`/dashboard/orders/${row.original.id}`}
-                        aria-label={t('order.action.view')}
-                        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-pink-600 hover:bg-muted"
-                    >
-                        <ChevronRight className="size-4" />
-                    </Link>
+                    <RowActions
+                        viewHref={`/dashboard/orders/${row.original.id}`}
+                        audit={{
+                            entity: 'orders',
+                            id: row.original.id,
+                            label: row.original.orderNumber,
+                        }}
+                    />
                 ),
             },
         );
@@ -354,7 +369,13 @@ function OrdersPageContent() {
         datePreset !== 'all';
 
     function clearFilters() {
-        update({ q: null, source: null, status: null, payment: null, date: null });
+        update({
+            q: null,
+            source: null,
+            status: null,
+            payment: null,
+            date: null,
+        });
     }
 
     const sort: DataTableSort = { id: sortBy, desc: sortDesc };
@@ -441,7 +462,10 @@ function OrdersPageContent() {
                         </Button>
                     )}
                     <span className="ml-auto text-sm text-muted-foreground tabular-nums">
-                        {t('order.list.count').replace('{count}', String(total))}
+                        {t('order.list.count').replace(
+                            '{count}',
+                            String(total),
+                        )}
                     </span>
                 </div>
 
@@ -453,10 +477,7 @@ function OrdersPageContent() {
                     skeletonRows={Math.min(pageSize, 10)}
                     sort={sort}
                     onSortChange={(s) =>
-                        update(
-                            { sort: s.id, dir: s.desc ? null : 'asc' },
-                            true,
-                        )
+                        update({ sort: s.id, dir: s.desc ? null : 'asc' }, true)
                     }
                     onRowClick={(o) => router.push(`/dashboard/orders/${o.id}`)}
                     emptyState={

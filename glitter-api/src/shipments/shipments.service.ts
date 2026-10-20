@@ -121,7 +121,7 @@ export class ShipmentsService {
     if (row === null) {
       throw new NotFoundException(`Shipment ${id} not found`);
     }
-    await this.shipmentRepo.remove(row);
+    await this.shipmentRepo.softRemove(row);
     this.realtime.publish('shipments');
     this.realtime.publish('orders');
   }

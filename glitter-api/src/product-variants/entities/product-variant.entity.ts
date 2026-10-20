@@ -7,11 +7,15 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 import { ProductEntity } from '../../products/entities/product.entity';
 
 @Entity('product_variants')
-@Index(['productId', 'size', 'color'], { unique: true })
+@Index(['productId', 'size', 'color'], {
+  unique: true,
+  where: '"deleted_at" IS NULL',
+})
 export class ProductVariantEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -26,7 +30,7 @@ export class ProductVariantEntity {
   @JoinColumn({ name: 'product_id' })
   product?: ProductEntity;
 
-  @Index({ unique: true })
+  @Index({ unique: true, where: '"deleted_at" IS NULL' })
   @Column({ type: 'varchar', length: 100, name: 'variant_sku' })
   variantSku!: string;
 
@@ -56,4 +60,11 @@ export class ProductVariantEntity {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
+
+  /**
+   * Soft delete: "deleting" stamps this instead of erasing the row, so the
+   * record and its history stay traceable. Normal queries skip these rows.
+   */
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt!: Date | null;
 }

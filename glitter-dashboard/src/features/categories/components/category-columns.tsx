@@ -3,25 +3,14 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import {
-    Edit, Eye,
     ImageIcon,
-    MoreHorizontal,
-    Trash2,
-} from 'lucide-react';
+    } from 'lucide-react';
 import { SafeImage as Image } from '@/components/ui/safe-image';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { RowActions } from '@/components/resource/row-actions';
 import { getFileUrl } from '@/lib/file-url';
 import type { useI18n } from '@/lib/i18n';
 import type { Category, CategoryType } from '@/types/category';
-import Link from "next/link";
 
 interface CategoryColumnsContext {
     t: ReturnType<typeof useI18n>['t'];
@@ -66,6 +55,7 @@ export function getCategoryColumns({
         },
         {
             id: 'name',
+            meta: { sortKey: 'nameEn' },
             header: () => t('category.field.name'),
             cell: ({ row }) => {
                 const category = row.original;
@@ -92,6 +82,7 @@ export function getCategoryColumns({
         },
         {
             id: 'displayOrder',
+            meta: { sortKey: 'displayOrder' },
             header: () => t('category.field.displayOrder'),
             cell: ({ row }) => (
                 <span className="text-sm font-mono text-muted-foreground">
@@ -106,6 +97,7 @@ export function getCategoryColumns({
         },
         {
             id: 'createdAt',
+            meta: { sortKey: 'createdAt' },
             header: () => t('category.list.column.created'),
             cell: ({ row }) => (
                 <span className="text-sm text-muted-foreground">
@@ -117,49 +109,18 @@ export function getCategoryColumns({
             id: 'actions',
             header: () => <span className="sr-only">{t('common.actions')}</span>,
             size: 60,
-            cell: ({ row }) => {
-                const category = row.original;
-                return (
-                    <div className="text-right">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger
-                                render={
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="size-8 opacity-60 transition-opacity group-hover:opacity-100"
-                                    >
-                                        <MoreHorizontal className="size-4" />
-                                        <span className="sr-only">{t('common.actions')}</span>
-                                    </Button>
-                                }
-                            />
-                            <DropdownMenuContent align="end" className="w-52">
-                                <DropdownMenuItem
-                                    render={
-                                        <Link href={`/dashboard/categories/${category.id}`}>
-                                            <Eye className="mr-2 size-4" />
-                                            {t('category.action.view')}
-                                        </Link>
-                                    }
-                                />
-                                <DropdownMenuItem onClick={() => onEdit(category)}>
-                                    <Edit className="mr-2 size-4" />
-                                    {t('category.action.edit')}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                    onClick={() => onDelete(category)}
-                                    className="text-destructive focus:text-destructive cursor-pointer focus:bg-red-500/5! dark:focus:bg-red-700/5!"
-                                >
-                                    <Trash2 className="mr-2 size-4 text-destructive" />
-                                    {t('category.action.delete')}
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                );
-            },
+            cell: ({ row }) => (
+                <RowActions
+                    viewHref={`/dashboard/categories/${row.original.id}`}
+                    onEdit={() => onEdit(row.original)}
+                    onDelete={() => onDelete(row.original)}
+                    audit={{
+                        entity: 'categories',
+                        id: row.original.id,
+                        label: row.original.nameEn,
+                    }}
+                />
+            ),
         },
     ];
 }

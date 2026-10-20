@@ -5,6 +5,7 @@ import {
   Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 
 export type MenuLocation = 'header' | 'footer';
@@ -49,4 +50,11 @@ export class MenuItemEntity {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
+
+  /**
+   * Soft delete: "deleting" stamps this instead of erasing the row, so the
+   * record and its history stay traceable. Normal queries skip these rows.
+   */
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt!: Date | null;
 }

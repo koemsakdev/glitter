@@ -5,6 +5,7 @@ import {
   Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 
 /** A custom storefront content page (About, FAQ, Terms…) served at `/<slug>`. */
@@ -13,7 +14,7 @@ export class PageEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Index({ unique: true })
+  @Index({ unique: true, where: '"deleted_at" IS NULL' })
   @Column({ type: 'varchar', length: 150 })
   slug!: string;
 
@@ -37,4 +38,11 @@ export class PageEntity {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
+
+  /**
+   * Soft delete: "deleting" stamps this instead of erasing the row, so the
+   * record and its history stay traceable. Normal queries skip these rows.
+   */
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt!: Date | null;
 }

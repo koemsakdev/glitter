@@ -8,6 +8,7 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 import { CategoryEntity } from '../../category/entities/category.entity';
 import { BrandEntity } from '../../brands/entities/brand.entity';
@@ -46,7 +47,7 @@ export class ProductEntity {
   @JoinColumn({ name: 'brand_id' })
   brand?: BrandEntity;
 
-  @Index({ unique: true })
+  @Index({ unique: true, where: '"deleted_at" IS NULL' })
   @Column({ type: 'varchar', length: 100 })
   sku!: string;
 
@@ -56,7 +57,7 @@ export class ProductEntity {
   @Column({ type: 'varchar', length: 255, name: 'name_km' })
   nameKm!: string;
 
-  @Index({ unique: true })
+  @Index({ unique: true, where: '"deleted_at" IS NULL' })
   @Column({ type: 'varchar', length: 255 })
   slug!: string;
 
@@ -119,6 +120,13 @@ export class ProductEntity {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
+
+  /**
+   * Soft delete: "deleting" stamps this instead of erasing the row, so the
+   * record and its history stay traceable. Normal queries skip these rows.
+   */
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt!: Date | null;
 
   // Reverse relations
   @OneToMany(() => ProductImageEntity, (image) => image.product)

@@ -1,9 +1,10 @@
 'use client';
 
-import { Loader, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Loader, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { Button } from '@/components/ui/button';
+import { RowActions } from '@/components/resource/row-actions';
 import { Switch } from '@/components/ui/switch';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { BadgeFormDialog } from '@/features/badges/badge-form-dialog';
@@ -88,7 +89,9 @@ export default function BadgesPage() {
                         {(pending || remove.isPending) && (
                             <span className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                                 <Loader className="size-4 animate-spin" />
-                                <span className="mt-0.5">{t('common.saving')}</span>
+                                <span className="mt-0.5">
+                                    {t('common.saving')}
+                                </span>
                             </span>
                         )}
                     </div>
@@ -132,26 +135,19 @@ export default function BadgesPage() {
                                 size="lg"
                                 checked={b.active}
                                 onCheckedChange={() => toggleActive(b)}
-                                title={b.active ? t('badge.hide') : t('badge.show')}
+                                title={
+                                    b.active ? t('badge.hide') : t('badge.show')
+                                }
                             />
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-8 text-muted-foreground hover:bg-blue-50 hover:text-blue-600"
-                                title={t('common.edit')}
-                                onClick={() => openForm(b)}
-                            >
-                                <Pencil className="size-4" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                title={t('common.delete')}
-                                onClick={() => setDeleting(b)}
-                            >
-                                <Trash2 className="size-4" />
-                            </Button>
+                            <RowActions
+                                onEdit={() => openForm(b)}
+                                onDelete={() => setDeleting(b)}
+                                audit={{
+                                    entity: 'badges',
+                                    id: b.id,
+                                    label: b.nameEn,
+                                }}
+                            />
                         </div>
                     ))}
                 </div>

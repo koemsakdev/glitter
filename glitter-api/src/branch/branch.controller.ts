@@ -51,10 +51,17 @@ export class BranchesController {
   async findAll(
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: string,
   ): Promise<BranchListResponse> {
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
-    return this.branchesService.findAll(pageNum, limitNum);
+    return this.branchesService.findAll(
+      pageNum,
+      limitNum,
+      sortBy,
+      sortOrder === 'ASC' ? 'ASC' : 'DESC',
+    );
   }
 
   @Public()

@@ -128,7 +128,7 @@ export class BannersService {
     if (banner === null) {
       throw new NotFoundException(`Banner ${id} not found`);
     }
-    await this.bannerRepo.remove(banner);
+    await this.bannerRepo.softRemove(banner);
     this.realtime.publish('banners');
   }
 

@@ -1,9 +1,8 @@
 'use client';
 
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, Trash2 } from 'lucide-react';
 import { SafeImage as Image } from '@/components/ui/safe-image';
-import { Button } from '@/components/ui/button';
+import { RowActions } from '@/components/resource/row-actions';
 import { getFileUrl } from '@/lib/file-url';
 import type { useI18n } from '@/lib/i18n';
 import type { User } from '@/types/user';
@@ -42,6 +41,7 @@ export function getUserColumns({
     const columns: ColumnDef<User>[] = [
         {
             accessorKey: 'fullName',
+            meta: { sortKey: 'fullName' },
             header: t('user.col.user'),
             cell: ({ row }) => {
                 const u = row.original;
@@ -94,6 +94,7 @@ export function getUserColumns({
         },
         {
             accessorKey: 'phoneNumber',
+            meta: { sortKey: 'phoneNumber' },
             header: t('user.col.phone'),
             cell: ({ row }) => (
                 <span className="font-mono text-sm text-muted-foreground">
@@ -105,6 +106,7 @@ export function getUserColumns({
             ? [
                   {
                       accessorKey: 'role',
+                      meta: { sortKey: 'role' },
                       header: t('user.col.role'),
                       cell: ({ row }) => (
                           <UserRoleBadge role={row.original.role} />
@@ -116,6 +118,7 @@ export function getUserColumns({
             ? [
                   {
                       accessorKey: 'branch',
+                      meta: { sortKey: 'branch' },
                       header: t('user.col.branch'),
                       cell: ({ row }) => {
                           const b = row.original.branch;
@@ -138,6 +141,7 @@ export function getUserColumns({
             : []),
         {
             accessorKey: 'accountStatus',
+            meta: { sortKey: 'accountStatus' },
             header: t('user.col.status'),
             cell: ({ row }) => (
                 <UserStatusBadge status={row.original.accountStatus} />
@@ -145,6 +149,7 @@ export function getUserColumns({
         },
         {
             accessorKey: 'createdAt',
+            meta: { sortKey: 'createdAt' },
             header: t('user.col.joined'),
             cell: ({ row }) => (
                 <span className="whitespace-nowrap text-sm text-muted-foreground">
@@ -154,38 +159,23 @@ export function getUserColumns({
         },
         {
             id: 'actions',
-            header: '',
+            header: () => <span className="sr-only">{t('common.actions')}</span>,
+            size: 60,
             cell: ({ row }) => (
-                <div className="flex justify-end gap-1">
-                    {onView && (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => onView(row.original)}
-                        >
-                            <Eye className="size-4" />
-                        </Button>
-                    )}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 text-muted-foreground hover:text-foreground"
-                        onClick={() => onEdit(row.original)}
-                    >
-                        <Pencil className="size-4" />
-                    </Button>
-                    {row.original.id !== currentUserId && (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => onDelete(row.original)}
-                        >
-                            <Trash2 className="size-4" />
-                        </Button>
-                    )}
-                </div>
+                <RowActions
+                    onView={onView ? () => onView(row.original) : undefined}
+                    onEdit={() => onEdit(row.original)}
+                    onDelete={
+                        row.original.id !== currentUserId
+                            ? () => onDelete(row.original)
+                            : undefined
+                    }
+                    audit={{
+                        entity: 'users',
+                        id: row.original.id,
+                        label: row.original.fullName,
+                    }}
+                />
             ),
         },
     ];

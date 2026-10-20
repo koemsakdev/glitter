@@ -13,17 +13,74 @@ import { ProductBadgeEntity } from '../product-badges/entities/product-badge.ent
 import { RealtimeService } from '../realtime/realtime.service';
 
 /** The original built-in badges, seeded once so existing products keep theirs. */
-const DEFAULT_BADGES: Array<Omit<BadgeEntity, 'id' | 'createdAt' | 'updatedAt'>> =
-  [
-    { slug: 'new', nameEn: 'New', nameKm: 'ថ្មី', color: '#ec4899', active: true, displayOrder: 0 },
-    { slug: 'sale', nameEn: 'Sale', nameKm: 'បញ្ចុះតម្លៃ', color: '#ef4444', active: true, displayOrder: 1 },
-    { slug: 'bestseller', nameEn: 'Bestseller', nameKm: 'លក់ដាច់', color: '#f59e0b', active: true, displayOrder: 2 },
-    { slug: 'limited', nameEn: 'Limited', nameKm: 'មានកំណត់', color: '#a855f7', active: true, displayOrder: 3 },
-    { slug: 'exclusive', nameEn: 'Exclusive', nameKm: 'ផ្តាច់មុខ', color: '#eab308', active: true, displayOrder: 4 },
-    { slug: 'hot', nameEn: 'Hot', nameKm: 'ក្តៅ', color: '#f97316', active: true, displayOrder: 5 },
-    { slug: 'featured', nameEn: 'Featured', nameKm: 'លេចធ្លោ', color: '#ec4899', active: true, displayOrder: 6 },
-    { slug: 'coming_soon', nameEn: 'Coming Soon', nameKm: 'មកដល់', color: '#64748b', active: true, displayOrder: 7 },
-  ];
+const DEFAULT_BADGES: Array<
+  Omit<BadgeEntity, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>
+> = [
+  {
+    slug: 'new',
+    nameEn: 'New',
+    nameKm: 'ថ្មី',
+    color: '#ec4899',
+    active: true,
+    displayOrder: 0,
+  },
+  {
+    slug: 'sale',
+    nameEn: 'Sale',
+    nameKm: 'បញ្ចុះតម្លៃ',
+    color: '#ef4444',
+    active: true,
+    displayOrder: 1,
+  },
+  {
+    slug: 'bestseller',
+    nameEn: 'Bestseller',
+    nameKm: 'លក់ដាច់',
+    color: '#f59e0b',
+    active: true,
+    displayOrder: 2,
+  },
+  {
+    slug: 'limited',
+    nameEn: 'Limited',
+    nameKm: 'មានកំណត់',
+    color: '#a855f7',
+    active: true,
+    displayOrder: 3,
+  },
+  {
+    slug: 'exclusive',
+    nameEn: 'Exclusive',
+    nameKm: 'ផ្តាច់មុខ',
+    color: '#eab308',
+    active: true,
+    displayOrder: 4,
+  },
+  {
+    slug: 'hot',
+    nameEn: 'Hot',
+    nameKm: 'ក្តៅ',
+    color: '#f97316',
+    active: true,
+    displayOrder: 5,
+  },
+  {
+    slug: 'featured',
+    nameEn: 'Featured',
+    nameKm: 'លេចធ្លោ',
+    color: '#ec4899',
+    active: true,
+    displayOrder: 6,
+  },
+  {
+    slug: 'coming_soon',
+    nameEn: 'Coming Soon',
+    nameKm: 'មកដល់',
+    color: '#64748b',
+    active: true,
+    displayOrder: 7,
+  },
+];
 
 function slugify(value: string): string {
   return value
@@ -100,7 +157,7 @@ export class BadgesService implements OnModuleInit {
     }
     // Detach this badge from any products that use it, then remove it.
     await this.productBadgeRepo.delete({ badgeType: badge.slug });
-    await this.badgeRepo.remove(badge);
+    await this.badgeRepo.softRemove(badge);
     this.realtime.publish('badges');
     this.realtime.publish('products');
   }

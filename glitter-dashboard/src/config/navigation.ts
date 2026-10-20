@@ -12,6 +12,7 @@ import {
     Receipt,
     Shapes,
     Star,
+    Trash2,
     Ticket,
     UserCog,
     History,
@@ -173,6 +174,13 @@ export const navigation: NavGroup[] = [
                 href: '/dashboard/activity',
                 labelKey: 'nav.activity',
                 icon: History,
+                roles: ADMIN_ONLY,
+            },
+            {
+                // Soft-deleted records: restore or see who deleted them.
+                href: '/dashboard/recycle-bin',
+                labelKey: 'nav.recycleBin',
+                icon: Trash2,
                 roles: ADMIN_ONLY,
             },
         ],

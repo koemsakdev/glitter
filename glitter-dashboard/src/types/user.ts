@@ -46,6 +46,8 @@ export interface UserQuery {
     branchId?: string;
     /** Only staff-role accounts (exclude customers). */
     staffOnly?: boolean;
+    sortBy?: string;
+    sortOrder?: 'ASC' | 'DESC';
 }
 
 export interface UserFormValues {

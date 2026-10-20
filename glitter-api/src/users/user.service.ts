@@ -188,10 +188,26 @@ export class UsersService {
 
     // Highest role first (role enum is declared customer→…→admin, so
     // DESC puts admins on top), then newest within the same role.
-    qb.orderBy('user.role', 'DESC')
-      .addOrderBy('user.createdAt', 'DESC')
-      .skip(skip)
-      .take(limit);
+    // Click-to-sort columns (allow-list → SQL); default: highest role, newest.
+    const sortCols: Record<string, string> = {
+      fullName: 'user.fullName',
+      username: 'user.username',
+      email: 'user.email',
+      phoneNumber: 'user.phoneNumber',
+      role: 'user.role',
+      accountStatus: 'user.accountStatus',
+      createdAt: 'user.createdAt',
+      branch: 'branch.branchNameEn',
+    };
+    const col = query.sortBy ? sortCols[query.sortBy] : undefined;
+    if (col) {
+      const dir = query.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+      qb.orderBy(col, dir, dir === 'ASC' ? 'NULLS FIRST' : 'NULLS LAST');
+      if (col !== 'user.createdAt') qb.addOrderBy('user.createdAt', 'DESC');
+    } else {
+      qb.orderBy('user.role', 'DESC').addOrderBy('user.createdAt', 'DESC');
+    }
+    qb.skip(skip).take(limit);
 
     const [users, total] = await qb.getManyAndCount();
 
@@ -414,16 +430,9 @@ export class UsersService {
     if (user === null) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
-    if (user.role === 'admin') await this.assertNotLastAdmin(user.id);
-
-    if (
-      user.profileImageSource === 'uploaded' &&
-      user.profileImageUrl !== null
-    ) {
-      await this.deleteAvatarFile(user.profileImageUrl);
-    }
-
-    await this.userRepository.remove(user);
+    // No permanent deletes: this now behaves like a normal (soft) delete —
+    // the row is kept with status "deleted" so its history stays traceable.
+    await this.softDelete(user.id);
   }
 
   // ==========================================================================
@@ -687,6 +696,10 @@ export class UsersService {
       await this.authAccountRepository.save(authAccount);
     }
 
+    await this.userRepository.update(userId, {
+      lastPasswordChangedAt: new Date(),
+    });
+
     // Force re-login everywhere after a credential change.
     await this.invalidateTokens(userId);
   }
@@ -736,6 +749,10 @@ export class UsersService {
 
       emailAuth.passwordHash = await hashPassword(newPassword);
       await authRepo.save(emailAuth);
+      await userRepo.update(
+        { id: userId },
+        { lastPasswordChangedAt: new Date() },
+      );
 
       await userRepo.increment({ id: userId }, 'tokenVersion', 1);
     });

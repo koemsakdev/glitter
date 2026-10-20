@@ -248,12 +248,8 @@ export class BrandsService {
       throw new NotFoundException(`Brand with ID ${id} not found`);
     }
 
-    // Delete logo file if exists
-    if (brand.logoUrl) {
-      await this.deleteLogoFile(brand.logoUrl);
-    }
-
-    await this.brandRepository.remove(brand);
+    // Soft delete: keep the logo file so a restored brand is intact.
+    await this.brandRepository.softRemove(brand);
     this.realtime.publish('brands');
   }
 

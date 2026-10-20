@@ -14,7 +14,10 @@ export type ProductSortBy =
     | 'updatedAt'
     | 'price'
     | 'nameEn'
-    | 'averageRating';
+    | 'averageRating'
+    | 'sku'
+    | 'totalStock'
+    | 'status';
 
 export type ProductSortOrder = 'ASC' | 'DESC';
 

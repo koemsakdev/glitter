@@ -5,17 +5,21 @@ import {
   Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 
 export type BranchStatus = 'active' | 'inactive' | 'closed';
 
 @Entity('branches')
-@Index('idx_branch_code', ['branchCode'], { unique: true })
+@Index('idx_branch_code', ['branchCode'], {
+  unique: true,
+  where: '"deleted_at" IS NULL',
+})
 export class BranchEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'varchar', unique: true })
+  @Column({ type: 'varchar' })
   branchCode!: string;
 
   @Column({ type: 'varchar' })
@@ -57,4 +61,11 @@ export class BranchEntity {
 
   @UpdateDateColumn({ type: 'timestamp with time zone' })
   updatedAt!: Date;
+
+  /**
+   * Soft delete: "deleting" stamps this instead of erasing the row, so the
+   * record and its history stay traceable. Normal queries skip these rows.
+   */
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt!: Date | null;
 }

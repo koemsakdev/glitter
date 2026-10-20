@@ -279,7 +279,7 @@ export class VouchersService {
 
   async remove(id: string): Promise<void> {
     const v = await this.findOne(id);
-    await this.repo.remove(v);
+    await this.repo.softRemove(v);
   }
 
   // ---- Public validation (storefront) ----
@@ -359,7 +359,8 @@ export class VouchersService {
       const reason =
         this.checkApplicable(voucher, subtotal) ??
         (await this.eligibilityReason(voucher, userId));
-      if (reason) throw new BadRequestException(this.reasonMessage(reason, voucher));
+      if (reason)
+        throw new BadRequestException(this.reasonMessage(reason, voucher));
     } else {
       const list = await repo.find({ where: { code: IsNull(), active: true } });
       let bestDiscount = 0;

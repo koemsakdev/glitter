@@ -190,6 +190,13 @@ export default function CategoriesPage() {
             <DataTable
                 data={categories}
                 columns={columns}
+                // Click a column header to sort (same state as the Sort menu).
+                sort={{ id: sortBy, desc: sortOrder === 'DESC' }}
+                onSortChange={(s) => {
+                    setSortBy(s.id as CategorySortBy);
+                    setSortOrder(s.desc ? 'DESC' : 'ASC');
+                    setPage(1);
+                }}
                 isLoading={isLoading}
                 isFetching={isFetching}
                 emptyState={

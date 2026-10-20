@@ -114,8 +114,8 @@ export class MenuService {
     const children = await this.menuRepository.find({
       where: { parentId: id },
     });
-    if (children.length > 0) await this.menuRepository.remove(children);
-    await this.menuRepository.remove(item);
+    if (children.length > 0) await this.menuRepository.softRemove(children);
+    await this.menuRepository.softRemove(item);
     this.realtime.publish('menu');
   }
 

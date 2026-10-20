@@ -6,6 +6,7 @@ import { DashboardTopbar } from '@/components/layout/dashboard-topbar';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { ProtectedRoute } from '@/features/auth/components/protected-route';
 import { useAuthStore } from '@/stores/auth-store';
+import { AuditTrailDrawer } from '@/features/audit/audit-trail-drawer';
 import { usePathname } from 'next/navigation';
 import React from "react";
 
@@ -32,6 +33,8 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                     </div>
                 </main>
             </SidebarInset>
+            {/* One Audit trail drawer, opened from any table row (admin). */}
+            {user.role === 'admin' && <AuditTrailDrawer />}
         </SidebarProvider>
     );
 }

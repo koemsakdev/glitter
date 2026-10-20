@@ -213,11 +213,8 @@ export class CategoriesService {
       throw new NotFoundException(`Category with ID ${id} not found`);
     }
 
-    if (category.iconUrl) {
-      await this.deleteIconFile(category.iconUrl);
-    }
-
-    await this.categoryRepository.remove(category);
+    // Soft delete: keep the icon file so a restored category is intact.
+    await this.categoryRepository.softRemove(category);
     this.realtime.publish('categories');
   }
 

@@ -64,6 +64,8 @@ export class BranchesService {
   async findAll(
     page: number = 1,
     limit: number = 10,
+    sortBy?: string,
+    sortOrder: 'ASC' | 'DESC' = 'DESC',
   ): Promise<BranchListResponse> {
     if (page < 1 || limit < 1) {
       throw new BadRequestException('Page and limit must be greater than 0');
@@ -74,9 +76,19 @@ export class BranchesService {
     const [branches, total] = await this.branchRepository.findAndCount({
       skip,
       take: limit,
-      order: {
-        createdAt: 'DESC',
-      },
+      // Allow-listed sort column, newest first by default.
+      order: ([
+        'branchNameEn',
+        'branchCode',
+        'branchStatus',
+        'city',
+        'createdAt',
+      ].includes(sortBy ?? '')
+        ? {
+            [sortBy as string]: sortOrder,
+            ...(sortBy !== 'createdAt' ? { createdAt: 'DESC' } : {}),
+          }
+        : { createdAt: 'DESC' }) as never,
     });
 
     return {
@@ -174,7 +186,7 @@ export class BranchesService {
       throw new NotFoundException(`Branch with ID ${id} not found`);
     }
 
-    await this.branchRepository.remove(branch);
+    await this.branchRepository.softRemove(branch);
     this.realtime.publish('branches');
   }
 

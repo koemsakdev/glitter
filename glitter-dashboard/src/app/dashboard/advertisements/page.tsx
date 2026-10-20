@@ -1,7 +1,13 @@
 'use client';
 
 import { SafeImg } from '@/components/ui/safe-image';
-import { Eye, Loader, MousePointerClick, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+    Eye,
+    Loader,
+    MousePointerClick,
+    Plus,
+} from 'lucide-react';
+import { RowActions } from '@/components/resource/row-actions';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { Button } from '@/components/ui/button';
@@ -38,9 +44,12 @@ const STATUS_LABEL: Record<AdStatus, TranslationKey> = {
 };
 const STATUS_STYLE: Record<AdStatus, string> = {
     active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-    inactive: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-500/15 dark:text-zinc-300',
-    scheduled: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
-    archived: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-500/10 dark:text-zinc-400',
+    inactive:
+        'bg-zinc-100 text-zinc-600 dark:bg-zinc-500/15 dark:text-zinc-300',
+    scheduled:
+        'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+    archived:
+        'bg-zinc-100 text-zinc-500 dark:bg-zinc-500/10 dark:text-zinc-400',
 };
 const PLACEMENT_LABEL: Record<PlacementLocation, TranslationKey> = {
     home_top: 'ad.placement.home_top',
@@ -192,21 +201,16 @@ export default function AdvertisementsPage() {
                                             <MousePointerClick className="size-3.5" />
                                             {ad.clickCount}
                                         </span>
-                                        <span className="ml-auto flex gap-1">
-                                            <button
-                                                type="button"
-                                                onClick={() => openForm(ad)}
-                                                className="rounded-md p-1 hover:bg-accent hover:text-foreground"
-                                            >
-                                                <Pencil className="size-4" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setDeleting(ad)}
-                                                className="rounded-md p-1 hover:bg-destructive/10 hover:text-destructive"
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </button>
+                                        <span className="ml-auto">
+                                            <RowActions
+                                                onEdit={() => openForm(ad)}
+                                                onDelete={() => setDeleting(ad)}
+                                                audit={{
+                                                    entity: 'advertisements',
+                                                    id: ad.id,
+                                                    label: ad.titleEn,
+                                                }}
+                                            />
                                         </span>
                                     </div>
                                 </div>

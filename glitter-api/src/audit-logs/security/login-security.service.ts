@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { createHash, randomUUID } from 'crypto';
 import { LoginAttemptEntity } from '../entities/login-attempt.entity';
+import { ThreatService } from './threat.service';
 import {
   clientIp,
   isPrivateIp,
@@ -18,6 +20,8 @@ interface Geo {
   longitude: number | null;
   isp: string | null;
   ipTimezone: string | null;
+  isVpnOrProxy: boolean | null;
+  isHosting: boolean | null;
 }
 
 /** Records every dashboard sign-in attempt with network, place and device. */
@@ -33,6 +37,7 @@ export class LoginSecurityService {
   constructor(
     @InjectRepository(LoginAttemptEntity)
     private readonly repo: Repository<LoginAttemptEntity>,
+    private readonly threats: ThreatService,
   ) {}
 
   /** Save the attempt now; look up the IP's location in the background. */
@@ -40,10 +45,13 @@ export class LoginSecurityService {
     req: ReqLike,
     attempt: {
       success: boolean;
+      status?: 'success' | 'failed' | 'blocked';
       failureReason?: string | null;
       usernameTried: string;
       user?: { id: string; fullName: string; role: string } | null;
       clientInfo?: Record<string, unknown> | null;
+      /** Refresh token issued on success — only its hash is stored. */
+      refreshToken?: string;
     },
   ): Promise<void> {
     try {
@@ -51,8 +59,23 @@ export class LoginSecurityService {
       const uaRaw = req.headers['user-agent'];
       const ua = (Array.isArray(uaRaw) ? uaRaw[0] : uaRaw)?.slice(0, 1000);
       const device = parseUserAgent(ua);
+      const status = attempt.status ?? (attempt.success ? 'success' : 'failed');
+      // Count includes this attempt when it's a failure.
+      const prior = await this.threats.recentFailures(
+        ip,
+        attempt.usernameTried,
+      );
       const row = await this.repo.save(
         this.repo.create({
+          eventType: attempt.success ? 'login_success' : 'login_attempt',
+          status,
+          failedAttemptCount: attempt.success ? prior : prior + 1,
+          sessionId: attempt.success
+            ? `sess_${randomUUID().replace(/-/g, '')}`
+            : null,
+          sessionTokenHash: attempt.refreshToken
+            ? createHash('sha256').update(attempt.refreshToken).digest('hex')
+            : null,
           success: attempt.success,
           failureReason: attempt.failureReason ?? null,
           usernameTried: attempt.usernameTried.slice(0, 255),
@@ -68,55 +91,162 @@ export class LoginSecurityService {
           clientInfo: sanitizeClientInfo(attempt.clientInfo),
         }),
       );
-      void this.fillLocation(row.id, ip);
+      void this.afterSave(row, attempt.user ?? null);
     } catch (err) {
       this.logger.warn(`Could not record login attempt: ${String(err)}`);
     }
   }
 
-  private async fillLocation(id: string, ip: string): Promise<void> {
-    if (isPrivateIp(ip)) {
-      await this.repo.update(id, { country: 'Local network', city: null });
+  /** Fill in location, then run the sign-in security rules. */
+  private async afterSave(
+    row: LoginAttemptEntity,
+    user: { id: string; fullName: string } | null,
+  ): Promise<void> {
+    const ip = row.ip;
+    const geo = isPrivateIp(ip)
+      ? ({ country: 'Local network' } as Partial<Geo>)
+      : await this.lookup(ip);
+    if (geo) await this.repo.update(row.id, geo);
+
+    if (row.status === 'failed') {
+      await this.threats.afterFailedLogin(ip, row.usernameTried, user);
       return;
     }
-    const geo = await this.lookup(ip);
-    if (geo) await this.repo.update(id, geo);
+    if (!row.success || !user) return;
+
+    const who = `${user.fullName} (${row.usernameTried})`;
+    if (row.deviceType === 'bot') {
+      await this.threats.raiseAlert({
+        type: 'bot_login',
+        severity: 'high',
+        ip,
+        userId: user.id,
+        userName: user.fullName,
+        details: `${who} signed in using a script/tool (${row.browser ?? 'unknown'}), not a browser`,
+        relatedLogId: row.id,
+      });
+    }
+    if (geo?.isVpnOrProxy || geo?.isHosting) {
+      await this.threats.raiseAlert({
+        type: 'vpn_or_proxy_login',
+        severity: 'medium',
+        ip,
+        userId: user.id,
+        userName: user.fullName,
+        details: `${who} signed in through a ${geo.isVpnOrProxy ? 'VPN/proxy' : 'hosting/data-centre'} IP (${geo.isp ?? 'unknown provider'}, ${geo.country ?? '?'})`,
+        relatedLogId: row.id,
+        dedupeMinutes: 60,
+      });
+    }
+    if (geo?.country && geo.country !== 'Local network') {
+      const [seen] = await this.repo.query<{ before: string; same: string }[]>(
+        `SELECT COUNT(*) before,
+                COUNT(*) FILTER (WHERE country = $2) same
+           FROM login_attempts
+          WHERE user_id = $1 AND success AND id <> $3 AND country IS NOT NULL
+            AND country <> 'Local network'`,
+        [user.id, geo.country, row.id],
+      );
+      if (Number(seen?.before ?? 0) > 0 && Number(seen?.same ?? 0) === 0) {
+        await this.threats.raiseAlert({
+          type: 'new_country_login',
+          severity: 'high',
+          ip,
+          userId: user.id,
+          userName: user.fullName,
+          details: `${who} signed in from a new country: ${[geo.city, geo.country].filter(Boolean).join(', ')}`,
+          relatedLogId: row.id,
+        });
+      }
+    }
   }
 
-  /** IP → place via ipwho.is (free, HTTPS, no key). Cached for 6 hours. */
+  /** Mark this user's open sessions as signed out (sign-out ends them all). */
+  async recordLogout(userId: string): Promise<void> {
+    await this.repo.query(
+      `UPDATE login_attempts SET logout_at = now()
+        WHERE user_id = $1 AND success AND logout_at IS NULL`,
+      [userId],
+    );
+  }
+
+  /**
+   * IP → place + VPN/proxy/hosting flags via ip-api.com (free tier, 45/min),
+   * falling back to ipwho.is. Cached 6 hours per IP.
+   */
   private async lookup(ip: string): Promise<Geo | null> {
     const hit = this.geoCache.get(ip);
     if (hit && Date.now() - hit.at < 6 * 3600_000) return hit.geo;
     let geo: Geo | null = null;
     try {
-      const res = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
-        signal: AbortSignal.timeout(5000),
-      });
+      const res = await fetch(
+        `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,country,countryCode,regionName,city,lat,lon,isp,org,timezone,proxy,hosting`,
+        { signal: AbortSignal.timeout(5000) },
+      );
       const d = (await res.json()) as {
-        success?: boolean;
+        status?: string;
         country?: string;
-        country_code?: string;
-        region?: string;
+        countryCode?: string;
+        regionName?: string;
         city?: string;
-        latitude?: number;
-        longitude?: number;
-        connection?: { isp?: string; org?: string };
-        timezone?: { id?: string };
+        lat?: number;
+        lon?: number;
+        isp?: string;
+        org?: string;
+        timezone?: string;
+        proxy?: boolean;
+        hosting?: boolean;
       };
-      if (d.success) {
+      if (d.status === 'success') {
         geo = {
           country: d.country ?? null,
-          countryCode: d.country_code ?? null,
-          region: d.region ?? null,
+          countryCode: d.countryCode ?? null,
+          region: d.regionName ?? null,
           city: d.city ?? null,
-          latitude: d.latitude ?? null,
-          longitude: d.longitude ?? null,
-          isp: d.connection?.isp ?? d.connection?.org ?? null,
-          ipTimezone: d.timezone?.id ?? null,
+          latitude: d.lat ?? null,
+          longitude: d.lon ?? null,
+          isp: d.isp ?? d.org ?? null,
+          ipTimezone: d.timezone ?? null,
+          isVpnOrProxy: d.proxy ?? null,
+          isHosting: d.hosting ?? null,
         };
       }
     } catch {
-      // Location is best-effort; the attempt itself is already saved.
+      // try the fallback below
+    }
+    if (!geo) {
+      try {
+        const res = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        const d = (await res.json()) as {
+          success?: boolean;
+          country?: string;
+          country_code?: string;
+          region?: string;
+          city?: string;
+          latitude?: number;
+          longitude?: number;
+          connection?: { isp?: string; org?: string };
+          timezone?: { id?: string };
+        };
+        if (d.success) {
+          geo = {
+            country: d.country ?? null,
+            countryCode: d.country_code ?? null,
+            region: d.region ?? null,
+            city: d.city ?? null,
+            latitude: d.latitude ?? null,
+            longitude: d.longitude ?? null,
+            isp: d.connection?.isp ?? d.connection?.org ?? null,
+            ipTimezone: d.timezone?.id ?? null,
+            isVpnOrProxy: null,
+            isHosting: null,
+          };
+        }
+      } catch {
+        // location is best-effort
+      }
     }
     if (this.geoCache.size > 2000) this.geoCache.clear();
     this.geoCache.set(ip, { at: Date.now(), geo });
@@ -127,15 +257,36 @@ export class LoginSecurityService {
     page?: number;
     limit?: number;
     success?: string;
+    status?: string;
     search?: string;
     ip?: string;
+    sortBy?: string;
+    sortOrder?: string;
   }) {
     const page = Math.max(1, q.page ?? 1);
     const limit = Math.min(100, Math.max(1, q.limit ?? 20));
-    const qb = this.repo.createQueryBuilder('l').orderBy('l.createdAt', 'DESC');
+    const cols: Record<string, string> = {
+      createdAt: 'l.createdAt',
+      status: 'l.status',
+      usernameTried: 'l.usernameTried',
+      ip: 'l.ip',
+      country: 'l.country',
+      browser: 'l.browser',
+    };
+    const dir = q.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    const qb = this.repo
+      .createQueryBuilder('l')
+      .orderBy(
+        cols[q.sortBy ?? ''] ?? 'l.createdAt',
+        dir,
+        dir === 'ASC' ? 'NULLS FIRST' : 'NULLS LAST',
+      );
+    if (q.sortBy && q.sortBy !== 'createdAt')
+      qb.addOrderBy('l.createdAt', 'DESC');
     if (q.success === 'true' || q.success === 'false') {
       qb.andWhere('l.success = :s', { s: q.success === 'true' });
     }
+    if (q.status) qb.andWhere('l.status = :st', { st: q.status });
     if (q.ip) qb.andWhere('l.ip = :ip', { ip: q.ip });
     const term = q.search?.trim();
     if (term) {

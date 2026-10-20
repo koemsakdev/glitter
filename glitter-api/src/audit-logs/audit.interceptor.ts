@@ -4,9 +4,11 @@ import {
   Injectable,
   NestInterceptor,
 } from '@nestjs/common';
-import { from, Observable, of, switchMap, tap } from 'rxjs';
+import { catchError, from, Observable, switchMap, tap, throwError } from 'rxjs';
 import type { UserEntity } from '../users/entities/user.entity';
-import { AuditLogService } from './audit-log.service';
+import { AuditLogService, diff } from './audit-log.service';
+import { clientIp as resolveClientIp } from './security/client-info';
+import { suspiciousChange, ThreatService } from './security/threat.service';
 import type { AuditAction } from './entities/audit-log.entity';
 
 /** Route groups that aren't business actions (or are customers'). */
@@ -17,6 +19,8 @@ const SKIP = new Set([
   'realtime',
   'ai',
   'uploads',
+  // restores are logged by RecordsController itself
+  'records',
 ]);
 
 /** Product parts are logged against their product ("updated images of X"). */
@@ -33,6 +37,11 @@ const ENTITY_ALIAS: Record<string, string> = {
 
 /** Never store these values in the log. */
 const SECRET_FIELDS = /password|token|secret/i;
+
+/** The client's real IP (proxy-aware, spoof-resistant). */
+function realIp(req: Req): string {
+  return resolveClientIp(req).ip;
+}
 
 type Req = {
   method: string;
@@ -52,7 +61,10 @@ type Req = {
  */
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
-  constructor(private readonly audit: AuditLogService) {}
+  constructor(
+    private readonly audit: AuditLogService,
+    private readonly threats: ThreatService,
+  ) {}
 
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
     if (ctx.getType() !== 'http') return next.handle();
@@ -88,7 +100,7 @@ export class AuditInterceptor implements NestInterceptor {
             label: isLogout ? 'Signed out' : 'Changed own password',
             method,
             path: routePath,
-            ip: clientIp(req),
+            ip: realIp(req),
           });
         }),
       );
@@ -140,14 +152,46 @@ export class AuditInterceptor implements NestInterceptor {
       if (fields.length) details.fields = [...new Set(fields)];
     }
 
-    // Deletes: read the name BEFORE it's gone.
-    const preLabel$ =
-      method === 'DELETE' || productPart
-        ? from(this.audit.lookupLabel(entity, preId))
-        : of(null);
+    const isStock = entity === 'inventory';
+    const ip = realIp(req);
 
-    return preLabel$.pipe(
-      switchMap((preLabel) =>
+    // BEFORE: old values (updates/deletes/stock) and the name (deletes).
+    const before$ = from(
+      (async () => {
+        if (isStock) {
+          const inv = await this.audit.inventorySnapshot(
+            body.productVariantId,
+            body.branchId,
+          );
+          return {
+            values: inv?.values ?? null,
+            label: inv?.sku ?? null,
+            id: inv?.id || null,
+          };
+        }
+        if (method === 'POST' || productPart) {
+          return {
+            values: null,
+            label: productPart
+              ? await this.audit.lookupLabel(entity, preId)
+              : null,
+            id: null,
+          };
+        }
+        const values = await this.audit.snapshot(entity, preId);
+        return {
+          values,
+          label:
+            method === 'DELETE'
+              ? await this.audit.lookupLabel(entity, preId)
+              : null,
+          id: null,
+        };
+      })().catch(() => ({ values: null, label: null, id: null })),
+    );
+
+    return before$.pipe(
+      switchMap((pre) =>
         next.handle().pipe(
           tap((res: unknown) => {
             const data =
@@ -155,27 +199,92 @@ export class AuditInterceptor implements NestInterceptor {
               (res as Record<string, unknown> | null) ??
               {};
             const entityId =
-              preId ?? (typeof data.id === 'string' ? data.id : null) ?? null;
+              preId ??
+              pre.id ??
+              (typeof data.id === 'string' ? data.id : null) ??
+              null;
             const quick =
-              preLabel ??
+              pre.label ??
               pickLabel(data) ??
               (method === 'POST' ? pickLabel(body) : null);
-            const ip = clientIp(req);
+            const status =
+              ctx.switchToHttp().getResponse<{ statusCode?: number }>()
+                .statusCode ?? 200;
             void (async () => {
               const label =
                 quick ?? (await this.audit.lookupLabel(entity, entityId));
-              await this.audit.record({
+              // AFTER: new values (not for deletes), then keep only what changed.
+              let after: Record<string, unknown> | null = null;
+              if (method !== 'DELETE' && !productPart) {
+                after = isStock
+                  ? ((
+                      await this.audit.inventorySnapshot(
+                        body.productVariantId,
+                        body.branchId,
+                      )
+                    )?.values ?? null)
+                  : await this.audit.snapshot(entity, entityId);
+                if (!after && method === 'POST') after = plainBody(body);
+              }
+              const changes = productPart
+                ? { old_value: null, new_value: plainBody(body) }
+                : diff(pre.values, after);
+              const flag = suspiciousChange(entity, action, changes, label);
+              const logId = await this.audit.record({
                 actor: user,
                 action,
                 entity,
                 entityId,
                 label,
                 details: Object.keys(details).length ? details : null,
+                changes,
+                status: 'success',
+                responseStatus: status,
+                isSuspicious: Boolean(flag),
+                suspiciousReason: flag?.reason ?? null,
                 method,
                 path: routePath,
                 ip,
               });
+              if (flag && flag.severity !== 'low') {
+                await this.threats.raiseAlert({
+                  type: 'suspicious_change',
+                  severity: flag.severity,
+                  ip,
+                  userId: user.id,
+                  userName: user.fullName,
+                  details: `${user.fullName} (${user.role}): ${flag.reason}`,
+                  relatedLogId: logId,
+                });
+              }
             })();
+          }),
+          // Rejected / failed actions are part of the trail too.
+          catchError((err: unknown) => {
+            const code =
+              (err as { getStatus?: () => number }).getStatus?.() ?? 500;
+            const message =
+              (err as { message?: string }).message?.slice(0, 300) ?? null;
+            void this.audit.record({
+              actor: user,
+              action,
+              entity,
+              entityId: preId ?? null,
+              label: pre.label,
+              details: { ...details, error: message },
+              status: 'failed',
+              responseStatus: code,
+              // Being refused access (403) is worth a second look.
+              isSuspicious: code === 403,
+              suspiciousReason:
+                code === 403
+                  ? `Tried an action not allowed for role "${user.role}"`
+                  : null,
+              method,
+              path: routePath,
+              ip,
+            });
+            return throwError(() => err);
           }),
         ),
       ),
@@ -183,12 +292,18 @@ export class AuditInterceptor implements NestInterceptor {
   }
 }
 
-function clientIp(req: Req): string | undefined {
-  return (
-    (req.headers['x-forwarded-for'] as string | undefined)
-      ?.split(',')[0]
-      ?.trim() ?? req.ip
-  );
+/** Request body as plain loggable values (secrets masked). */
+function plainBody(
+  body: Record<string, unknown>,
+): Record<string, unknown> | null {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(body)) {
+    if (SECRET_FIELDS.test(k)) out[k] = '***';
+    else if (v === null || ['string', 'number', 'boolean'].includes(typeof v))
+      out[k] = v;
+    else if (Array.isArray(v)) out[k] = `[${v.length} item(s)]`;
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 function pickLabel(o: Record<string, unknown>): string | null {

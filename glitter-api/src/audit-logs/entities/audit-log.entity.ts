@@ -16,17 +16,21 @@ export type AuditAction =
   | 'logout'
   | 'login_failed'
   | 'password'
+  | 'blocked_request'
+  | 'restore'
   | 'other';
 
 /**
  * One staff action in the dashboard — who did what, to which record, when.
  * Written automatically by AuditInterceptor (and on staff login); read-only
- * for admins via GET /api/audit-logs. Rows are never edited.
+ * for admins via GET /api/audit-logs. APPEND-ONLY: a database trigger
+ * rejects any UPDATE or DELETE, even from an admin (see AuditIntegrity).
  */
 @Entity('audit_logs')
 @Index(['createdAt'])
 @Index(['actorId', 'createdAt'])
 @Index(['entity', 'entityId'])
+@Index(['isSuspicious', 'createdAt'])
 export class AuditLogEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -72,6 +76,38 @@ export class AuditLogEntity {
   /** Extra context: changed field names, new status, quantities… */
   @Column({ type: 'jsonb', nullable: true })
   details!: Record<string, unknown> | null;
+
+  /** Area of the system: catalog, sales, inventory, users, settings, auth… */
+  @Column({ type: 'varchar', length: 30, default: 'other' })
+  module!: string;
+
+  /** success | failed (request rejected/errored) | blocked (attack) */
+  @Column({ type: 'varchar', length: 10, default: 'success' })
+  status!: 'success' | 'failed' | 'blocked';
+
+  @Column({ type: 'int', nullable: true, name: 'response_status' })
+  responseStatus!: number | null;
+
+  /** What changed: { old_value: {...}, new_value: {...} } (changed fields). */
+  @Column({ type: 'jsonb', nullable: true })
+  changes!: {
+    old_value: Record<string, unknown> | null;
+    new_value: Record<string, unknown> | null;
+  } | null;
+
+  @Column({ type: 'boolean', default: false, name: 'is_suspicious' })
+  isSuspicious!: boolean;
+
+  @Column({ type: 'text', nullable: true, name: 'suspicious_reason' })
+  suspiciousReason!: string | null;
+
+  /** SQL_INJECTION | XSS | PATH_TRAVERSAL (blocked requests) */
+  @Column({ type: 'varchar', length: 30, nullable: true, name: 'threat_type' })
+  threatType!: string | null;
+
+  /** Request payload for blocked attacks (passwords masked, truncated). */
+  @Column({ type: 'text', nullable: true })
+  payload!: string | null;
 
   @Column({ type: 'varchar', length: 8 })
   method!: string;

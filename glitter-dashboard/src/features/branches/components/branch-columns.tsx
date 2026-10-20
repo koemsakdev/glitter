@@ -1,16 +1,9 @@
 'use client';
 
 import type { ColumnDef } from '@tanstack/react-table';
-import { Edit, Eye, MapPin, MoreHorizontal, Trash2 } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { RowActions } from '@/components/resource/row-actions';
 import { BranchStatusBadge } from './branch-status-badge';
 import type { useI18n } from '@/lib/i18n';
 import type { Branch } from '@/types/branch';
@@ -31,6 +24,7 @@ export function getBranchColumns({
     return [
         {
             id: 'code',
+            meta: { sortKey: 'branchCode' },
             header: () => t('branch.field.code'),
             size: 140,
             cell: ({ row }) => (
@@ -41,6 +35,7 @@ export function getBranchColumns({
         },
         {
             id: 'name',
+            meta: { sortKey: 'branchNameEn' },
             header: () => t('branch.field.name'),
             cell: ({ row }) => {
                 const branch = row.original;
@@ -96,6 +91,7 @@ export function getBranchColumns({
         },
         {
             id: 'status',
+            meta: { sortKey: 'branchStatus' },
             header: () => t('branch.field.status'),
             cell: ({ row }) => <BranchStatusBadge status={row.original.branchStatus} />,
         },
@@ -103,53 +99,18 @@ export function getBranchColumns({
             id: 'actions',
             header: () => <span className="sr-only">{t('common.actions')}</span>,
             size: 60,
-            cell: ({ row }) => {
-                const branch = row.original;
-                return (
-                    <div className="text-right">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger
-                                render={
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="size-8 opacity-60 transition-opacity hover:opacity-100"
-                                    >
-                                        <MoreHorizontal className="size-4" />
-                                        <span className="sr-only">{t('common.actions')}</span>
-                                    </Button>
-                                }
-                            />
-                            <DropdownMenuContent align="end" className="w-52">
-                                <DropdownMenuItem
-                                    render={
-                                        <Link href={`/dashboard/branches/${branch.id}`}>
-                                            <Eye className="mr-2 size-4" />
-                                            {t('branch.action.view')}
-                                        </Link>
-                                    }
-                                />
-                                <DropdownMenuItem
-                                    render={
-                                        <Link href={`/dashboard/branches/${branch.id}/edit`}>
-                                            <Edit className="mr-2 size-4" />
-                                            {t('branch.action.edit')}
-                                        </Link>
-                                    }
-                                />
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                    onClick={() => onDelete(branch)}
-                                    className="text-destructive focus:text-destructive"
-                                >
-                                    <Trash2 className="mr-2 size-4" />
-                                    {t('branch.action.delete')}
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                );
-            },
+            cell: ({ row }) => (
+                <RowActions
+                    viewHref={`/dashboard/branches/${row.original.id}`}
+                    editHref={`/dashboard/branches/${row.original.id}/edit`}
+                    onDelete={() => onDelete(row.original)}
+                    audit={{
+                        entity: 'branches',
+                        id: row.original.id,
+                        label: row.original.branchNameEn,
+                    }}
+                />
+            ),
         },
     ];
 }

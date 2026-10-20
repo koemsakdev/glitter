@@ -71,7 +71,7 @@ export class ColorsService {
     if (color === null) {
       throw new NotFoundException(`Color ${id} not found`);
     }
-    await this.colorRepo.remove(color);
+    await this.colorRepo.softRemove(color);
     this.realtime.publish('colors');
   }
 }

@@ -3,21 +3,11 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import {
-    Edit, Eye,
     ImageIcon, LinkIcon,
-    MoreHorizontal,
-    Trash2,
-} from 'lucide-react';
+    } from 'lucide-react';
 import { SafeImage as Image } from '@/components/ui/safe-image';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { RowActions } from '@/components/resource/row-actions';
 import { getFileUrl } from '@/lib/file-url';
 import type { useI18n } from '@/lib/i18n';
 import type { Brand } from '@/types/brand';
@@ -65,6 +55,7 @@ export function getBrandColumns({
         },
         {
             id: 'name',
+            meta: { sortKey: 'name' },
             header: () => t('brand.list.column.name'),
             cell: ({ row }) => {
                 const brand = row.original;
@@ -138,6 +129,7 @@ export function getBrandColumns({
         },
         {
             id: 'createdAt',
+            meta: { sortKey: 'createdAt' },
             header: () => t('brand.list.column.created'),
             cell: ({ row }) => (
                 <span className="text-sm text-muted-foreground">
@@ -149,49 +141,18 @@ export function getBrandColumns({
             id: 'actions',
             header: () => <span className="sr-only">{t('common.actions')}</span>,
             size: 60,
-            cell: ({ row }) => {
-                const brand = row.original;
-                return (
-                    <div className="text-right">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger
-                                render={
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="size-8 opacity-60 transition-opacity group-hover:opacity-100"
-                                    >
-                                        <MoreHorizontal className="size-4" />
-                                        <span className="sr-only">{t('common.actions')}</span>
-                                    </Button>
-                                }
-                            />
-                            <DropdownMenuContent align="end" className="w-52">
-                                <DropdownMenuItem
-                                    render={
-                                        <Link href={`/dashboard/brands/${brand.id}`}>
-                                            <Eye className="mr-2 size-4" />
-                                            {t('brand.action.view')}
-                                        </Link>
-                                    }
-                                />
-                                <DropdownMenuItem onClick={() => onEdit(brand)}>
-                                    <Edit className="mr-2 size-4" />
-                                    {t('brand.action.edit')}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                    onClick={() => onDelete(brand)}
-                                    className="text-destructive focus:text-destructive cursor-pointer focus:bg-red-500/5! dark:focus:bg-red-700/5!"
-                                >
-                                    <Trash2 className="mr-2 size-4 text-destructive" />
-                                    {t('brand.action.delete')}
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                );
-            },
+            cell: ({ row }) => (
+                <RowActions
+                    viewHref={`/dashboard/brands/${row.original.id}`}
+                    onEdit={() => onEdit(row.original)}
+                    onDelete={() => onDelete(row.original)}
+                    audit={{
+                        entity: 'brands',
+                        id: row.original.id,
+                        label: row.original.name,
+                    }}
+                />
+            ),
         },
     ];
 }

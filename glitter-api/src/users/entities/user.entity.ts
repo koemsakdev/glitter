@@ -151,6 +151,13 @@ export class UserEntity {
   @Column({ type: 'boolean', default: false, name: 'is_profile_complete' })
   isProfileComplete!: boolean;
 
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    name: 'last_password_changed_at',
+  })
+  lastPasswordChangedAt!: Date | null;
+
   @Column({ type: 'int', default: 0, name: 'token_version' })
   tokenVersion!: number;
 

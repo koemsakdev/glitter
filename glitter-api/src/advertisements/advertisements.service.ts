@@ -116,7 +116,7 @@ export class AdvertisementsService {
     if (ad === null) {
       throw new NotFoundException(`Advertisement ${id} not found`);
     }
-    await this.adRepo.remove(ad);
+    await this.adRepo.softRemove(ad);
     this.realtime.publish('advertisements');
   }
 

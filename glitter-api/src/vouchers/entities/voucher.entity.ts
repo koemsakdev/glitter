@@ -5,6 +5,7 @@ import {
   Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 import { numericTransformer } from '../../common/numeric.transformer';
 
@@ -22,7 +23,7 @@ export class VoucherEntity {
   id!: string;
 
   /** Uppercase code, or null for an automatic promo. Postgres allows many NULLs. */
-  @Index({ unique: true })
+  @Index({ unique: true, where: '"deleted_at" IS NULL' })
   @Column({ type: 'varchar', length: 40, nullable: true })
   code!: string | null;
 
@@ -102,4 +103,11 @@ export class VoucherEntity {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
+
+  /**
+   * Soft delete: "deleting" stamps this instead of erasing the row, so the
+   * record and its history stay traceable. Normal queries skip these rows.
+   */
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt!: Date | null;
 }

@@ -10,6 +10,7 @@ import {
     DataTableSearch,
     DataTableToolbar,
 } from '@/components/data-table';
+import type { DataTableSort } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
 
 export interface ResourceListProps<T> {
@@ -28,6 +29,10 @@ export interface ResourceListProps<T> {
 
     /** Filter controls rendered on the left of the toolbar. */
     filters?: ReactNode;
+
+    /** Click-to-sort (server-side). Columns opt in via meta.sortable. */
+    sort?: DataTableSort;
+    onSortChange?: (sort: DataTableSort) => void;
 
     /** Table data. */
     columns: ColumnDef<T, unknown>[];
@@ -58,6 +63,8 @@ export interface ResourceListProps<T> {
  * visually consistent and reduces each one to data + columns + filters.
  */
 export function ResourceList<T>({
+    sort,
+    onSortChange,
     title,
     subtitle,
     createLabel,
@@ -122,6 +129,8 @@ export function ResourceList<T>({
             <DataTable
                 data={data}
                 columns={columns}
+                sort={sort}
+                onSortChange={onSortChange}
                 isLoading={isLoading}
                 isFetching={isFetching}
                 emptyState={

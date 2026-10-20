@@ -1,3 +1,5 @@
+// Must run before anything opens a DB connection.
+import './common/db-timezone';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';

@@ -465,7 +465,7 @@ export class ProductVariantsService {
       );
     }
 
-    await this.variantRepository.remove(variant);
+    await this.variantRepository.softRemove(variant);
 
     // If that was the last real variant, recreate a default and flip flag back
     const remaining = await this.variantRepository.count({
@@ -544,9 +544,9 @@ export class ProductVariantsService {
       .getOne();
 
     if (rawDefault !== null) {
-      await this.variantRepository.remove(rawDefault);
+      await this.variantRepository.softRemove(rawDefault);
     } else if (defaultVariant !== null) {
-      await this.variantRepository.remove(defaultVariant);
+      await this.variantRepository.softRemove(defaultVariant);
     }
 
     // Flip the flag
