@@ -3,6 +3,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import {
   Brackets,
   DataSource,
+  In,
   EntityTarget,
   ObjectLiteral,
   Repository,
@@ -132,6 +133,43 @@ export function moduleOf(entity: string): string {
   };
   return m[entity] ?? 'other';
 }
+
+/** Fields that point at another record → which record type they point at. */
+const REF_FIELDS: Record<string, string> = {
+  branchId: 'branches',
+  fromBranchId: 'branches',
+  toBranchId: 'branches',
+  categoryId: 'categories',
+  parentCategoryId: 'categories',
+  parentId: 'categories',
+  brandId: 'brands',
+  productId: 'products',
+  relatedProductId: 'products',
+  productVariantId: 'product-variants',
+  variantId: 'product-variants',
+  userId: 'users',
+  customerId: 'users',
+  cashierId: 'users',
+  colorId: 'colors',
+  badgeId: 'badges',
+  voucherId: 'vouchers',
+  orderId: 'orders',
+};
+
+/** One row of a record's audit trail (a log, or a gap filled from the record). */
+type TrailEntryOut = Omit<
+  AuditLogEntity,
+  'createdAt' | 'actorName' | 'actorRole' | 'method' | 'path'
+> & {
+  method: string | null;
+  path: string | null;
+  createdAt: Date;
+  actorName: string | null;
+  actorRole: string | null;
+  synthetic: boolean;
+  location: Record<string, unknown> | null;
+  device: Record<string, unknown> | null;
+};
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -301,8 +339,23 @@ export class AuditLogService {
    * the same IP. Also a summary: created, last modified, deleted.
    */
   async recordTrail(entity: string, id: string) {
+    // A product's stock lives on its variants' inventory rows — include those
+    // stock changes in the product's trail too.
+    const targets: { entity: string; entityId: string }[] = [
+      { entity, entityId: id },
+    ];
+    if (entity === 'products' && UUID.test(id)) {
+      const inv = await this.dataSource.query<{ id: string }[]>(
+        `SELECT ib.id FROM inventory_branch ib
+           JOIN product_variants pv ON pv.id = ib.product_variant_id
+          WHERE pv.product_id = $1`,
+        [id],
+      );
+      for (const r of inv)
+        targets.push({ entity: 'inventory', entityId: r.id });
+    }
     const logs = await this.repo.find({
-      where: { entity, entityId: id },
+      where: targets,
       order: { createdAt: 'ASC' },
       take: 500,
     });
@@ -331,12 +384,13 @@ export class AuditLogService {
       for (const r of d) device.set(`${String(r.user_id)}|${String(r.ip)}`, r);
     }
 
-    const entries = logs.map((l) => {
+    const entries: TrailEntryOut[] = logs.map((l) => {
       const place = l.ip ? geo.get(l.ip) : undefined;
       const dev =
         l.ip && l.actorId ? device.get(`${l.actorId}|${l.ip}`) : undefined;
       return {
         ...l,
+        synthetic: false,
         location: place
           ? {
               country: place.country ?? null,
@@ -368,6 +422,72 @@ export class AuditLogService {
         unknown
       > | null;
     }
+    // Records older than audit tracking have no log rows. Fill the gaps from
+    // the record's own timestamps so the trail is never blank or wrong
+    // (e.g. "never modified" for something edited before tracking began).
+    const createdAt = record?.createdAt as Date | undefined;
+    const updatedAt = record?.updatedAt as Date | undefined;
+    const deletedAt = record?.deletedAt as Date | null | undefined;
+    const hasLog = (actions: string[]) =>
+      logs.some((l) => actions.includes(l.action) && l.status === 'success');
+    const MODIFY = ['update', 'status', 'stock', 'password', 'restore'];
+    const untracked = (
+      action: AuditAction,
+      at: Date,
+      note: string,
+    ): TrailEntryOut => ({
+      id: `untracked-${action}`,
+      createdAt: at,
+      action,
+      entity,
+      entityId: id,
+      label: null,
+      details: { note },
+      changes: null,
+      status: 'success',
+      responseStatus: null,
+      isSuspicious: false,
+      suspiciousReason: null,
+      actorId: null,
+      actorName: null,
+      actorUsername: null,
+      actorRole: null,
+      ip: null,
+      method: null,
+      path: null,
+      actorBranchId: null,
+      module: moduleOf(entity),
+      threatType: null,
+      payload: null,
+      synthetic: true,
+      location: null,
+      device: null,
+    });
+    const firstLogAt = logs[0]?.createdAt;
+    if (createdAt && !hasLog(['create'])) {
+      entries.unshift(untracked('create', createdAt, 'created'));
+    }
+    // Edited before tracking: updatedAt is clearly after creation and before
+    // the first logged action (or there are no logs at all).
+    const editedUntracked =
+      createdAt &&
+      updatedAt &&
+      +updatedAt - +createdAt > 5_000 &&
+      (!firstLogAt || +updatedAt < +firstLogAt - 5_000) &&
+      !(deletedAt && Math.abs(+updatedAt - +deletedAt) < 5_000);
+    if (editedUntracked) {
+      entries.splice(
+        entries.findIndex((e) => +new Date(e.createdAt) > +updatedAt) === -1
+          ? entries.length
+          : entries.findIndex((e) => +new Date(e.createdAt) > +updatedAt),
+        0,
+        untracked('update', updatedAt, 'modified'),
+      );
+    }
+    if (deletedAt && !hasLog(['delete'])) {
+      entries.push(untracked('delete', deletedAt, 'deleted'));
+    }
+
     const who = (l?: AuditLogEntity) =>
       l
         ? {
@@ -382,13 +502,57 @@ export class AuditLogService {
         .reverse()
         .find((l) => actions.includes(l.action) && l.status === 'success');
 
+    // Turn IDs inside the changes into names ("Glitter Shop Santhor Mok"),
+    // so people never have to read a UUID.
+    const refs: Record<string, string> = {};
+    const wanted = new Map<string, Set<string>>();
+    const collect = (obj: Record<string, unknown> | null | undefined) => {
+      for (const [k, v] of Object.entries(obj ?? {})) {
+        const target = REF_FIELDS[k];
+        const ids = Array.isArray(v) ? v : [v];
+        for (const one of ids) {
+          if (target && typeof one === 'string' && UUID.test(one)) {
+            if (!wanted.has(target)) wanted.set(target, new Set());
+            wanted.get(target)!.add(one);
+          }
+        }
+      }
+    };
+    for (const l of logs) {
+      collect(l.changes?.old_value);
+      collect(l.changes?.new_value);
+      collect(l.details);
+    }
+    await Promise.all(
+      [...wanted].map(async ([target, ids]) => {
+        const c = LABELS[target];
+        if (!c) return;
+        const rows = (await this.dataSource.getRepository(c.target).find({
+          where: { id: In([...ids]) } as never,
+          withDeleted: true,
+        })) as Record<string, unknown>[];
+        for (const r of rows) {
+          const name =
+            target === 'product-variants'
+              ? [r.variantSku, r.size, r.color].filter(Boolean).join(' · ')
+              : (r[c.field] as string | null);
+          if (name) refs[String(r.id)] = String(name);
+        }
+      }),
+    );
+
     return {
       entity,
       id,
+      refs,
       label:
-        cfg && record
-          ? ((record[cfg.field] as string | null) ?? null)
-          : (logs[logs.length - 1]?.label ?? null),
+        (cfg && record ? (record[cfg.field] as string | null) : null) ??
+        // Untitled reviews: "★4 by Dara"
+        (entity === 'reviews' && record
+          ? `★${String(record.rating)} · ${String(record.reviewerName)}`
+          : null) ??
+        [...logs].reverse().find((l) => l.label)?.label ??
+        null,
       status: record?.deletedAt
         ? 'deleted'
         : record
@@ -404,9 +568,11 @@ export class AuditLogService {
           (record?.createdAt
             ? { name: null, username: null, role: null, at: record.createdAt }
             : null),
-        lastModified: who(
-          lastOf(['update', 'status', 'stock', 'password', 'restore']),
-        ),
+        lastModified:
+          who(lastOf(MODIFY)) ??
+          (editedUntracked
+            ? { name: null, username: null, role: null, at: updatedAt }
+            : null),
         deleted: record?.deletedAt
           ? (who(lastOf(['delete'])) ?? {
               name: null,
@@ -417,6 +583,7 @@ export class AuditLogService {
           : null,
         updatedAt: record?.updatedAt ?? null,
         totalActions: logs.length,
+        untrackedBefore: !hasLog(['create']) && Boolean(createdAt),
       },
       entries,
     };

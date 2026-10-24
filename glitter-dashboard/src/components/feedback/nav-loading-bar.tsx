@@ -1,21 +1,31 @@
 'use client';
 
-import { useIsFetching } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useIsFetching, useIsMutating } from '@tanstack/react-query';
+import { useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 
+const noop = () => () => {};
+
 /**
- * A soft, thin (2px) progress bar pinned to the very top of the viewport,
- * shown whenever any React Query request is in flight — so navigating/loading
- * data gives instant feedback. Portaled to <body> so no transformed ancestor
+ * A soft, thin (2px) progress bar pinned to the very top of the viewport.
+ * It shows only while the user is actually waiting — a page loading data it
+ * doesn't have yet, or a save in progress. Quiet background refreshes (polling,
+ * live updates) don't flash it. Portaled to <body> so no transformed ancestor
  * can re-anchor its `position: fixed`.
  */
 export function NavLoadingBar() {
-    const isFetching = useIsFetching();
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => setMounted(true), []);
+    const firstLoads = useIsFetching({
+        predicate: (q) => q.state.data === undefined,
+    });
+    const saving = useIsMutating();
+    // True only in the browser (portals need document.body).
+    const mounted = useSyncExternalStore(
+        noop,
+        () => true,
+        () => false,
+    );
 
-    if (!mounted || isFetching === 0) return null;
+    if (!mounted || firstLoads + saving === 0) return null;
 
     return createPortal(
         <div className="fixed inset-x-0 top-0 z-9999 h-0.5 overflow-hidden">

@@ -5,6 +5,9 @@ import { useEffect } from 'react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 
+/** Hidden longer than this → we may have missed live updates; refresh. */
+const MISSED_EVENTS_AFTER_MS = 60_000;
+
 /** Maps a change event entity to the TanStack Query key(s) to invalidate. */
 const KEY_MAP: Record<string, string[]> = {
     'store-config': ['app-settings'],
@@ -61,14 +64,25 @@ export function RealtimeListener() {
         };
 
         // Free the connection when the tab is hidden; restore it when visible.
-        // On becoming visible, also refetch — the SSE was closed while hidden,
-        // so we may have missed change events from another tab/admin.
+        // If the tab was away long enough to have missed change events, refresh
+        // what's on screen — quietly (data stays visible). A quick alt-tab
+        // doesn't refetch anything.
+        let hiddenAt = 0;
         const onVisibility = () => {
             if (document.visibilityState === 'hidden') {
+                hiddenAt = Date.now();
                 disconnect();
             } else {
                 connect();
-                void queryClient.invalidateQueries();
+                if (
+                    hiddenAt &&
+                    Date.now() - hiddenAt > MISSED_EVENTS_AFTER_MS
+                ) {
+                    void queryClient.invalidateQueries({
+                        refetchType: 'active',
+                    });
+                }
+                hiddenAt = 0;
             }
         };
 

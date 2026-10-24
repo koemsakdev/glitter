@@ -23,7 +23,10 @@ import { useCustomers } from '@/features/users/use-users';
 import { getErrorMessage } from '@/lib/api-client';
 import { formatPrice } from '@/lib/formatters';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
-import { useSelectedBranchId } from '@/stores/use-branch-context';
+import {
+    useLockedBranchId,
+    useSelectedBranchId,
+} from '@/stores/use-branch-context';
 import type {
     CreateOrderPayload,
     OrderSource,
@@ -51,6 +54,8 @@ export function OrderCreateForm() {
     const router = useRouter();
     const { toast } = useToast();
     const selectedBranchId = useSelectedBranchId();
+    // Managers/cashiers always sell from their own branch.
+    const lockedBranchId = useLockedBranchId();
     const createOrder = useCreateOrder();
 
     const { data: branches } = useActiveBranches();
@@ -160,7 +165,7 @@ export function OrderCreateForm() {
 
         const payload: CreateOrderPayload = {
             source,
-            branchId,
+            branchId: lockedBranchId ?? branchId,
             customerId: customerId || undefined,
             customerName: customerName.trim() || undefined,
             customerPhone: customerPhone.trim() || undefined,
@@ -458,6 +463,7 @@ export function OrderCreateForm() {
                                     value={branchId}
                                     onChange={setBranchId}
                                     placeholder={t('order.create.selectBranch')}
+                                    disabled={Boolean(lockedBranchId)}
                                 />
                             </Field>
 

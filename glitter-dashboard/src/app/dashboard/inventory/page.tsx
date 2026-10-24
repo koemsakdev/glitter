@@ -1,7 +1,7 @@
 'use client';
 
 import { SafeImg } from '@/components/ui/safe-image';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     AlertTriangle,
     Boxes,
@@ -26,7 +26,11 @@ import { ResponsiveModal } from '@/components/responsive-modal';
 import { MarqueeText } from '@/components/ui/marquee-text';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { useActiveBranches } from '@/features/branches/use-branches';
-import { useLockedBranchId } from '@/stores/use-branch-context';
+import {
+    useBranchContext,
+    useLockedBranchId,
+    useSelectedBranchId,
+} from '@/stores/use-branch-context';
 import {
     INVENTORY_PAGE_SIZE,
     LOW_STOCK_THRESHOLD,
@@ -52,7 +56,6 @@ export default function InventoryPage() {
         b ? (language === 'km' ? b.branchNameKm || b.branchNameEn : b.branchNameEn) : '';
     const pName = (p: { nameEn: string; nameKm: string }) =>
         language === 'km' ? p.nameKm || p.nameEn : p.nameEn;
-    const [picked, setPicked] = useState<string>('');
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [open, setOpen] = useState<Set<string>>(() => new Set());
@@ -63,13 +66,26 @@ export default function InventoryPage() {
 
     // Managers/cashiers only see their own branch.
     const lockedBranchId = useLockedBranchId();
-    const branchId = lockedBranchId || picked || branches?.[0]?.id || '';
+    // Follows the branch picked in the top bar. Stock is counted per branch,
+    // so "All branches" shows the first branch until one is chosen here.
+    const headerBranchId = useSelectedBranchId();
+    const setHeaderBranch = useBranchContext((s) => s.setSelectedBranch);
+    const branchId =
+        lockedBranchId ||
+        (headerBranchId && branches?.some((b) => b.id === headerBranchId)
+            ? headerBranchId
+            : '') ||
+        branches?.[0]?.id ||
+        '';
 
     // Reset to the first page (and collapse rows) when the branch or search changes.
-    useEffect(() => {
+    const viewKey = `${branchId}|${search}`;
+    const [lastViewKey, setLastViewKey] = useState(viewKey);
+    if (lastViewKey !== viewKey) {
+        setLastViewKey(viewKey);
         setPage(1);
         setOpen(new Set());
-    }, [search, branchId]);
+    }
 
     const { data: inv, isLoading } = useBranchInventory(
         branchId || undefined,
@@ -119,7 +135,11 @@ export default function InventoryPage() {
                     <Select
                         value={branchId}
                         disabled={Boolean(lockedBranchId)}
-                        onValueChange={(v) => v && setPicked(v)}
+                        onValueChange={(v) => {
+                            // Picking here switches the whole dashboard.
+                            const b = branches.find((x) => x.id === v);
+                            if (b) setHeaderBranch(b);
+                        }}
                     >
                         <SelectTrigger
                             aria-label={t('inventory.selectBranch')}

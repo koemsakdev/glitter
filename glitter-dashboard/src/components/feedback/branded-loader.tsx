@@ -42,7 +42,12 @@ function Sparkle({
     style?: React.CSSProperties;
 }) {
     return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" className={className} style={style}>
+        <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            className={className}
+            style={style}
+        >
             <path
                 d="M12 0c.7 5.7 2.6 7.6 8.3 8.3-5.7.7-7.6 2.6-8.3 8.3-.7-5.7-2.6-7.6-8.3-8.3C9.4 7.6 11.3 5.7 12 0z"
                 fill="currentColor"
@@ -78,7 +83,10 @@ export function BrandedLoader({
             )}
         >
             <div
-                className={cn('relative flex items-center justify-center', s.box)}
+                className={cn(
+                    'relative flex items-center justify-center',
+                    s.box,
+                )}
                 style={{ perspective: '500px' }}
             >
                 {/* Orbiting sparkles — two layers spinning at different speeds/directions */}
@@ -166,7 +174,9 @@ export function BrandedLoader({
             </div>
 
             {label && (
-                <p className={cn('font-medium text-foreground', s.text)}>{label}</p>
+                <p className={cn('font-medium text-foreground', s.text)}>
+                    {label}
+                </p>
             )}
         </div>
     );

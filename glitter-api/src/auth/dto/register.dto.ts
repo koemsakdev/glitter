@@ -6,8 +6,8 @@ import {
   IsString,
   Matches,
   MaxLength,
-  MinLength,
 } from 'class-validator';
+import { IsStrongPassword } from '../../common/validators/strong-password';
 
 export class RegisterDto {
   @ApiProperty({ example: 'customer@example.com' })
@@ -19,11 +19,10 @@ export class RegisterDto {
     example: 'P@ssw0rd123',
     minLength: 8,
     maxLength: 128,
-    description: 'At least 8 characters',
+    description:
+      'At least 8 characters, with upper- and lowercase letters and a number',
   })
-  @IsString()
-  @MinLength(8)
-  @MaxLength(128)
+  @IsStrongPassword()
   password!: string;
 
   @ApiProperty({ example: 'Koem Sovann' })

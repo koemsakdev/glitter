@@ -1,6 +1,6 @@
 'use client';
 
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { useDeleteBrandModal } from '@/features/brands/hooks/use-delete-brand-modal';
 import { useDeleteBrand } from '@/features/brands/use-brands';
@@ -13,11 +13,9 @@ interface DeleteBrandDialogProps {
     onClose?: () => void;
 }
 
-export function DeleteBrandDialog({
-  brand,
-  onClose,
-}: DeleteBrandDialogProps) {
+export function DeleteBrandDialog({ brand, onClose }: DeleteBrandDialogProps) {
     const { t } = useI18n();
+    const { toast } = useToast();
     const { isOpen, setIsOpen } = useDeleteBrandModal();
     const deleteMutation = useDeleteBrand();
 
@@ -30,10 +28,14 @@ export function DeleteBrandDialog({
         if (!brand) return;
         try {
             await deleteMutation.mutateAsync(brand.id);
-            toast.success(t('brand.delete.success'));
+            toast({ variant: 'success', title: t('brand.delete.success') });
             handleOpenChange(false);
         } catch (error) {
-            toast.error(getErrorMessage(error));
+            toast({
+                variant: 'destructive',
+                title: t('common.toast.error'),
+                description: getErrorMessage(error),
+            });
         }
     }
 

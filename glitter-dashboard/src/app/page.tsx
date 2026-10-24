@@ -19,5 +19,5 @@ export default function RootPage() {
     }
   }, [isHydrated, user, router]);
 
-  return <LoadingScreen variant="page" />;
+  return <LoadingScreen variant="boot" />;
 }

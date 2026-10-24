@@ -9,9 +9,9 @@ import {
   IsUUID,
   Matches,
   MaxLength,
-  MinLength,
 } from 'class-validator';
 import type { AccountStatus, UserRole } from '../entities/user.entity';
+import { IsStrongPassword } from '../../common/validators/strong-password';
 
 /**
  * Admin endpoint for creating users.
@@ -103,8 +103,6 @@ export class CreateUserDto {
     maxLength: 128,
   })
   @IsOptional()
-  @IsString()
-  @MinLength(8)
-  @MaxLength(128)
+  @IsStrongPassword()
   password?: string;
 }

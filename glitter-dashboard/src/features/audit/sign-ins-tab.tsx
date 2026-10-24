@@ -574,9 +574,13 @@ function SignInDrawer({
                         <Filter className="mr-2 size-4" />
                         {t('signins.filterByIp')}
                     </Button>
-                    <DrawerClose asChild>
-                        <Button variant="outline">{t('common.close')}</Button>
-                    </DrawerClose>
+                    <DrawerClose
+                        render={
+                            <Button variant="outline">
+                                {t('common.close')}
+                            </Button>
+                        }
+                    />
                 </>
             }
         >

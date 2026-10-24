@@ -4,11 +4,13 @@ import {
     useQuery,
     useQueryClient,
 } from '@tanstack/react-query';
+import { useLockedBranchId } from '@/stores/use-branch-context';
 import { inventoryBranchApi } from './inventory-branch-api';
 import type {
     BranchInventoryParams,
     CreateInventoryBranchPayload,
     InventoryListParams,
+    ProductAvailability,
     ReserveStockPayload,
     TransferStockPayload,
     UpdateInventoryBranchPayload,
@@ -27,10 +29,21 @@ export function useInventoryList(params?: InventoryListParams) {
 
 /** Per-branch availability for a product — used on product detail page */
 export function useProductAvailability(productId: string | undefined) {
+    // Managers/cashiers see only their own branch's stock.
+    const lockedBranchId = useLockedBranchId();
     return useQuery({
         queryKey: [...INVENTORY_KEY, 'product-availability', productId],
         queryFn: () => inventoryBranchApi.getProductAvailability(productId!),
         enabled: Boolean(productId),
+        select: (data: ProductAvailability) =>
+            lockedBranchId
+                ? {
+                      ...data,
+                      branches: data.branches.filter(
+                          (b) => b.branchId === lockedBranchId,
+                      ),
+                  }
+                : data,
     });
 }
 
@@ -103,9 +116,9 @@ export function useUpdateInventoryBranch() {
     const invalidate = useInvalidateInventory();
     return useMutation({
         mutationFn: ({
-                         id,
-                         payload,
-                     }: {
+            id,
+            payload,
+        }: {
             id: string;
             payload: UpdateInventoryBranchPayload;
         }) => inventoryBranchApi.update(id, payload),

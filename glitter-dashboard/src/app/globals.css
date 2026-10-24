@@ -444,3 +444,58 @@ input[type="password"]::placeholder {
     0% { transform: translateX(-100%); }
     100% { transform: translateX(300%); }
 }
+
+/* Soft fade at the top/bottom edge of a scrolling area (shadcn drawer body). */
+@utility scroll-fade {
+    mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        #000 1rem,
+        #000 calc(100% - 1rem),
+        transparent
+    );
+}
+
+/* Skeleton placeholders: a soft light band sweeping left → right. */
+.skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+.skeleton-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+        90deg,
+        transparent,
+        color-mix(in oklab, var(--background) 65%, transparent),
+        transparent
+    );
+    animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-sweep {
+    100% {
+        transform: translateX(100%);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .skeleton-shimmer::after {
+        animation: none;
+    }
+}
+
+/* Toast countdown bar: shrinks over the toast's lifetime, pauses on hover. */
+.toast-countdown {
+    transform-origin: left;
+    animation: toast-countdown var(--toast-duration, 4000ms) linear forwards;
+}
+[data-sonner-toast]:hover .toast-countdown {
+    animation-play-state: paused;
+}
+@keyframes toast-countdown {
+    to {
+        transform: scaleX(0);
+    }
+}

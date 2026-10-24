@@ -6,7 +6,7 @@ import { Phone, Plus, Store, X } from 'lucide-react';
 import { RowActions } from '@/components/resource/row-actions';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useMemo } from 'react';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
 import {
     DataTable,
     DataTableEmpty,
@@ -134,6 +134,15 @@ function OrdersPageContent() {
         const qs = next.toString();
         router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     }
+
+    // Back to page 1 when the branch in the top bar changes.
+    const lastBranch = useRef(selectedBranchId);
+    useEffect(() => {
+        if (lastBranch.current === selectedBranchId) return;
+        lastBranch.current = selectedBranchId;
+        if (params.get('page')) update({}, true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedBranchId]);
 
     const { from, to } = presetRange(datePreset);
     const { data, isLoading, isFetching } = useOrders({

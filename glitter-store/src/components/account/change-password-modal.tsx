@@ -5,6 +5,10 @@ import { KeyRound, Loader2, Lock } from 'lucide-react';
 import { ResponsiveModal } from '@/components/ui/responsive-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+    isStrongPassword,
+    PasswordStrength,
+} from '@/components/auth/password-strength';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { tr, type Lang } from '@/lib/locale';
 
@@ -27,6 +31,10 @@ export function ChangePasswordModal({
     async function save() {
         setError('');
         if (!current || !next) return;
+        if (!isStrongPassword(next)) {
+            setError(tr(lang, 'pwNotStrong'));
+            return;
+        }
         setSaving(true);
         try {
             const res = await authFetch('/api/auth/change-password', {
@@ -109,10 +117,11 @@ export function ChangePasswordModal({
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') void save();
                                 }}
-                                placeholder={tr(lang, 'newPasswordPlaceholder')}
+                                placeholder={tr(lang, 'pwPlaceholder')}
                                 className="pl-9"
                             />
                         </div>
+                        <PasswordStrength password={next} lang={lang} />
                     </Field>
 
                     {error && (

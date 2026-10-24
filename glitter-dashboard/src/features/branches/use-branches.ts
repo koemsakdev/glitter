@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { branchApi } from './branch-api';
-import type { BranchFormValues, BranchListParams } from '@/types/branch';
+import { useLockedBranchId } from '@/stores/use-branch-context';
+import type {
+    Branch,
+    BranchFormValues,
+    BranchListParams,
+} from '@/types/branch';
 
 const BRANCHES_KEY = ['branches'] as const;
 
@@ -11,11 +16,21 @@ export function useBranches(params?: BranchListParams) {
     });
 }
 
+/**
+ * Branches the signed-in staff member may work with. Admins get every active
+ * branch; managers/cashiers get only their own, so no picker, list or stock
+ * table anywhere in the dashboard can show or offer another branch.
+ */
 export function useActiveBranches() {
+    const lockedBranchId = useLockedBranchId();
     return useQuery({
         queryKey: [...BRANCHES_KEY, 'active'],
         queryFn: () => branchApi.listActive(),
         staleTime: 5 * 60 * 1000, // 5 min — rarely changes
+        select: (branches: Branch[]) =>
+            lockedBranchId
+                ? branches.filter((b) => b.id === lockedBranchId)
+                : branches,
     });
 }
 
@@ -41,9 +56,9 @@ export function useUpdateBranch() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({
-                         id,
-                         values,
-                     }: {
+            id,
+            values,
+        }: {
             id: string;
             values: Partial<BranchFormValues>;
         }) => branchApi.update(id, values),

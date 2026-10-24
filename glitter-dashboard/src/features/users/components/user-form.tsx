@@ -23,6 +23,10 @@ import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import {
+    isStrongPassword,
+    PasswordStrength,
+} from '@/components/ui/password-strength';
+import {
     Select,
     SelectContent,
     SelectItem,
@@ -220,10 +224,10 @@ export function UserForm({
         const wantsPassword =
             canSetPassword && (passwordRequired || password.trim().length > 0);
         if (wantsPassword) {
-            if (password.trim().length < 8) {
+            if (!isStrongPassword(password.trim())) {
                 toast({
                     title: t('common.toast.error'),
-                    description: t('user.validation.passwordMin'),
+                    description: t('password.notStrong'),
                     variant: 'destructive',
                 });
                 return;
@@ -250,7 +254,7 @@ export function UserForm({
                 await updateUser.mutateAsync({ id: user.id, payload });
                 id = user.id;
                 // Editing another staff member: apply a new password if typed.
-                if (canSetPassword && password.trim().length >= 8) {
+                if (canSetPassword && isStrongPassword(password.trim())) {
                     setSaveStep('password');
                     await setUserPassword.mutateAsync({
                         id,
@@ -517,6 +521,7 @@ export function UserForm({
                                 )}
                             </button>
                         </div>
+                        {password && <PasswordStrength password={password} />}
                         <p className="text-xs text-muted-foreground">
                             {isEdit
                                 ? t('user.form.resetPasswordHint')

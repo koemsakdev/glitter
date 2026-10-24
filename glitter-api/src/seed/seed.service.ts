@@ -67,22 +67,30 @@ export class SeedService implements OnModuleInit {
       return;
     }
 
-    const email = this.configService.get<string>('SEED_ADMIN_EMAIL');
+    // The dashboard signs in with username + password; email is optional.
+    const username = (
+      this.configService.get<string>('SEED_ADMIN_USERNAME') || 'admin'
+    )
+      .trim()
+      .toLowerCase();
+    const email =
+      this.configService
+        .get<string>('SEED_ADMIN_EMAIL')
+        ?.trim()
+        .toLowerCase() || null;
     const password = this.configService.get<string>('SEED_ADMIN_PASSWORD');
     const fullName =
       this.configService.get<string>('SEED_ADMIN_NAME') ?? 'Shop Owner';
 
-    if (!email || !password) {
-      this.logger.warn(
-        'SEED_ADMIN_EMAIL or SEED_ADMIN_PASSWORD not set — skipping seed',
-      );
+    if (!password) {
+      this.logger.warn('SEED_ADMIN_PASSWORD not set — skipping admin seed');
       return;
     }
 
     try {
       const user = this.userRepository.create({
-        email: email.toLowerCase(),
-        username: 'admin',
+        email,
+        username,
         phoneNumber: null,
         fullName,
         profileImageUrl: null,
@@ -90,7 +98,7 @@ export class SeedService implements OnModuleInit {
         role: 'admin',
         branchId: null,
         accountStatus: 'active',
-        emailVerifiedAt: new Date(),
+        emailVerifiedAt: email ? new Date() : null,
         phoneVerifiedAt: null,
         isProfileComplete: false,
         tokenVersion: 0,
@@ -101,14 +109,16 @@ export class SeedService implements OnModuleInit {
       const authAccount = this.authAccountRepository.create({
         userId: savedUser.id,
         provider: 'email',
-        providerAccountId: email.toLowerCase(),
+        providerAccountId: email ?? username,
         passwordHash,
       });
       await this.authAccountRepository.save(authAccount);
 
       this.logger.log('─────────────────────────────────────────────────');
       this.logger.log('✅ Admin account seeded');
-      this.logger.log('   Username: admin  (password: SEED_ADMIN_PASSWORD)');
+      this.logger.log(
+        `   Username: ${username}  (password: SEED_ADMIN_PASSWORD)`,
+      );
       this.logger.log('   ⚠️  Change this password after first login!');
       this.logger.log('─────────────────────────────────────────────────');
     } catch (error) {

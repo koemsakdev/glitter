@@ -11,11 +11,11 @@ interface ErrorStateProps {
 }
 
 export function ErrorState({
-                               title = 'Something went wrong',
-                               message = 'Please try again or contact support if the problem persists.',
-                               onRetry,
-                               className = '',
-                           }: ErrorStateProps) {
+    title = 'Something went wrong',
+    message = 'Please try again or contact support if the problem persists.',
+    onRetry,
+    className = '',
+}: ErrorStateProps) {
     return (
         <div
             className={`flex flex-col items-center justify-center gap-3 py-12 text-center ${className}`}
@@ -25,7 +25,9 @@ export function ErrorState({
             </div>
             <div>
                 <h3 className="text-base font-semibold">{title}</h3>
-                <p className="mt-1 max-w-sm text-sm text-muted-foreground">{message}</p>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                    {message}
+                </p>
             </div>
             {onRetry && (
                 <Button variant="outline" size="sm" onClick={onRetry}>

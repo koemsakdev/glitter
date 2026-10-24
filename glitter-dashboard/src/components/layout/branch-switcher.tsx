@@ -17,6 +17,7 @@ import { useActiveBranches } from '@/features/branches/use-branches';
 import { useI18n } from '@/lib/i18n';
 import {
     ALL_BRANCHES,
+    NO_BRANCH,
     useBranchContext,
     useLockedBranchId,
 } from '@/stores/use-branch-context';
@@ -71,6 +72,17 @@ export function BranchSwitcher() {
     ]);
 
     // Managers/cashiers work at one branch — show it, no switching.
+    if (lockedBranchId === NO_BRANCH) {
+        return (
+            <div
+                title={t('branchSwitcher.noBranchHelp')}
+                className="flex max-w-56 shrink-0 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+            >
+                <Lock className="size-3.5 shrink-0" />
+                <span className="truncate">{t('branchSwitcher.noBranch')}</span>
+            </div>
+        );
+    }
     if (lockedBranchId) {
         const mine = branches?.find((b) => b.id === lockedBranchId);
         const name = mine

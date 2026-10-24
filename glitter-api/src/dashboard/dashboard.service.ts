@@ -150,13 +150,13 @@ export class DashboardService {
       this.getProductCounts(),
       this.getBrandCounts(),
       this.categoryRepo.count(),
-      this.getVariantStats(),
+      this.getVariantStats(branchId),
       this.getRecentProducts(),
-      this.getLowStockVariants(),
+      this.getLowStockVariants(branchId),
       this.getRecentlyUpdatedProducts(),
       this.getTopBrands(),
       this.getTopCategories(),
-      this.getInventoryStats(),
+      this.getInventoryStats(branchId),
       this.getTopProducts('SUM(oi.quantity)', from, to, branchId),
       this.getTopProducts('COUNT(DISTINCT oi.order_id)', from, to, branchId),
       this.getSales(from, to, branchId),
@@ -473,17 +473,34 @@ export class DashboardService {
     return { total, active };
   }
 
-  private async getVariantStats() {
+  /**
+   * Variants query + the stock column to use. With a branch, only variants
+   * that branch carries count, using that branch's quantity; otherwise the
+   * variant's total across all branches.
+   */
+  private stockQuery(branchId?: string) {
+    const qb = this.variantRepo.createQueryBuilder('v');
+    if (!branchId) return { qb, qty: 'v.quantity_in_stock' };
+    qb.innerJoin(
+      'inventory_branch',
+      'ib',
+      'ib.product_variant_id = v.id AND ib.branch_id = :branchId AND ib.deleted_at IS NULL',
+      { branchId },
+    );
+    return { qb, qty: 'ib.quantity_available' };
+  }
+
+  private async getVariantStats(branchId?: string) {
     // Use raw aggregates for efficiency
-    const result = await this.variantRepo
-      .createQueryBuilder('v')
-      .select('COALESCE(SUM(v.quantity_in_stock), 0)', 'total')
+    const { qb, qty } = this.stockQuery(branchId);
+    const result = await qb
+      .select(`COALESCE(SUM(${qty}), 0)`, 'total')
       .addSelect(
-        `SUM(CASE WHEN v.quantity_in_stock = 0 THEN 1 ELSE 0 END)`,
+        `SUM(CASE WHEN ${qty} = 0 THEN 1 ELSE 0 END)`,
         'out_of_stock_count',
       )
       .addSelect(
-        `SUM(CASE WHEN v.quantity_in_stock > 0 AND v.quantity_in_stock < :threshold THEN 1 ELSE 0 END)`,
+        `SUM(CASE WHEN ${qty} > 0 AND ${qty} < :threshold THEN 1 ELSE 0 END)`,
         'low_stock_count',
       )
       .setParameter('threshold', LOW_STOCK_THRESHOLD)
@@ -537,10 +554,10 @@ export class DashboardService {
     }));
   }
 
-  private async getLowStockVariants() {
+  private async getLowStockVariants(branchId?: string) {
     // Variants with stock between 1 and threshold-1, joined with product info
-    const rows = await this.variantRepo
-      .createQueryBuilder('v')
+    const { qb, qty } = this.stockQuery(branchId);
+    const rows = await qb
       .innerJoin('v.product', 'p')
       .select([
         'v.id AS id',
@@ -548,16 +565,16 @@ export class DashboardService {
         'v.size AS size',
         'v.color AS color',
         'v.color_hex AS "colorHex"',
-        'v.quantity_in_stock AS "quantityInStock"',
+        `${qty} AS "quantityInStock"`,
         'p.id AS "productId"',
         'p.name_en AS "productNameEn"',
         'p.name_km AS "productNameKm"',
       ])
-      .where('v.quantity_in_stock > 0')
-      .andWhere('v.quantity_in_stock < :threshold', {
+      .andWhere(`${qty} > 0`)
+      .andWhere(`${qty} < :threshold`, {
         threshold: LOW_STOCK_THRESHOLD,
       })
-      .orderBy('v.quantity_in_stock', 'ASC')
+      .orderBy(qty, 'ASC')
       .limit(LOW_STOCK_VARIANTS_LIMIT)
       .getRawMany<{
         id: string;
@@ -696,17 +713,42 @@ export class DashboardService {
   /**
    * Aggregate inventory stats — total value, averages.
    */
-  private async getInventoryStats() {
+  private async getInventoryStats(branchId?: string) {
     // Total value: sum of (variant stock * effective price)
     // Effective price = price_override OR product.price
-    const valueResult = await this.variantRepo
-      .createQueryBuilder('v')
+    const { qb, qty } = this.stockQuery(branchId);
+    const valueResult = await qb
       .leftJoin('v.product', 'p')
       .select(
-        'COALESCE(SUM(v.quantity_in_stock * COALESCE(v.price_override, p.price)), 0)',
+        `COALESCE(SUM(${qty} * COALESCE(v.price_override, p.price)), 0)`,
         'totalValue',
       )
-      .getRawOne<{ totalValue: string }>();
+      .addSelect(`COALESCE(SUM(${qty}), 0)`, 'units')
+      .addSelect('COUNT(DISTINCT v.product_id)', 'products')
+      .getRawOne<{ totalValue: string; units: string; products: string }>();
+
+    if (branchId) {
+      // Per-branch: averages over the products this branch carries.
+      const priceRow = await this.productRepo
+        .createQueryBuilder('p')
+        .select('COALESCE(AVG(p.price), 0)', 'avgPrice')
+        .where(
+          `EXISTS (SELECT 1 FROM inventory_branch ib
+                     JOIN product_variants pv ON pv.id = ib.product_variant_id
+                    WHERE pv.product_id = p.id AND ib.branch_id = :branchId
+                      AND ib.deleted_at IS NULL AND pv.deleted_at IS NULL)`,
+          { branchId },
+        )
+        .getRawOne<{ avgPrice: string }>();
+      const products = parseInt(valueResult?.products ?? '0', 10);
+      return {
+        totalValue: parseFloat(valueResult?.totalValue ?? '0'),
+        averagePrice: parseFloat(priceRow?.avgPrice ?? '0'),
+        averageStockPerProduct: products
+          ? Math.round(parseInt(valueResult?.units ?? '0', 10) / products)
+          : 0,
+      };
+    }
 
     // Product price stats
     const priceResult = await this.productRepo

@@ -187,6 +187,8 @@ export const securityApi = {
 };
 
 export interface TrailEntry extends AuditLog {
+    /** Filled from the record's own dates — happened before audit logging. */
+    synthetic?: boolean;
     location: {
         country: string | null;
         countryCode: string | null;
@@ -208,6 +210,8 @@ interface TrailActor {
 export interface RecordTrail {
     entity: string;
     id: string;
+    /** Names of records referenced in the changes, by id. */
+    refs?: Record<string, string>;
     label: string | null;
     status: 'active' | 'deleted' | 'unknown' | 'not_found';
     summary: {
@@ -216,6 +220,8 @@ export interface RecordTrail {
         deleted: TrailActor | null;
         updatedAt: string | null;
         totalActions: number;
+        /** The record existed before audit logging was switched on. */
+        untrackedBefore?: boolean;
     };
     entries: TrailEntry[];
 }

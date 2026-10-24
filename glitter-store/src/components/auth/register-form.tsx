@@ -9,6 +9,10 @@ import {
     authInputCls,
     authPrimaryBtnCls,
 } from '@/components/auth/auth-shell';
+import {
+    isStrongPassword,
+    PasswordStrength,
+} from '@/components/auth/password-strength';
 import { VerifyEmailStep } from '@/components/auth/verify-email-step';
 import { useAuth } from '@/lib/auth';
 import { isValidPhone } from '@/lib/phone';
@@ -42,7 +46,8 @@ export function RegisterForm({
         setError('');
         if (!fullName.trim()) return setError(tr(lang, 'nameRequired'));
         if (!email.trim()) return setError(tr(lang, 'emailRequired'));
-        if (password.length < 8) return setError(tr(lang, 'passwordTooShort'));
+        if (!isStrongPassword(password))
+            return setError(tr(lang, 'pwNotStrong'));
         if (phone.trim() && !isValidPhone(phone))
             return setError(tr(lang, 'invalidPhone'));
         setSubmitting(true);
@@ -137,7 +142,7 @@ export function RegisterForm({
                                     }
                                     className={`${authInputCls} pr-10`}
                                     autoComplete="new-password"
-                                    placeholder="••••••••"
+                                    placeholder={tr(lang, 'pwPlaceholder')}
                                 />
                                 <button
                                     type="button"
@@ -157,6 +162,7 @@ export function RegisterForm({
                                     )}
                                 </button>
                             </div>
+                            <PasswordStrength password={password} lang={lang} />
                         </div>
                         <div>
                             <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-200">

@@ -47,7 +47,14 @@ export default function RootLayout({
               <AuthProvider>
                 <TooltipProvider>
                   {children}
-                  <Toaster position="top-right" richColors />
+                  <Toaster
+                    position="top-right"
+                    visibleToasts={4}
+                    gap={10}
+                    offset={16}
+                    mobileOffset={12}
+                    toastOptions={{ unstyled: true }}
+                  />
                 </TooltipProvider>
               </AuthProvider>
             </QueryProvider>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { useDeleteProductModal } from '@/features/products/hooks/use-delete-product-modal';
 import { useDeleteProduct } from '@/features/products/use-products';
@@ -17,11 +17,12 @@ interface DeleteProductDialogProps {
 }
 
 export function DeleteProductDialog({
-                                        product,
-                                        redirectTo,
-                                        onClose,
-                                    }: DeleteProductDialogProps) {
+    product,
+    redirectTo,
+    onClose,
+}: DeleteProductDialogProps) {
     const { t, language } = useI18n();
+    const { toast } = useToast();
     const router = useRouter();
     const { isOpen, setIsOpen } = useDeleteProductModal();
     const deleteMutation = useDeleteProduct();
@@ -35,11 +36,15 @@ export function DeleteProductDialog({
         if (!product) return;
         try {
             await deleteMutation.mutateAsync(product.id);
-            toast.success(t('product.delete.success'));
+            toast({ variant: 'success', title: t('product.delete.success') });
             handleOpenChange(false);
             if (redirectTo) router.push(redirectTo);
         } catch (error) {
-            toast.error(getErrorMessage(error));
+            toast({
+                variant: 'destructive',
+                title: t('common.toast.error'),
+                description: getErrorMessage(error),
+            });
         }
     }
 

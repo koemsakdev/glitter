@@ -14,10 +14,10 @@ interface DetailSectionProps {
  * and a content area. Used as a building block for detail pages.
  */
 export function DetailSection({
-  title,
-  description,
-  action,
-  children,
+    title,
+    description,
+    action,
+    children,
 }: DetailSectionProps) {
     return (
         <div className="rounded-lg border bg-card">
@@ -25,7 +25,9 @@ export function DetailSection({
                 <div className="min-w-0">
                     <h2 className="text-base font-semibold">{title}</h2>
                     {description && (
-                        <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+                        <p className="mt-0.5 text-sm text-muted-foreground">
+                            {description}
+                        </p>
                     )}
                 </div>
                 {action}

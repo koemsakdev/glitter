@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Clock, CreditCard, ShoppingCart, Users } from 'lucide-react';
 import { ErrorState } from '@/components/feedback/error-state';
-import { LoadingScreen } from '@/components/feedback/loading-screen';
+import { DashboardSkeleton } from '@/components/feedback/page-skeleton';
 import {
     DateRangeFilter,
     RANGE_PRESETS,
@@ -50,9 +50,10 @@ export default function DashboardHomePage() {
     );
 
     // Still hydrating the role, or redirecting a cashier away.
-    if (!canViewStats) return <LoadingScreen variant="page" />;
+    if (!canViewStats) return <DashboardSkeleton />;
 
-    if (isLoading) return <LoadingScreen variant="page" />;
+    // First load only — afterwards data stays on screen while it refreshes.
+    if (isLoading) return <DashboardSkeleton />;
 
     if (isError || !stats) {
         return (

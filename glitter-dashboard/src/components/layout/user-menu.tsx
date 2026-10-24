@@ -34,7 +34,7 @@ export function UserMenu() {
     const router = useRouter();
     const user = useAuthStore((s) => s.user);
     const logout = useLogout();
-    const { toast, loading: showLoadingToast, dismiss } = useToast();
+    const { toast, loading: showLoadingToast } = useToast();
     const { t } = useI18n();
 
     if (!user) return null;
@@ -48,16 +48,17 @@ export function UserMenu() {
         const toastId = showLoadingToast(t('common.toast.logout'), t('common.toast.wait'));
         try {
             await logout.mutateAsync();
-            dismiss(toastId);
+            // Turn the "Signing out…" toast into the result, in place.
             toast({
+                id: toastId,
                 title: t('common.toast.success'),
                 description: t('common.toast.logout.success'),
                 variant: 'success',
             })
             router.replace('/login');
         } catch (error) {
-            dismiss(toastId);
             toast({
+                id: toastId,
                 title: t('common.toast.error'),
                 description: t('common.toast.logout.fail'),
                 variant: 'destructive'

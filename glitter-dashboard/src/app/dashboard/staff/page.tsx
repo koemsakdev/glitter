@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTableSort } from '@/hooks/use-table-sort';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/auth-store';
+import { useSelectedBranchId } from '@/stores/use-branch-context';
 import {
     ACCOUNT_STATUSES,
     STAFF_ROLES,
@@ -53,7 +54,16 @@ export default function StaffPage() {
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
+    // Follows the branch picked in the top bar (admins see everyone on "All").
+    const branchId = useSelectedBranchId();
+    const [lastBranch, setLastBranch] = useState(branchId);
+    if (lastBranch !== branchId) {
+        setLastBranch(branchId);
+        setPage(1);
+    }
+
     const { data, isLoading, isFetching } = useUsers({
+        branchId: branchId ?? undefined,
         sortBy: tableSort.sortBy,
         sortOrder: tableSort.sortOrder,
         page,
@@ -88,6 +98,8 @@ export default function StaffPage() {
                 t,
                 language,
                 currentUserId,
+                // One branch selected → every row is that branch.
+                showBranch: !branchId,
                 onView: (u) => router.push(`/dashboard/staff/${u.id}`),
                 onEdit: (u) => {
                     setEditingUser(u);
@@ -95,7 +107,7 @@ export default function StaffPage() {
                 },
                 onDelete: (u) => setDeletingUser(u),
             }),
-        [t, language, router, currentUserId],
+        [t, language, router, currentUserId, branchId],
     );
 
     async function handleDelete() {

@@ -272,7 +272,6 @@ export default function ReviewsPage() {
                                     <div className="ml-auto">
                                         <RowActions
                                             onDelete={() => setDeleting(r)}
-                                            manageRoles={['manager', 'admin']}
                                             audit={{
                                                 entity: 'reviews',
                                                 id: r.id,

@@ -16,6 +16,9 @@ const queryConfig: QueryClientConfig = {
   defaultOptions: {
     queries: {
       staleTime: 30 * 1000, // 30s — data is "fresh" for this long
+      // Keep visited pages' data for 15 min, so coming back shows it instantly
+      // (and refreshes quietly) instead of a loading screen.
+      gcTime: 15 * 60 * 1000,
       refetchOnWindowFocus: false, // don't refetch every time user alt-tabs
       retry: 1, // one retry on failure (not exponential backoff)
     },

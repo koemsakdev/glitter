@@ -212,8 +212,14 @@ export class InventoryBranchController {
   @ApiResponse({ status: 200, type: InventoryBranchListResponseDto })
   async findByVariant(
     @Param('variantId') variantId: string,
+    @CurrentUser() user: UserEntity,
   ): Promise<InventoryBranchListResponse> {
-    return this.service.findByVariant(variantId);
+    const res = await this.service.findByVariant(variantId);
+    // Managers/cashiers only see their own branch's row.
+    const scope = resolveBranchScope(user);
+    if (!scope) return res;
+    const data = res.data.filter((r) => r.branchId === scope);
+    return { ...res, data, total: data.length };
   }
 
   @UseGuards(RolesGuard)

@@ -59,9 +59,18 @@ export const useBranchContext = create<BranchContextState>()(
  */
 export function useLockedBranchId(): string | null {
     return useAuthStore((s) =>
-        s.user && s.user.role !== 'admin' ? (s.user.branchId ?? null) : null,
+        s.user && s.user.role !== 'admin'
+            ? (s.user.branchId ?? NO_BRANCH)
+            : null,
     );
 }
+
+/**
+ * Lock value for a manager/cashier with no branch assigned yet: they match no
+ * branch, so they see no branch data (the API refuses them too) instead of
+ * falling back to the admin's "all branches" view.
+ */
+export const NO_BRANCH = '__no-branch__';
 
 /**
  * Selector — the branch the dashboard is showing, or null for "all".

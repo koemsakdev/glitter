@@ -2,6 +2,7 @@
 
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useMedia } from 'react-use';
 import {
     Drawer,
     DrawerContent,
@@ -13,10 +14,9 @@ import {
 import { cn } from '@/lib/utils';
 
 /**
- * Log details in a shadcn Drawer, styled like the docs' Base UI drawer: a
- * floating card that slides in from the right (inset from the edges, fully
- * rounded), a strongly blurred page behind, title + description, a scrolling
- * body of cards, and full-width stacked actions at the bottom.
+ * Details in the official shadcn (Base UI) Drawer: slides in from the right
+ * on desktop and up from the bottom on phones, header + one scrolling body
+ * (the only scrollbar, with faded edges) + stacked full-width actions.
  */
 export function DetailDrawer({
     open,
@@ -34,11 +34,22 @@ export function DetailDrawer({
     footer?: ReactNode;
     children: ReactNode;
 }) {
+    const isMobile = useMedia('(max-width: 767px)', false);
     return (
-        <Drawer open={open} onOpenChange={onOpenChange} direction="right">
+        <Drawer
+            open={open}
+            onOpenChange={onOpenChange}
+            showSwipeHandle={isMobile}
+            swipeDirection={isMobile ? 'down' : 'right'}
+        >
             <DrawerContent
                 overlayClassName="bg-black/25 backdrop-blur-md supports-backdrop-filter:backdrop-blur-md"
-                className="data-[vaul-drawer-direction=right]:inset-y-2 data-[vaul-drawer-direction=right]:right-2 data-[vaul-drawer-direction=right]:h-[calc(100dvh-1rem)] data-[vaul-drawer-direction=right]:w-[calc(100vw-1rem)] data-[vaul-drawer-direction=right]:rounded-3xl data-[vaul-drawer-direction=right]:border data-[vaul-drawer-direction=right]:shadow-2xl data-[vaul-drawer-direction=right]:sm:max-w-md"
+                className={cn(
+                    // Floating card: inset from the screen edges, fully rounded.
+                    '[--drawer-inset:0.5rem] rounded-3xl border shadow-2xl after:hidden',
+                    'data-[swipe-direction=right]:rounded-3xl data-[swipe-direction=right]:border data-[swipe-direction=down]:rounded-3xl data-[swipe-direction=down]:border',
+                    'data-[swipe-axis=x]:h-[calc(100dvh-1rem)] data-[swipe-axis=x]:w-[calc(100vw-1rem)] data-[swipe-axis=x]:sm:w-md',
+                )}
             >
                 <DrawerHeader className="gap-1 px-5 pt-5 pb-3 text-left md:gap-1">
                     <DrawerTitle className="text-lg font-semibold">
@@ -50,7 +61,8 @@ export function DetailDrawer({
                         </DrawerDescription>
                     )}
                 </DrawerHeader>
-                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 pb-3">
+                {/* The only scrolling area — header and buttons stay put. */}
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 pb-3 [scrollbar-width:thin]">
                     {children}
                 </div>
                 {footer && (

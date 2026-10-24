@@ -52,11 +52,12 @@ export const ResponsiveModal = ({
         <Drawer
             open={open}
             onOpenChange={onOpenChange}
+            showSwipeHandle
         >
             <DrawerContent ref={dialogContentRef}>
                 <DrawerTitle />
                 <DrawerDescription />
-                <div className="overflow-y-auto hide-scrollbar max-h-[85vh]">
+                <div className="min-h-0 flex-1 overflow-y-auto hide-scrollbar">
                     {children}
                 </div>
             </DrawerContent>

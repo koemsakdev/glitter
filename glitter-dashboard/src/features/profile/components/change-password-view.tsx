@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+    isStrongPassword,
+    PasswordStrength,
+} from '@/components/ui/password-strength';
 import { useChangePassword } from '@/features/profile/use-profile';
 import { useLogout } from '@/features/auth/use-auth';
 import { getErrorMessage } from '@/lib/api-client';
@@ -35,10 +39,10 @@ export function ChangePasswordView() {
             });
             return;
         }
-        if (newPassword.length < 8) {
+        if (!isStrongPassword(newPassword)) {
             toast({
                 title: t('common.toast.error'),
-                description: t('changePassword.validation.minLength'),
+                description: t('password.notStrong'),
                 variant: 'destructive',
             });
             return;
@@ -117,6 +121,7 @@ export function ChangePasswordView() {
                         className={inputClass}
                         autoComplete="new-password"
                     />
+                    {newPassword && <PasswordStrength password={newPassword} />}
                 </Field>
                 <Field label={t('changePassword.confirm')}>
                     <Input
