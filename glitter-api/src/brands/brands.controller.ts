@@ -40,7 +40,7 @@ import {
 import { UseGuards } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 
 // Define upload destination
@@ -84,6 +84,7 @@ export class BrandsController {
    * Create a new brand with logo upload
    * POST /brands
    */
+  @RequirePermission('catalog.manage')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
@@ -316,6 +317,7 @@ export class BrandsController {
    * Update a brand with optional logo upload
    * PATCH /brands/:id
    */
+  @RequirePermission('catalog.manage')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(
@@ -407,6 +409,7 @@ export class BrandsController {
    * Delete a brand
    * DELETE /brands/:id
    */
+  @RequirePermission('catalog.manage')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({

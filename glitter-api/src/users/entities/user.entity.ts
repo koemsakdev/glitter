@@ -133,6 +133,15 @@ export class UserEntity {
    * NULL for customers and admins (who aren't tied to one branch).
    * REQUIRED for cashiers and managers.
    */
+  /** Extra permissions an admin granted on top of the role (see auth/permissions.ts). */
+  @Column({
+    type: 'text',
+    array: true,
+    default: () => "'{}'",
+    name: 'extra_permissions',
+  })
+  extraPermissions!: string[];
+
   @Column({ type: 'uuid', nullable: true, name: 'branch_id' })
   branchId!: string | null;
 

@@ -1,37 +1,34 @@
 'use client';
 
-import {format} from 'date-fns';
-import {
-    ArrowLeft,
-    Edit,
-    ExternalLink,
-    ImageIcon,
-    Trash2,
-} from 'lucide-react';
+import { format } from 'date-fns';
+import { ArrowLeft, Edit, ExternalLink, ImageIcon, Trash2 } from 'lucide-react';
 import { SafeImage as Image } from '@/components/ui/safe-image';
 import Link from 'next/link';
-import {Badge} from '@/components/ui/badge';
-import {Button} from '@/components/ui/button';
-import {DetailField, DetailSection} from '@/components/feedback/detail-section';
-import {LoadingScreen} from '@/components/feedback/loading-screen';
-import {ErrorState} from '@/components/feedback/error-state';
-import {BrandFormDialog} from '@/features/brands/components/brand-form-dialog';
-import {DeleteBrandDialog} from '@/features/brands/components/delete-brand-dialog';
-import {useDeleteBrandModal} from '@/features/brands/hooks/use-delete-brand-modal';
-import {useModifyBrandModal} from '@/features/brands/hooks/use-modify-brand-modal';
-import {useBrand} from '@/features/brands/use-brands';
-import {getFileUrl} from '@/lib/file-url';
-import {useI18n} from '@/lib/i18n';
-import type {Brand} from '@/types/brand';
-import {useState} from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+    DetailField,
+    DetailSection,
+} from '@/components/feedback/detail-section';
+import { LoadingScreen } from '@/components/feedback/loading-screen';
+import { ErrorState } from '@/components/feedback/error-state';
+import { BrandFormDialog } from '@/features/brands/components/brand-form-dialog';
+import { DeleteBrandDialog } from '@/features/brands/components/delete-brand-dialog';
+import { useDeleteBrandModal } from '@/features/brands/hooks/use-delete-brand-modal';
+import { useModifyBrandModal } from '@/features/brands/hooks/use-modify-brand-modal';
+import { useBrand } from '@/features/brands/use-brands';
+import { getFileUrl } from '@/lib/file-url';
+import { useI18n } from '@/lib/i18n';
+import type { Brand } from '@/types/brand';
+import { useState } from 'react';
 
 interface BrandDetailViewProps {
     id: string;
 }
 
-export function BrandDetailView({id}: BrandDetailViewProps) {
-    const {t} = useI18n();
-    const {data: brand, isLoading, isError, refetch} = useBrand(id);
+export function BrandDetailView({ id }: BrandDetailViewProps) {
+    const { t } = useI18n();
+    const { data: brand, isLoading, isError, refetch } = useBrand(id);
 
     // Local state for which brand is being edited/deleted (cleared after modal closes)
     const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
@@ -41,7 +38,7 @@ export function BrandDetailView({id}: BrandDetailViewProps) {
     const deleteModal = useDeleteBrandModal();
 
     if (isLoading) {
-        return <LoadingScreen variant="page"/>;
+        return <LoadingScreen variant="page" />;
     }
 
     if (isError || !brand) {
@@ -71,8 +68,7 @@ export function BrandDetailView({id}: BrandDetailViewProps) {
             {/* Hero — logo + name + status + actions */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
-                    <div
-                        className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/40 ring-1 ring-pink-200/30 dark:ring-pink-400/15">
+                    <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/40 ring-1 ring-pink-200/30 dark:ring-pink-400/15">
                         {logoUrl ? (
                             <Image
                                 src={logoUrl}
@@ -83,7 +79,7 @@ export function BrandDetailView({id}: BrandDetailViewProps) {
                                 unoptimized
                             />
                         ) : (
-                            <ImageIcon className="size-8 text-muted-foreground/40"/>
+                            <ImageIcon className="size-8 text-muted-foreground/40" />
                         )}
                     </div>
                     <div className="min-w-0">
@@ -91,9 +87,13 @@ export function BrandDetailView({id}: BrandDetailViewProps) {
                             {brand.name}
                         </h1>
                         <div className="mt-2 flex items-center gap-2">
-                            <BrandStatusBadge status={brand.status}/>
-                            <span className="text-sm text-muted-foreground">·</span>
-                            <span className="text-sm text-muted-foreground">{brand.slug}</span>
+                            <BrandStatusBadge status={brand.status} />
+                            <span className="text-sm text-muted-foreground">
+                                ·
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                                {brand.slug}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -111,7 +111,7 @@ export function BrandDetailView({id}: BrandDetailViewProps) {
                         }
                     />
                     <Button variant="outline" onClick={handleEdit}>
-                        <Edit className="mr-2 size-4"/>
+                        <Edit className="mr-2 size-4" />
                         {t('brand.action.edit')}
                     </Button>
                     <Button
@@ -119,7 +119,7 @@ export function BrandDetailView({id}: BrandDetailViewProps) {
                         onClick={handleDelete}
                         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     >
-                        <Trash2 className="mr-2 size-4"/>
+                        <Trash2 className="mr-2 size-4" />
                         {t('brand.action.delete')}
                     </Button>
                 </div>
@@ -131,29 +131,34 @@ export function BrandDetailView({id}: BrandDetailViewProps) {
                 description={t('brand.detail.informationDescription')}
             >
                 <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-                    <DetailField label={t('brand.field.name')}>{brand.name}</DetailField>
+                    <DetailField label={t('brand.field.name')}>
+                        {brand.name}
+                    </DetailField>
                     <DetailField label={t('brand.field.slug')}>
-            <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs">
-              {brand.slug}
-            </span>
+                        <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs">
+                            {brand.slug}
+                        </span>
                     </DetailField>
-                    <DetailField label={t('brand.field.website')}>
-                        {brand.websiteUrl ? (
-                            <a
-                                href={brand.websiteUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-pink-600 hover:underline dark:text-pink-300"
-                            >
-                                {brand.websiteUrl.replace(/^https?:\/\//, '')}
-                                <ExternalLink className="size-3"/>
-                            </a>
-                        ) : (
-                            <span className="text-muted-foreground">—</span>
-                        )}
-                    </DetailField>
+                    {brand.websiteUrl && (
+                        <DetailField label={t('brand.field.website')}>
+                            {
+                                <a
+                                    href={brand.websiteUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-pink-600 hover:underline dark:text-pink-300"
+                                >
+                                    {brand.websiteUrl.replace(
+                                        /^https?:\/\//,
+                                        '',
+                                    )}
+                                    <ExternalLink className="size-3" />
+                                </a>
+                            }
+                        </DetailField>
+                    )}
                     <DetailField label={t('brand.field.status')}>
-                        <BrandStatusBadge status={brand.status}/>
+                        <BrandStatusBadge status={brand.status} />
                     </DetailField>
                 </dl>
             </DetailSection>
@@ -203,14 +208,13 @@ export function BrandDetailView({id}: BrandDetailViewProps) {
 /**
  * Status badge — pink for active, neutral for inactive.
  */
-function BrandStatusBadge({status}: { status: 'active' | 'inactive' }) {
-    const {t} = useI18n();
+function BrandStatusBadge({ status }: { status: 'active' | 'inactive' }) {
+    const { t } = useI18n();
 
     if (status === 'active') {
         return (
-            <Badge
-                className="bg-pink-100 text-pink-700 hover:bg-pink-100 dark:bg-pink-500/15 dark:text-pink-300 dark:hover:bg-pink-500/15">
-                <span className="mr-1 inline-block size-1.5 rounded-full bg-pink-500 dark:bg-pink-400"/>
+            <Badge className="bg-pink-100 text-pink-700 hover:bg-pink-100 dark:bg-pink-500/15 dark:text-pink-300 dark:hover:bg-pink-500/15">
+                <span className="mr-1 inline-block size-1.5 rounded-full bg-pink-500 dark:bg-pink-400" />
                 {t('brand.status.active')}
             </Badge>
         );
@@ -218,7 +222,7 @@ function BrandStatusBadge({status}: { status: 'active' | 'inactive' }) {
 
     return (
         <Badge variant="secondary" className="text-muted-foreground">
-            <span className="mr-1 inline-block size-1.5 rounded-full bg-muted-foreground"/>
+            <span className="mr-1 inline-block size-1.5 rounded-full bg-muted-foreground" />
             {t('brand.status.inactive')}
         </Badge>
     );

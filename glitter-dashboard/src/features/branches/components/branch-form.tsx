@@ -610,9 +610,11 @@ export function BranchForm({ branch, title, subtitle }: BranchFormProps) {
                                     {v.branchNameEn ||
                                         t('branch.form.previewName')}
                                 </p>
-                                <p className="truncate text-sm text-muted-foreground">
-                                    {v.branchNameKm || '—'}
-                                </p>
+                                {v.branchNameKm && (
+                                    <p className="truncate text-sm text-muted-foreground">
+                                        {v.branchNameKm}
+                                    </p>
+                                )}
                             </div>
                             <ul className="space-y-2.5 text-sm">
                                 <PreviewRow icon={Hash}>
@@ -626,14 +628,18 @@ export function BranchForm({ branch, title, subtitle }: BranchFormProps) {
                                         </span>
                                     )}
                                 </PreviewRow>
-                                <PreviewRow icon={MapPin}>
-                                    {[v.streetAddress, v.city]
-                                        .filter(Boolean)
-                                        .join(', ') || '—'}
-                                </PreviewRow>
-                                <PreviewRow icon={Phone}>
-                                    {v.phoneNumber || '—'}
-                                </PreviewRow>
+                                {(v.streetAddress || v.city) && (
+                                    <PreviewRow icon={MapPin}>
+                                        {[v.streetAddress, v.city]
+                                            .filter(Boolean)
+                                            .join(', ')}
+                                    </PreviewRow>
+                                )}
+                                {v.phoneNumber && (
+                                    <PreviewRow icon={Phone}>
+                                        {v.phoneNumber}
+                                    </PreviewRow>
+                                )}
                                 {v.email && (
                                     <PreviewRow icon={Mail}>
                                         {v.email}

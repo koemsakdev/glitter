@@ -140,6 +140,7 @@ export default function BadgesPage() {
                                 }
                             />
                             <RowActions
+ permission="catalog.manage"
                                 onEdit={() => openForm(b)}
                                 onDelete={() => setDeleting(b)}
                                 audit={{

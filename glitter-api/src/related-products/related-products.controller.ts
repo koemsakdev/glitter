@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { SetRelatedProductsDto } from './dto/set-related-products.dto';
 import { RelatedProductsService } from './related-products.service';
@@ -43,6 +43,7 @@ export class RelatedProductsController {
     return { data: await this.service.getForProduct(productId) };
   }
 
+  @RequirePermission('products.edit')
   @Put('product/:productId')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)

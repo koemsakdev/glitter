@@ -118,7 +118,8 @@ export class CreateOrderDto {
   // ----- Storefront delivery / payment (online only) -----
 
   @ApiPropertyOptional({
-    description: 'Shipping region id (admin-configurable; default ids: phnom_penh, province)',
+    description:
+      'Shipping region id (admin-configurable; default ids: phnom_penh, province)',
   })
   @IsOptional()
   @IsString()

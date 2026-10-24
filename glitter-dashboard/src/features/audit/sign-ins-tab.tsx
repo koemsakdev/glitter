@@ -193,9 +193,11 @@ export function SignInsTab() {
                     const l = row.original;
                     return (
                         <div className="min-w-0 max-w-44">
-                            <div className="truncate text-sm font-medium">
-                                {l.userName ?? '—'}
-                            </div>
+                            {l.userName && (
+                                <div className="truncate text-sm font-medium">
+                                    {l.userName}
+                                </div>
+                            )}
                             <div className="truncate font-mono text-xs text-muted-foreground">
                                 {l.usernameTried}
                             </div>
@@ -278,9 +280,11 @@ export function SignInsTab() {
                                 <div className="truncate text-sm">
                                     {l.browser ?? t('signins.unknownBrowser')}
                                 </div>
-                                <div className="truncate text-xs text-muted-foreground">
-                                    {l.os ?? '—'}
-                                </div>
+                                {l.os && (
+                                    <div className="truncate text-xs text-muted-foreground">
+                                        {l.os}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     );
@@ -744,14 +748,16 @@ function SignInDrawer({
                 </p>
             )}
 
-            <details className="rounded-2xl border bg-card px-4 py-2.5 text-sm">
-                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {t('signins.userAgent')}
-                </summary>
-                <p className="mt-2 break-all font-mono text-xs">
-                    {a.userAgent ?? '—'}
-                </p>
-            </details>
+            {a.userAgent && (
+                <details className="rounded-2xl border bg-card px-4 py-2.5 text-sm">
+                    <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        {t('signins.userAgent')}
+                    </summary>
+                    <p className="mt-2 break-all font-mono text-xs">
+                        {a.userAgent}
+                    </p>
+                </details>
+            )}
         </DetailDrawer>
     );
 }

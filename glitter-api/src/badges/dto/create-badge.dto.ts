@@ -31,7 +31,8 @@ export class CreateBadgeDto {
   color!: string;
 
   @ApiPropertyOptional({
-    description: 'Optional slug; auto-generated from the English name if omitted',
+    description:
+      'Optional slug; auto-generated from the English name if omitted',
   })
   @IsOptional()
   @IsString()

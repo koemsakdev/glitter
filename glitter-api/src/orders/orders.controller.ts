@@ -25,6 +25,7 @@ import {
 } from '../common/helpers/branch-scope.helper';
 import { UserEntity } from '../users/entities/user.entity';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { hasPermission } from '../auth/permissions';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -138,13 +139,14 @@ export class OrdersController {
     @CurrentUser() user: UserEntity,
   ): Promise<OrderDetailResponse> {
     assertBranchAccess(user, await this.service.getBranchId(id));
-    // Cancelling / refunding gives money and stock back — manager or admin.
+    // Cancelling / refunding gives money and stock back — needs the
+    // "orders.refund" permission (managers by default, or granted).
     if (
-      user.role === 'cashier' &&
-      (dto.status === 'cancelled' || dto.status === 'refunded')
+      (dto.status === 'cancelled' || dto.status === 'refunded') &&
+      !hasPermission(user, 'orders.refund')
     ) {
       throw new ForbiddenException(
-        'Only a manager or admin can cancel or refund an order',
+        'You need the "Cancel & refund orders" permission to do this',
       );
     }
     return this.service.updateStatus(id, dto.status);
@@ -160,9 +162,12 @@ export class OrdersController {
     @CurrentUser() user: UserEntity,
   ): Promise<OrderDetailResponse> {
     assertBranchAccess(user, await this.service.getBranchId(id));
-    if (user.role === 'cashier' && dto.paymentStatus === 'refunded') {
+    if (
+      dto.paymentStatus === 'refunded' &&
+      !hasPermission(user, 'orders.refund')
+    ) {
       throw new ForbiddenException(
-        'Only a manager or admin can mark a payment refunded',
+        'You need the "Cancel & refund orders" permission to do this',
       );
     }
     return this.service.updatePaymentStatus(id, dto.paymentStatus);

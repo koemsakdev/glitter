@@ -28,7 +28,7 @@ import {
 } from '@nestjs/swagger';
 import * as path from 'path';
 import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { createDiskStorage } from '../common/helpers/multer.helper';
 import { CategoriesService } from './category.service';
@@ -72,6 +72,7 @@ export class CategoriesController {
    * Create a new category with icon upload
    * POST /categories
    */
+  @RequirePermission('catalog.manage')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
@@ -180,6 +181,7 @@ export class CategoriesController {
    * Update a category with optional icon upload
    * PATCH /categories/:id
    */
+  @RequirePermission('catalog.manage')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(
@@ -233,6 +235,7 @@ export class CategoriesController {
   /**
    * Delete a category
    */
+  @RequirePermission('catalog.manage')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)

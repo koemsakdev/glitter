@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
+import { useI18n } from '@/lib/i18n';
 import { settingsApi } from './settings-api';
 import {
     DEFAULT_STORE_CONFIG,
@@ -9,6 +11,9 @@ import {
 } from './store-config';
 
 const SETTINGS_KEY = ['app-settings'] as const;
+// One toast slot for every settings save: "Saving…" is replaced in place by
+// "Saved" (or dismissed on error — callers show their own error toast).
+const SAVE_TOAST_ID = 'settings-save';
 
 /** Reads the single JSON storefront config (merged with defaults). */
 export function useStoreConfig() {
@@ -37,6 +42,8 @@ export function useStoreConfig() {
 /** Upserts the storefront config as one public JSON setting. */
 export function useSaveStoreConfig() {
     const queryClient = useQueryClient();
+    const { t } = useI18n();
+    const { toast, dismiss } = useToast();
     return useMutation({
         mutationFn: async (params: {
             config: StoreConfig;
@@ -57,7 +64,21 @@ export function useSaveStoreConfig() {
         // Sync the cache straight from the saved row (deterministic) instead of
         // refetching — a refetch can race a rapid follow-up edit and briefly
         // revert it. Fall back to invalidation only if the row can't be parsed.
+        onMutate: () => {
+            toast({
+                id: SAVE_TOAST_ID,
+                variant: 'loading',
+                title: t('common.saving'),
+            });
+        },
+        onError: () => dismiss(SAVE_TOAST_ID),
         onSuccess: (row) => {
+            toast({
+                id: SAVE_TOAST_ID,
+                variant: 'success',
+                title: t('settings.saved'),
+                duration: 2500,
+            });
             try {
                 queryClient.setQueryData([...SETTINGS_KEY, 'store-config'], {
                     config: mergeStoreConfig(JSON.parse(row.settingValue)),

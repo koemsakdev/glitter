@@ -7,8 +7,8 @@ import { Bell, Check, Package } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { orderStatusLabel } from '@/lib/order-ui';
 import { tr, type Lang } from '@/lib/locale';
+import { onLiveChange } from '@/lib/realtime';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 
 interface AppNotification {
     id: string;
@@ -63,16 +63,7 @@ export function NotificationBell({ lang }: { lang: Lang }) {
     useEffect(() => {
         if (!user) return;
         void load();
-        const src = new EventSource(`${API_URL}/api/realtime/events`);
-        src.onmessage = (e) => {
-            try {
-                const d = JSON.parse(e.data) as { entity?: string };
-                if (d.entity === 'notifications') void load();
-            } catch {
-                // ignore
-            }
-        };
-        return () => src.close();
+        return onLiveChange(['notifications'], () => void load());
     }, [user, load]);
 
     // Close on outside click.

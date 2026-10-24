@@ -3,7 +3,9 @@ import { Type } from 'class-transformer';
 import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class ValidateVoucherDto {
-  @ApiPropertyOptional({ description: 'Code to validate (omit for best auto promo)' })
+  @ApiPropertyOptional({
+    description: 'Code to validate (omit for best auto promo)',
+  })
   @IsOptional()
   @IsString()
   code?: string;
@@ -14,7 +16,9 @@ export class ValidateVoucherDto {
   @Min(0)
   subtotal!: number;
 
-  @ApiPropertyOptional({ description: 'Selected delivery fee (for delivery promos)' })
+  @ApiPropertyOptional({
+    description: 'Selected delivery fee (for delivery promos)',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

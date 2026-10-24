@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-query';
 import { userApi } from './user-api';
 import type { UserFormValues, UserQuery } from '@/types/user';
+import { removeFromCache } from '@/lib/remove-from-cache';
 
 const USERS_KEY = ['users'] as const;
 
@@ -37,8 +38,36 @@ export function useCreateUser() {
 export function useUpdateUser() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, payload }: { id: string; payload: UserFormValues }) =>
-            userApi.update(id, payload),
+        mutationFn: ({
+            id,
+            payload,
+        }: {
+            id: string;
+            payload: UserFormValues;
+        }) => userApi.update(id, payload),
+        onSuccess: () =>
+            void queryClient.invalidateQueries({ queryKey: USERS_KEY }),
+    });
+}
+
+export function usePermissionCatalog() {
+    return useQuery({
+        queryKey: [...USERS_KEY, 'permission-catalog'],
+        queryFn: () => userApi.permissionCatalog(),
+        staleTime: Infinity,
+    });
+}
+
+export function useSetUserPermissions() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({
+            id,
+            permissions,
+        }: {
+            id: string;
+            permissions: string[];
+        }) => userApi.setPermissions(id, permissions),
         onSuccess: () =>
             void queryClient.invalidateQueries({ queryKey: USERS_KEY }),
     });
@@ -55,8 +84,10 @@ export function useDeleteUser() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => userApi.remove(id),
-        onSuccess: () =>
-            void queryClient.invalidateQueries({ queryKey: USERS_KEY }),
+        onSuccess: (_data, id) => {
+            removeFromCache(queryClient, USERS_KEY, id);
+            void queryClient.invalidateQueries({ queryKey: USERS_KEY });
+        },
     });
 }
 

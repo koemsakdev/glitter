@@ -11,6 +11,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useI18n } from '@/lib/i18n';
+import { userHasPermission, type Permission } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/auth-store';
 import { useAuditTrail, type AuditTarget } from '@/stores/use-audit-trail';
 import type { UserRole } from '@/types/api';
@@ -19,7 +20,8 @@ import type { UserRole } from '@/types/api';
  * The ⋯ menu on every table row: View · Modify · Audit trail · Delete,
  * each shown only to roles allowed to use it.
  *  - View: everyone who can see the table
- *  - Modify / Delete: `manageRoles` (default: admin)
+ *  - Modify: `manageRoles` (default: admin) or holders of `permission`
+ *  - Delete: same as Modify, unless `deletePermission` is given
  *  - Audit trail: admin
  */
 export function RowActions({
@@ -30,7 +32,10 @@ export function RowActions({
     onDelete,
     audit,
     manageRoles = ['admin'],
+    permission,
+    deletePermission,
     canManage: canManageProp,
+    canDelete: canDeleteProp,
     deleteLabel,
 }: {
     viewHref?: string;
@@ -41,19 +46,33 @@ export function RowActions({
     /** Record for the Audit trail (API record type + id). */
     audit?: AuditTarget;
     manageRoles?: UserRole[];
-    /** Overrides the `manageRoles` check when the page already knows. */
+    /** Staff with this permission may also modify (and delete). */
+    permission?: Permission;
+    /** Separate permission for delete (e.g. products.delete). */
+    deletePermission?: Permission;
+    /** Overrides the role/permission check when the page already knows. */
     canManage?: boolean;
+    canDelete?: boolean;
     deleteLabel?: string;
 }) {
     const { t } = useI18n();
-    const role = useAuthStore((s) => s.user?.role);
+    const user = useAuthStore((s) => s.user);
+    const role = user?.role;
     const showTrail = useAuditTrail((s) => s.show);
-    const canManage = canManageProp ?? (!!role && manageRoles.includes(role));
+    const byRole = !!role && manageRoles.includes(role);
+    const canManage =
+        canManageProp ??
+        (byRole || (!!permission && userHasPermission(user, permission)));
+    const canDelete =
+        canDeleteProp ??
+        (deletePermission
+            ? byRole || userHasPermission(user, deletePermission)
+            : canManage);
     const isAdmin = role === 'admin';
 
     const hasView = Boolean(viewHref || onView);
     const hasEdit = canManage && Boolean(editHref || onEdit);
-    const hasDelete = canManage && Boolean(onDelete);
+    const hasDelete = canDelete && Boolean(onDelete);
     const hasTrail = isAdmin && Boolean(audit);
     if (!hasView && !hasEdit && !hasDelete && !hasTrail) return null;
 

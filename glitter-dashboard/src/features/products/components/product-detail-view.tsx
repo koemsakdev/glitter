@@ -24,7 +24,7 @@ import {
 import { ErrorState } from '@/components/feedback/error-state';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { DeleteProductDialog } from '@/features/products/components/delete-product-dialog';
-import { useIsAdmin } from '@/lib/permissions';
+import { usePermission } from '@/lib/permissions';
 import { useDeleteProductModal } from '@/features/products/hooks/use-delete-product-modal';
 import { useProductImages } from '@/features/product-images/use-product-images';
 import { useProduct } from '@/features/products/use-products';
@@ -62,9 +62,9 @@ interface ProductDetailViewProps {
 }
 
 function formatDate(date: string | Date | undefined | null): string {
-    if (!date) return '—';
+    if (!date) return '';
     const d = new Date(date);
-    if (Number.isNaN(d.getTime())) return '—';
+    if (Number.isNaN(d.getTime())) return '';
     return new Intl.DateTimeFormat('en-US', {
         dateStyle: 'medium',
         timeStyle: 'short',
@@ -74,7 +74,8 @@ function formatDate(date: string | Date | undefined | null): string {
 export function ProductDetailView({ id }: ProductDetailViewProps) {
     const { t, language } = useI18n();
     const { data: product, isLoading, isError, refetch } = useProduct(id);
-    const isAdmin = useIsAdmin();
+    const canEdit = usePermission('products.edit');
+    const canDelete = usePermission('products.delete');
     const { data: images = [] } = useProductImages(id);
 
     const { data: brands } = useBrandOptions();
@@ -97,7 +98,10 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
         availability.branches
             .filter((b) => b.branchId === selectedBranchId)
             .forEach((b) => {
-                map.set(b.variantId, (map.get(b.variantId) ?? 0) + b.quantityAvailable);
+                map.set(
+                    b.variantId,
+                    (map.get(b.variantId) ?? 0) + b.quantityAvailable,
+                );
             });
         return map;
     }, [selectedBranchId, availability]);
@@ -120,7 +124,9 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
         return language === 'km' ? row.branchNameKm : row.branchNameEn;
     }, [selectedBranchId, availability, language]);
 
-    const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+    const [deletingProduct, setDeletingProduct] = useState<Product | null>(
+        null,
+    );
     const deleteModal = useDeleteProductModal();
 
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -152,7 +158,7 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
         ? language === 'km'
             ? category.nameKm
             : category.nameEn
-        : '—';
+        : '';
 
     const primaryImage = images.find((img) => img.imageType === 'primary');
     const heroImage = primaryImage ?? images[0] ?? null;
@@ -194,7 +200,9 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
                                     {primaryName}
                                 </h1>
-                                {badges && <ProductBadgeDisplay badges={badges} />}
+                                {badges && (
+                                    <ProductBadgeDisplay badges={badges} />
+                                )}
                             </div>
 
                             {showSecondary && (
@@ -207,8 +215,8 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                                 <ProductStatusBadge status={product.status} />
                                 <ProductTypeBadge type={product.productType} />
                                 <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-                  {product.sku}
-                </span>
+                                    {product.sku}
+                                </span>
                             </div>
                         </div>
 
@@ -224,40 +232,46 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                                     </Link>
                                 }
                             />
-                            {isAdmin && (
-                            <>
-                            <Button
-                                variant="outline"
-                                nativeButton={false}
-                                render={
-                                    <Link href={`/dashboard/products/${product.id}/edit`}>
-                                        <Edit className="mr-2 size-4" />
-                                        {t('product.action.edit')}
-                                    </Link>
-                                }
-                            />
-                            <Button
-                                variant="outline"
-                                onClick={handleDelete}
-                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            >
-                                <Trash2 className="mr-2 size-4" />
-                                {t('product.action.delete')}
-                            </Button>
-                            </>
+                            {(canEdit || canDelete) && (
+                                <>
+                                    {canEdit && (
+                                        <Button
+                                            variant="outline"
+                                            nativeButton={false}
+                                            render={
+                                                <Link
+                                                    href={`/dashboard/products/${product.id}/edit`}
+                                                >
+                                                    <Edit className="mr-2 size-4" />
+                                                    {t('product.action.edit')}
+                                                </Link>
+                                            }
+                                        />
+                                    )}
+                                    {canDelete && (
+                                        <Button
+                                            variant="outline"
+                                            onClick={handleDelete}
+                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                        >
+                                            <Trash2 className="mr-2 size-4" />
+                                            {t('product.action.delete')}
+                                        </Button>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
 
                     {/* Price row — prominent */}
                     <div className="flex items-baseline gap-3">
-            <span className="text-3xl font-bold text-pink-600 dark:text-pink-300">
-              {formatPrice(product.price)}
-            </span>
+                        <span className="text-3xl font-bold text-pink-600 dark:text-pink-300">
+                            {formatPrice(product.price)}
+                        </span>
                         {hasDiscount && (
                             <span className="text-base text-muted-foreground line-through">
-                {formatPrice(product.originalPrice)}
-              </span>
+                                {formatPrice(product.originalPrice)}
+                            </span>
                         )}
                     </div>
                 </div>
@@ -273,9 +287,9 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                         description={
                             images.length > 0
                                 ? t('product.detail.imagesCount').replace(
-                                    '{count}',
-                                    String(images.length),
-                                )
+                                      '{count}',
+                                      String(images.length),
+                                  )
                                 : undefined
                         }
                     >
@@ -290,7 +304,9 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                             <ImageGallery
                                 images={images}
                                 altName={primaryName}
-                                onImageClick={(index) => setLightboxIndex(index)}
+                                onImageClick={(index) =>
+                                    setLightboxIndex(index)
+                                }
                             />
                         )}
                     </DetailSection>
@@ -299,14 +315,18 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                     {(product.descriptionEn || product.descriptionKm) && (
                         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                             {product.descriptionEn && (
-                                <DetailSection title={t('product.field.descriptionEn')}>
+                                <DetailSection
+                                    title={t('product.field.descriptionEn')}
+                                >
                                     <p className="text-sm leading-relaxed text-foreground">
                                         {product.descriptionEn}
                                     </p>
                                 </DetailSection>
                             )}
                             {product.descriptionKm && (
-                                <DetailSection title={t('product.field.descriptionKm')}>
+                                <DetailSection
+                                    title={t('product.field.descriptionKm')}
+                                >
                                     <p className="text-sm leading-relaxed text-foreground">
                                         {product.descriptionKm}
                                     </p>
@@ -350,12 +370,14 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                         description={
                             variants.length > 0
                                 ? t('product.detail.variantsCount').replace(
-                                    '{count}',
-                                    String(variants.length),
-                                )
+                                      '{count}',
+                                      String(variants.length),
+                                  )
                                 : undefined
                         }
-                        action={<BranchScopeBadge branchName={selectedBranchName} />}
+                        action={
+                            <BranchScopeBadge branchName={selectedBranchName} />
+                        }
                     >
                         {variants.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/20 py-8">
@@ -384,9 +406,9 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                         description={
                             badges && badges.length > 0
                                 ? t('product.detail.badgesCount').replace(
-                                    '{count}',
-                                    String(badges.length),
-                                )
+                                      '{count}',
+                                      String(badges.length),
+                                  )
                                 : undefined
                         }
                     >
@@ -486,31 +508,39 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                                     if (stock === 0) {
                                         return (
                                             <span className="font-semibold text-destructive">
-                        {formatStock(stock)} · {t('product.stock.outOfStock')}
-                      </span>
+                                                {formatStock(stock)} ·{' '}
+                                                {t('product.stock.outOfStock')}
+                                            </span>
                                         );
                                     }
                                     if (stock < 10) {
                                         return (
                                             <span className="font-semibold text-amber-600 dark:text-amber-400">
-                        {formatStock(stock)} · {t('product.stock.low')}
-                      </span>
+                                                {formatStock(stock)} ·{' '}
+                                                {t('product.stock.low')}
+                                            </span>
                                         );
                                     }
                                     return (
-                                        <span className="font-semibold">{formatStock(stock)}</span>
+                                        <span className="font-semibold">
+                                            {formatStock(stock)}
+                                        </span>
                                     );
                                 })()}
                             </DetailField>
                             {selectedBranchName && (
-                                <DetailField label={t('product.scope.allBranches')}>
+                                <DetailField
+                                    label={t('product.scope.allBranches')}
+                                >
                                     <span className="text-muted-foreground">
                                         {formatStock(product.totalStock)}
                                     </span>
                                 </DetailField>
                             )}
                             <DetailField label={t('product.field.hasBox')}>
-                                {product.hasBox ? t('common.yes') : t('common.no')}
+                                {product.hasBox
+                                    ? t('common.yes')
+                                    : t('common.no')}
                             </DetailField>
                         </div>
                     </DetailSection>
@@ -518,50 +548,70 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
                     {/* Organization */}
                     <DetailSection title={t('product.detail.organization')}>
                         <div className="space-y-2.5">
-                            <DetailField label={t('product.field.brand')}>
-                                {brand?.name ?? '—'}
-                            </DetailField>
-                            <DetailField label={t('product.field.category')}>
-                                {categoryName}
-                            </DetailField>
+                            {brand?.name && (
+                                <DetailField label={t('product.field.brand')}>
+                                    {brand.name}
+                                </DetailField>
+                            )}
+                            {categoryName && (
+                                <DetailField
+                                    label={t('product.field.category')}
+                                >
+                                    {categoryName}
+                                </DetailField>
+                            )}
                             <DetailField label={t('product.field.slug')}>
-                <span className="inline-block whitespace-nowrap rounded-md bg-muted px-2 py-0.5 font-mono text-xs">
-                  {product.slug}
-                </span>
+                                <span className="inline-block whitespace-nowrap rounded-md bg-muted px-2 py-0.5 font-mono text-xs">
+                                    {product.slug}
+                                </span>
                             </DetailField>
                         </div>
                     </DetailSection>
 
                     {/* Ratings */}
                     <DetailSection title={t('product.detail.reviews')}>
-                        {product.reviewCount === 0 ? (
-                            <div className="flex items-center gap-2 text-sm italic text-muted-foreground">
-                                <MessageSquare className="size-4 shrink-0 opacity-40" />
-                                {t('product.detail.noReviews')}
-                            </div>
-                        ) : (
+                        {
                             <div className="space-y-2.5">
                                 <DetailField label={t('product.field.rating')}>
                                     <div className="flex items-center gap-2">
-                                        <StarRating value={product.averageRating ?? 0} />
+                                        <StarRating
+                                            value={product.averageRating ?? 0}
+                                        />
                                         <span className="text-sm font-semibold">
-                                            {(product.averageRating ?? 0).toFixed(1)}
+                                            {product.reviewCount === 0 ? (
+                                                <div className="flex items-center gap-2 text-sm italic text-muted-foreground">
+                                                    <MessageSquare className="size-4 shrink-0 opacity-40" />
+                                                    {t(
+                                                        'product.detail.noReviews',
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                (
+                                                    product.averageRating ?? 0
+                                                ).toFixed(1)
+                                            )}
                                         </span>
-                                        <span className="text-xs text-muted-foreground">/ 5.0</span>
+                                        <span className="text-xs text-muted-foreground">
+                                            / 5.0
+                                        </span>
                                     </div>
                                 </DetailField>
-                                <DetailField label={t('product.field.reviewCount')}>
+                                <DetailField
+                                    label={t('product.field.reviewCount')}
+                                >
                                     {product.reviewCount}
                                 </DetailField>
                             </div>
-                        )}
+                        }
                     </DetailSection>
 
                     {/* Wishlist demand */}
                     <DetailSection title={t('product.detail.wishlist')}>
                         <div className="flex items-center gap-2 text-sm">
                             <Heart className="size-4 shrink-0 fill-pink-500 text-pink-500" />
-                            <span className="font-semibold">{wishlistCount}</span>
+                            <span className="font-semibold">
+                                {wishlistCount}
+                            </span>
                             <span className="text-muted-foreground">
                                 {t('product.detail.wishlistCount')}
                             </span>
@@ -605,9 +655,9 @@ export function ProductDetailView({ id }: ProductDetailViewProps) {
  * Image gallery, with zoom on hovers.
  */
 function ImageGallery({
-  images,
-  altName,
-  onImageClick,
+    images,
+    altName,
+    onImageClick,
 }: {
     images: ProductImage[];
     altName: string;
@@ -645,9 +695,9 @@ function ImageGallery({
                         )}
                         {/* Subtle zoom hint on hover */}
                         <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/30 group-hover:opacity-100">
-              <span className="rounded-full bg-white/90 px-2 py-1 text-xs font-medium text-zinc-800 shadow-md">
-                Click to view
-              </span>
+                            <span className="rounded-full bg-white/90 px-2 py-1 text-xs font-medium text-zinc-800 shadow-md">
+                                Click to view
+                            </span>
                         </div>
                     </button>
                 );
@@ -670,7 +720,10 @@ function BranchScopeBadge({ branchName }: { branchName: string | null }) {
                 }`}
             />
             {branchName
-                ? t('product.scope.showingBranch').replace('{branch}', branchName)
+                ? t('product.scope.showingBranch').replace(
+                      '{branch}',
+                      branchName,
+                  )
                 : t('product.scope.allBranches')}
         </span>
     );
@@ -694,64 +747,71 @@ function VariantTable({
         <div className="overflow-x-auto rounded-lg border border-border/60">
             <table className="w-full text-sm">
                 <thead className="border-b bg-muted/30">
-                <tr className="text-left">
-                    <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        {t('product.variant.col.variant')}
-                    </th>
-                    <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        {t('product.variant.col.sku')}
-                    </th>
-                    <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        {t('product.variant.col.stock')}
-                    </th>
-                    <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        {t('product.variant.col.effectivePrice')}
-                    </th>
-                </tr>
+                    <tr className="text-left">
+                        <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            {t('product.variant.col.variant')}
+                        </th>
+                        <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            {t('product.variant.col.sku')}
+                        </th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            {t('product.variant.col.stock')}
+                        </th>
+                        <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            {t('product.variant.col.effectivePrice')}
+                        </th>
+                    </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                {variants.map((v) => {
-                    const label = [v.size, v.color].filter(Boolean).join(' · ');
-                    const stock = branchStockByVariant
-                        ? branchStockByVariant.get(v.id) ?? 0
-                        : v.quantityInStock;
-                    return (
-                        <tr key={v.id} className="bg-card hover:bg-muted/20">
-                            <td className="px-3 py-2.5">
-                                <div className="flex items-center gap-2.5">
-                                    {v.color && v.colorHex && (
-                                        <span
-                                            className="inline-block size-4 shrink-0 rounded-full border border-border"
-                                            style={{ backgroundColor: v.colorHex }}
-                                            title={v.color}
-                                        />
+                    {variants.map((v) => {
+                        const label = [v.size, v.color]
+                            .filter(Boolean)
+                            .join(' · ');
+                        const stock = branchStockByVariant
+                            ? (branchStockByVariant.get(v.id) ?? 0)
+                            : v.quantityInStock;
+                        return (
+                            <tr
+                                key={v.id}
+                                className="bg-card hover:bg-muted/20"
+                            >
+                                <td className="px-3 py-2.5">
+                                    <div className="flex items-center gap-2.5">
+                                        {v.color && v.colorHex && (
+                                            <span
+                                                className="inline-block size-4 shrink-0 rounded-full border border-border"
+                                                style={{
+                                                    backgroundColor: v.colorHex,
+                                                }}
+                                                title={v.color}
+                                            />
+                                        )}
+                                        {label && (
+                                            <span className="text-sm font-medium">
+                                                {label}
+                                            </span>
+                                        )}
+                                    </div>
+                                </td>
+                                <td className="px-3 py-2.5">
+                                    <span className="inline-block whitespace-nowrap rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
+                                        {v.variantSku}
+                                    </span>
+                                </td>
+                                <td className="px-3 py-2.5 text-right">
+                                    <VariantStockCell stock={stock} />
+                                </td>
+                                <td className="px-3 py-2.5 text-right font-medium">
+                                    {formatPrice(v.effectivePrice)}
+                                    {v.priceOverride !== null && (
+                                        <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                                            Override
+                                        </span>
                                     )}
-                                    {label ? (
-                                        <span className="text-sm font-medium">{label}</span>
-                                    ) : (
-                                        <span className="text-sm text-muted-foreground">—</span>
-                                    )}
-                                </div>
-                            </td>
-                            <td className="px-3 py-2.5">
-                <span className="inline-block whitespace-nowrap rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-                  {v.variantSku}
-                </span>
-                            </td>
-                            <td className="px-3 py-2.5 text-right">
-                                <VariantStockCell stock={stock} />
-                            </td>
-                            <td className="px-3 py-2.5 text-right font-medium">
-                                {formatPrice(v.effectivePrice)}
-                                {v.priceOverride !== null && (
-                                    <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                    Override
-                  </span>
-                                )}
-                            </td>
-                        </tr>
-                    );
-                })}
+                                </td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
         </div>
@@ -765,15 +825,15 @@ function VariantStockCell({ stock }: { stock: number }) {
     if (stock === 0) {
         return (
             <span className="font-mono text-sm font-semibold text-destructive">
-        0
-      </span>
+                0
+            </span>
         );
     }
     if (stock < 10) {
         return (
             <span className="font-mono text-sm font-semibold text-amber-600 dark:text-amber-400">
-        {stock}
-      </span>
+                {stock}
+            </span>
         );
     }
     return <span className="font-mono text-sm text-foreground">{stock}</span>;
@@ -820,9 +880,9 @@ function ProductStatusBadge({ status }: { status: ProductStatus }) {
 
     return (
         <Badge className={style.bg}>
-      <span
-          className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`}
-      />
+            <span
+                className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`}
+            />
             {labels[status]}
         </Badge>
     );
@@ -864,9 +924,9 @@ function ProductTypeBadge({ type }: { type: ProductType }) {
 
     return (
         <Badge variant="outline" className={style.bg}>
-      <span
-          className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`}
-      />
+            <span
+                className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`}
+            />
             {labels[type]}
         </Badge>
     );
@@ -910,60 +970,63 @@ function BadgesDetailList({ badges }: { badges: ProductBadge[] }) {
         <div className="overflow-x-auto rounded-lg border border-border/60">
             <table className="w-full text-sm">
                 <thead className="border-b bg-muted/30">
-                <tr className="text-left">
-                    <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        {t('product.badges.col.badge')}
-                    </th>
-                    <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        {t('product.badges.col.type')}
-                    </th>
-                    <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        {t('product.badges.col.status')}
-                    </th>
-                    <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        {t('product.badges.col.added')}
-                    </th>
-                </tr>
+                    <tr className="text-left">
+                        <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            {t('product.badges.col.badge')}
+                        </th>
+                        <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            {t('product.badges.col.type')}
+                        </th>
+                        <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            {t('product.badges.col.status')}
+                        </th>
+                        <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            {t('product.badges.col.added')}
+                        </th>
+                    </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                {badges.map((badge) => {
-                    const { label, color } = resolveBadgeDisplay(
-                        badge,
-                        language,
-                        badgeCatalog,
-                    );
-                    return (
-                        <tr key={badge.id} className="bg-card hover:bg-muted/20">
-                            <td className="px-3 py-2.5">
-                  <span
-                      className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wider"
-                      style={badgeTintStyle(color)}
-                  >
-                    {label}
-                  </span>
-                            </td>
-                            <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">
-                                {badge.badgeType}
-                            </td>
-                            <td className="px-3 py-2.5">
-                                {badge.isActive ? (
-                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                      <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
-                                        {t('product.badges.active')}
-                    </span>
-                                ) : (
-                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                      <span className="inline-block size-1.5 rounded-full bg-muted-foreground/40" />
-                                        {t('product.badges.inactive')}
-                    </span>
-                                )}
-                            </td>
-                            <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                                {formatDate(badge.createdAt)}
-                            </td>
-                        </tr>
-                    );
-                })}
+                    {badges.map((badge) => {
+                        const { label, color } = resolveBadgeDisplay(
+                            badge,
+                            language,
+                            badgeCatalog,
+                        );
+                        return (
+                            <tr
+                                key={badge.id}
+                                className="bg-card hover:bg-muted/20"
+                            >
+                                <td className="px-3 py-2.5">
+                                    <span
+                                        className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wider"
+                                        style={badgeTintStyle(color)}
+                                    >
+                                        {label}
+                                    </span>
+                                </td>
+                                <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">
+                                    {badge.badgeType}
+                                </td>
+                                <td className="px-3 py-2.5">
+                                    {badge.isActive ? (
+                                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                            <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
+                                            {t('product.badges.active')}
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                            <span className="inline-block size-1.5 rounded-full bg-muted-foreground/40" />
+                                            {t('product.badges.inactive')}
+                                        </span>
+                                    )}
+                                </td>
+                                <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                                    {formatDate(badge.createdAt)}
+                                </td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
         </div>

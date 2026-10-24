@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateBannerDto } from './dto/create-banner.dto';
 import { UpdateBannerDto } from './dto/update-banner.dto';
@@ -30,6 +30,7 @@ import {
 export class BannersController {
   constructor(private readonly service: BannersService) {}
 
+  @RequirePermission('storefront.manage')
   @Get()
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
@@ -49,6 +50,7 @@ export class BannersController {
     return { data: await this.service.findActiveByPlacement(location) };
   }
 
+  @RequirePermission('storefront.manage')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
@@ -58,6 +60,7 @@ export class BannersController {
     return { data: await this.service.create(dto) };
   }
 
+  @RequirePermission('storefront.manage')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
@@ -70,6 +73,7 @@ export class BannersController {
     return { data: await this.service.update(id, dto) };
   }
 
+  @RequirePermission('storefront.manage')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)

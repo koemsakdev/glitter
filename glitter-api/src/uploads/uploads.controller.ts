@@ -11,11 +11,16 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import sharp from 'sharp';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { ImageOptimizationService } from '../common/services/image-optimization.service';
 import { createDiskStorage } from '../common/helpers/multer.helper';
@@ -57,6 +62,7 @@ export class UploadsController {
 
   /** List previously uploaded images (most recent first) for re-use pickers. */
   @Roles('admin')
+  @RequirePermission('products.edit', 'catalog.manage', 'storefront.manage')
   @Get('images')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'List previously uploaded images (admin only)' })
@@ -90,6 +96,7 @@ export class UploadsController {
    * dimensions so the UI can preview / validate aspect ratio.
    */
   @Roles('admin')
+  @RequirePermission('products.edit', 'catalog.manage', 'storefront.manage')
   @Post('image')
   @HttpCode(HttpStatus.CREATED)
   @ApiConsumes('multipart/form-data')
@@ -125,9 +132,7 @@ export class UploadsController {
     }
 
     const finalName = await this.optimizer.optimize(file.path);
-    const finalMeta = await sharp(
-      path.join(UPLOAD_DIR, finalName),
-    ).metadata();
+    const finalMeta = await sharp(path.join(UPLOAD_DIR, finalName)).metadata();
 
     return {
       url: `/upload/uploads/${finalName}`,

@@ -581,14 +581,16 @@ function TrailRow({
                     )}
                 </td>
                 <td className="px-3 py-3">
-                    <div className="whitespace-nowrap text-sm">
-                        {place ? `${flag(loc?.countryCode)} ${place}` : '—'}
-                        {loc?.isVpnOrProxy && (
-                            <span className="ml-1.5 rounded-full bg-red-100 px-1.5 text-[10px] font-semibold text-red-700 dark:bg-red-500/15 dark:text-red-300">
-                                VPN
-                            </span>
-                        )}
-                    </div>
+                    {(place || loc?.isVpnOrProxy) && (
+                        <div className="whitespace-nowrap text-sm">
+                            {place && `${flag(loc?.countryCode)} ${place}`}
+                            {loc?.isVpnOrProxy && (
+                                <span className="ml-1.5 rounded-full bg-red-100 px-1.5 text-[10px] font-semibold text-red-700 dark:bg-red-500/15 dark:text-red-300">
+                                    VPN
+                                </span>
+                            )}
+                        </div>
+                    )}
                     {e.ip && (
                         <div className="font-mono text-xs text-muted-foreground">
                             {e.ip}
@@ -596,15 +598,13 @@ function TrailRow({
                     )}
                 </td>
                 <td className="px-3 py-3">
-                    {e.device ? (
+                    {(e.device?.browser || e.device?.os) && (
                         <div className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
                             <Laptop className="size-3.5 shrink-0" />
                             {[e.device.browser, e.device.os]
                                 .filter(Boolean)
-                                .join(' · ') || '—'}
+                                .join(' · ')}
                         </div>
-                    ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
                     )}
                 </td>
             </tr>
@@ -673,7 +673,8 @@ function ValueCell({
     value: ReadableValue | null;
     tone: 'old' | 'new' | 'plain';
 }) {
-    if (!value) return null;
+    // Nothing there (e.g. a field that was empty before) — show nothing.
+    if (!value || (!value.text && !value.image && !value.swatch)) return null;
     const src = value.image ? getFileUrl(value.image) : null;
     return (
         <span

@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { resolveBranchScope } from '../common/helpers/branch-scope.helper';
 import { UserEntity } from '../users/entities/user.entity';
@@ -16,6 +16,7 @@ import { OrderExportRow, ReportsService, SalesReport } from './reports.service';
 
 @ApiTags('Reports')
 @ApiBearerAuth()
+@RequirePermission('reports.view')
 @Controller('reports')
 @UseGuards(RolesGuard)
 @Roles('admin', 'manager')

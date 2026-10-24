@@ -23,8 +23,10 @@ interface ProductColumnsContext {
     hasBranchFilter?: boolean;
     wishlistCounts?: Record<string, number>;
     onDelete: (product: Product) => void;
-    /** Admin only: show Edit / Delete (others can just view). */
+    /** Show Edit (admin or the products.edit permission). */
     canManage?: boolean;
+    /** Show Delete (admin or the products.delete permission). */
+    canDelete?: boolean;
 }
 
 const STATUS_STYLES: Record<ProductStatus, { bg: string; dot: string }> = {
@@ -106,6 +108,7 @@ export function getProductColumns({
     wishlistCounts,
     onDelete,
     canManage = false,
+    canDelete = false,
 }: ProductColumnsContext): ColumnDef<Product>[] {
     return [
         {
@@ -178,19 +181,16 @@ export function getProductColumns({
             cell: ({ row }) => {
                 const category = categoriesById.get(row.original.categoryId);
                 const brand = brandsById.get(row.original.brandId);
-                if (!category && !brand)
-                    return (
-                        <span className="text-sm text-muted-foreground">—</span>
-                    );
+                if (!category && !brand) return null;
                 return (
                     <div className="min-w-0 max-w-44 leading-tight">
-                        <p className="truncate text-sm">
-                            {category
-                                ? language === 'km'
+                        {category && (
+                            <p className="truncate text-sm">
+                                {language === 'km'
                                     ? category.nameKm
-                                    : category.nameEn
-                                : '—'}
-                        </p>
+                                    : category.nameEn}
+                            </p>
+                        )}
                         {brand && (
                             <p className="truncate text-xs text-muted-foreground">
                                 {brand.name}
@@ -336,6 +336,7 @@ export function getProductColumns({
                     editHref={`/dashboard/products/${row.original.id}/edit`}
                     onDelete={() => onDelete(row.original)}
                     canManage={canManage}
+                    canDelete={canDelete}
                     audit={{
                         entity: 'products',
                         id: row.original.id,

@@ -8,7 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { WishlistsService } from './wishlists.service';
 import type { ProductResponse } from '../products/types/product-response.type';
@@ -19,6 +19,7 @@ import type { WishlistProductStat } from './types/wishlist-response.type';
 @ApiBearerAuth()
 @UseGuards(RolesGuard)
 @Roles('manager', 'admin')
+@RequirePermission('reports.view')
 @Controller('wishlists')
 export class WishlistsController {
   constructor(private readonly service: WishlistsService) {}

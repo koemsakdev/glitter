@@ -346,6 +346,7 @@ export default function PromotionsPage() {
                                                 }
                                             />
                                             <RowActions
+ permission="promotions.manage"
                                                 onEdit={() => openForm(v)}
                                                 onDelete={() => setDeleting(v)}
                                                 audit={{

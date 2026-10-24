@@ -9,7 +9,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { resolveBranchScope } from '../common/helpers/branch-scope.helper';
 import { UserEntity } from '../users/entities/user.entity';
 import { UseGuards } from '@nestjs/common';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { DashboardService } from './dashboard.service';
 import type { DashboardStatsResponse } from './types/dashboard.type';
@@ -20,6 +20,7 @@ import type { DashboardStatsResponse } from './types/dashboard.type';
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
+  @RequirePermission('reports.view')
   @Get('stats')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

@@ -10,10 +10,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import type {
-  DiscountTarget,
-  DiscountType,
-} from '../entities/voucher.entity';
+import type { DiscountTarget, DiscountType } from '../entities/voucher.entity';
 
 export class CreateVoucherDto {
   @ApiPropertyOptional({ description: 'Code (null = automatic promo)' })
@@ -79,12 +76,16 @@ export class CreateVoucherDto {
   @Min(1)
   usageLimit?: number | null;
 
-  @ApiPropertyOptional({ description: 'Restrict to customers with no prior orders' })
+  @ApiPropertyOptional({
+    description: 'Restrict to customers with no prior orders',
+  })
   @IsOptional()
   @IsBoolean()
   firstOrderOnly?: boolean;
 
-  @ApiPropertyOptional({ description: 'Restrict to accounts newer than N days' })
+  @ApiPropertyOptional({
+    description: 'Restrict to accounts newer than N days',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

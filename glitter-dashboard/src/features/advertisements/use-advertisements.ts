@@ -1,14 +1,11 @@
-import {
-    useMutation,
-    useQuery,
-    useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import type {
     Advertisement,
     AdvertisementFormValues,
     AdvertisementListResponse,
 } from '@/types/advertisement';
+import { removeFromCache } from '@/lib/remove-from-cache';
 
 const ADS_KEY = ['advertisements'] as const;
 
@@ -16,10 +13,9 @@ export function useAdvertisements() {
     return useQuery({
         queryKey: ADS_KEY,
         queryFn: async () => {
-            const { data } =
-                await apiClient.get<AdvertisementListResponse>(
-                    '/api/advertisements',
-                );
+            const { data } = await apiClient.get<AdvertisementListResponse>(
+                '/api/advertisements',
+            );
             return data.data;
         },
     });
@@ -68,7 +64,8 @@ export function useDeleteAdvertisement() {
     return useMutation({
         mutationFn: (id: string) =>
             apiClient.delete(`/api/advertisements/${id}`),
-        onSuccess: () => {
+        onSuccess: (_data, id) => {
+            removeFromCache(queryClient, ADS_KEY, id);
             void queryClient.invalidateQueries({ queryKey: ADS_KEY });
         },
     });

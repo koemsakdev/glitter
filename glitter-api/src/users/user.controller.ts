@@ -27,8 +27,15 @@ import {
 } from '@nestjs/swagger';
 import * as path from 'path';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import {
+  ADMIN_ONLY_FEATURES,
+  hasPermission,
+  PERMISSION_GROUPS,
+  ROLE_DEFAULTS,
+} from '../auth/permissions';
+import { SetPermissionsDto } from './dto/set-permissions.dto';
 import { createDiskStorage } from '../common/helpers/multer.helper';
 import {
   assertOwnerOrAdmin,
@@ -105,6 +112,7 @@ export class UsersController {
    */
   @UseGuards(RolesGuard)
   @Roles('admin', 'manager')
+  @RequirePermission('customers.view')
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -112,8 +120,53 @@ export class UsersController {
     description: 'Managers and admins can browse users.',
   })
   @ApiResponse({ status: 200, type: UserListResponseDto })
-  async findAll(@Query() query: UserQueryDto): Promise<UserListResponse> {
+  async findAll(
+    @Query() query: UserQueryDto,
+    @CurrentUser() user: UserEntity,
+  ): Promise<UserListResponse> {
+    // Staff granted "View customers" (not admin/manager) see customers only.
+    if (user.role !== 'admin' && user.role !== 'manager') {
+      query.role = 'customer';
+      query.staffOnly = undefined;
+    }
     return this.usersService.findAll(query);
+  }
+
+  /**
+   * ADMIN ONLY — the permission catalog for the Permissions panel:
+   * every grantable permission (grouped), each role's defaults, and the
+   * features that stay admin-only.
+   */
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @Get('permissions/catalog')
+  @ApiOperation({ summary: 'Permission catalog (admin)' })
+  permissionCatalog() {
+    return {
+      data: {
+        groups: PERMISSION_GROUPS,
+        roleDefaults: ROLE_DEFAULTS,
+        adminOnly: ADMIN_ONLY_FEATURES,
+      },
+    };
+  }
+
+  /**
+   * ADMIN ONLY — set the extra permissions of a manager/cashier.
+   * Replaces the list; role defaults don't need to be sent.
+   */
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @Patch(':id/permissions')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Grant extra permissions to a staff member (admin)',
+  })
+  async setPermissions(
+    @Param('id') id: string,
+    @Body() dto: SetPermissionsDto,
+  ): Promise<UserDetailResponse> {
+    return this.usersService.setPermissions(id, dto.permissions);
   }
 
   /**
@@ -164,6 +217,18 @@ export class UsersController {
     @Param('id') id: string,
     @CurrentUser() currentUser: UserEntity,
   ): Promise<UserDetailResponse> {
+    // Staff granted "View customers" may open a CUSTOMER's profile.
+    if (
+      currentUser.id !== id &&
+      !isAdmin(currentUser) &&
+      hasPermission(currentUser, 'customers.view')
+    ) {
+      const found = await this.usersService.findOne(id);
+      if (found.data.role !== 'customer') {
+        throw new ForbiddenException('You can only view customer profiles');
+      }
+      return found;
+    }
     assertOwnerOrAdmin(currentUser, id, 'You can only view your own profile');
     return this.usersService.findOne(id);
   }

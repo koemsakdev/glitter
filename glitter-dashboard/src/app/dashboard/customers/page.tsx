@@ -10,12 +10,9 @@ import { useDeleteUser, useUsers } from '@/features/users/use-users';
 import { getErrorMessage } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
 import { useTableSort } from '@/hooks/use-table-sort';
+import { useIsAdmin } from '@/lib/permissions';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
-import {
-    ACCOUNT_STATUSES,
-    type AccountStatus,
-    type User,
-} from '@/types/user';
+import { ACCOUNT_STATUSES, type AccountStatus, type User } from '@/types/user';
 
 const STATUS_LABELS: Record<AccountStatus, TranslationKey> = {
     active: 'user.status.active',
@@ -67,8 +64,7 @@ export default function CustomersPage() {
                 showRole: false,
                 showBranch: false,
                 onView: (u) => router.push(`/dashboard/customers/${u.id}`),
-                onEdit: (u) =>
-                    router.push(`/dashboard/customers/${u.id}/edit`),
+                onEdit: (u) => router.push(`/dashboard/customers/${u.id}/edit`),
                 onDelete: (u) => setDeletingUser(u),
             }),
         [t, language, router],
@@ -89,12 +85,19 @@ export default function CustomersPage() {
         }
     }
 
+    const isAdmin = useIsAdmin();
+
     return (
         <ResourceList
             title={t('customer.list.title')}
             subtitle={t('customer.list.subtitle')}
-            createLabel={t('customer.action.create')}
-            onCreate={() => router.push('/dashboard/customers/new')}
+            // "View customers" is view-only — only admins add customers.
+            createLabel={isAdmin ? t('customer.action.create') : undefined}
+            onCreate={
+                isAdmin
+                    ? () => router.push('/dashboard/customers/new')
+                    : undefined
+            }
             search={search}
             onSearchChange={(v) => {
                 setSearch(v);

@@ -90,7 +90,7 @@ function presetRange(p: DatePreset): { from?: string; to?: string } {
 
 function formatDateTime(value: string): { date: string; time: string } {
     const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return { date: '—', time: '' };
+    if (Number.isNaN(d.getTime())) return { date: '', time: '' };
     return {
         date: new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(
             d,
@@ -315,14 +315,15 @@ function OrdersPageContent() {
                 accessorKey: 'branchName',
                 header: t('order.col.branch'),
                 meta: sortable(),
-                cell: ({ row }) => (
-                    <span className="flex max-w-40 items-center gap-1.5 truncate text-sm text-muted-foreground">
-                        <Store className="size-3.5 shrink-0" />
-                        <span className="truncate">
-                            {row.original.branchName ?? '—'}
+                cell: ({ row }) =>
+                    row.original.branchName ? (
+                        <span className="flex max-w-40 items-center gap-1.5 truncate text-sm text-muted-foreground">
+                            <Store className="size-3.5 shrink-0" />
+                            <span className="truncate">
+                                {row.original.branchName}
+                            </span>
                         </span>
-                    </span>
-                ),
+                    ) : null,
             });
         }
         cols.push(

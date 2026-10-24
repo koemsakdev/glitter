@@ -17,6 +17,10 @@ export interface UserResponse {
   profileImageSource: ProfileImageSource;
   role: UserRole;
   branchId: string | null;
+  /** Permissions an admin granted on top of the role. */
+  extraPermissions: string[];
+  /** Everything this user may do (role defaults + extras; all for admins). */
+  permissions: string[];
   branch?: {
     id: string;
     branchCode: string;

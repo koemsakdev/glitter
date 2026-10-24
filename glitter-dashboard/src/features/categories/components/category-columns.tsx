@@ -2,9 +2,7 @@
 
 import type { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
-import {
-    ImageIcon,
-    } from 'lucide-react';
+import { ImageIcon } from 'lucide-react';
 import { SafeImage as Image } from '@/components/ui/safe-image';
 import { Badge } from '@/components/ui/badge';
 import { RowActions } from '@/components/resource/row-actions';
@@ -20,11 +18,11 @@ interface CategoryColumnsContext {
 }
 
 export function getCategoryColumns({
-                                       t,
-                                       language,
-                                       onEdit,
-                                       onDelete,
-                                   }: CategoryColumnsContext): ColumnDef<Category>[] {
+    t,
+    language,
+    onEdit,
+    onDelete,
+}: CategoryColumnsContext): ColumnDef<Category>[] {
     return [
         {
             id: 'icon',
@@ -60,13 +58,18 @@ export function getCategoryColumns({
             cell: ({ row }) => {
                 const category = row.original;
                 // Show both names — primary in current language, secondary muted
-                const primary = language === 'km' ? category.nameKm : category.nameEn;
+                const primary =
+                    language === 'km' ? category.nameKm : category.nameEn;
                 const secondary =
                     language === 'km' ? category.nameEn : category.nameKm;
                 return (
                     <div className="flex flex-col">
-                        <span className="font-medium text-foreground">{primary}</span>
-                        <span className="text-xs text-muted-foreground">{secondary}</span>
+                        <span className="font-medium text-foreground">
+                            {primary}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                            {secondary}
+                        </span>
                     </div>
                 );
             },
@@ -76,8 +79,8 @@ export function getCategoryColumns({
             header: () => t('category.field.slug'),
             cell: ({ row }) => (
                 <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-          {row.original.slug}
-        </span>
+                    {row.original.slug}
+                </span>
             ),
         },
         {
@@ -86,14 +89,16 @@ export function getCategoryColumns({
             header: () => t('category.field.displayOrder'),
             cell: ({ row }) => (
                 <span className="text-sm font-mono text-muted-foreground">
-          {row.original.displayOrder}
-        </span>
+                    {row.original.displayOrder}
+                </span>
             ),
         },
         {
             id: 'categoryType',
             header: () => t('category.field.type'),
-            cell: ({ row }) => <CategoryTypeBadge type={row.original.categoryType} />,
+            cell: ({ row }) => (
+                <CategoryTypeBadge type={row.original.categoryType} />
+            ),
         },
         {
             id: 'createdAt',
@@ -101,16 +106,19 @@ export function getCategoryColumns({
             header: () => t('category.list.column.created'),
             cell: ({ row }) => (
                 <span className="text-sm text-muted-foreground">
-          {format(new Date(row.original.createdAt), 'MMM d, yyyy')}
-        </span>
+                    {format(new Date(row.original.createdAt), 'MMM d, yyyy')}
+                </span>
             ),
         },
         {
             id: 'actions',
-            header: () => <span className="sr-only">{t('common.actions')}</span>,
+            header: () => (
+                <span className="sr-only">{t('common.actions')}</span>
+            ),
             size: 60,
             cell: ({ row }) => (
                 <RowActions
+                    permission="catalog.manage"
                     viewHref={`/dashboard/categories/${row.original.id}`}
                     onEdit={() => onEdit(row.original)}
                     onDelete={() => onDelete(row.original)}
@@ -148,7 +156,9 @@ function CategoryTypeBadge({ type }: { type: CategoryType }) {
 
     return (
         <Badge className={style.bg}>
-            <span className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`} />
+            <span
+                className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`}
+            />
             {type}
         </Badge>
     );

@@ -46,8 +46,8 @@ import { formatPrice, getMyVouchers, type PublicPromo } from '@/lib/api';
 import { useLang } from '@/lib/lang-context';
 import { tr, type Lang } from '@/lib/locale';
 import type { Address } from '@/lib/types';
+import { onLiveChange } from '@/lib/realtime';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 const HAS_GOOGLE = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
 
 interface OrderRow {
@@ -130,18 +130,10 @@ export function AccountView({ lang: initialLang }: { lang: Lang }) {
         }
 
         loadOrders();
-        const source = new EventSource(`${API_URL}/api/realtime/events`);
-        source.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data) as { entity?: string };
-                if (data.entity === 'orders') loadOrders();
-            } catch {
-                // ignore malformed events
-            }
-        };
+        const off = onLiveChange(['orders'], () => loadOrders());
         return () => {
             active = false;
-            source.close();
+            off();
         };
     }, [user, authFetch]);
 

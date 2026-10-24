@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreatePageDto } from './dto/create-page.dto';
 import { UpdatePageDto } from './dto/update-page.dto';
@@ -28,6 +28,7 @@ import { PagesService } from './pages.service';
 export class PagesController {
   constructor(private readonly pagesService: PagesService) {}
 
+  @RequirePermission('storefront.manage')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
@@ -53,6 +54,7 @@ export class PagesController {
     return this.pagesService.findBySlug(slug);
   }
 
+  @RequirePermission('storefront.manage')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
@@ -65,6 +67,7 @@ export class PagesController {
     return this.pagesService.update(id, dto);
   }
 
+  @RequirePermission('storefront.manage')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)

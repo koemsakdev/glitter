@@ -9,6 +9,8 @@ export type AuthProvider = 'email' | 'google' | 'facebook' | 'telegram';
 export interface User {
     id: string;
     email: string | null;
+    /** When the email was verified (null = not verified). */
+    emailVerifiedAt?: string | null;
     /** Dashboard sign-in name (staff). */
     username: string | null;
     phoneNumber: string | null;
@@ -16,6 +18,10 @@ export interface User {
     profileImageUrl: string | null;
     role: UserRole;
     branchId: string | null;
+    /** Permissions an admin granted on top of the role. */
+    extraPermissions?: string[];
+    /** Everything this user may do (role defaults + extras). */
+    permissions?: string[];
     branch?: {
         id: string;
         branchCode: string;

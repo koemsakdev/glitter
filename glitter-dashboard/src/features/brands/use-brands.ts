@@ -1,12 +1,9 @@
 'use client';
 
-import {
-    useMutation,
-    useQuery,
-    useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { brandApi } from './brand-api';
 import type { BrandFormValues, BrandQuery } from '@/types/brand';
+import { removeFromCache } from '@/lib/remove-from-cache';
 
 const BRANDS_KEY = ['brands'] as const;
 
@@ -51,7 +48,8 @@ export function useDeleteBrand() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => brandApi.delete(id),
-        onSuccess: () => {
+        onSuccess: (_data, id) => {
+            removeFromCache(queryClient, BRANDS_KEY, id);
             queryClient.invalidateQueries({ queryKey: BRANDS_KEY });
         },
     });

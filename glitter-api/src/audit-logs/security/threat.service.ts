@@ -8,6 +8,7 @@ import {
   AlertType,
   SecurityAlertEntity,
 } from '../entities/security-alert.entity';
+import { HIGH_RISK } from '../../auth/permissions';
 
 /** Brute force: this many failures from one IP in the window → block. */
 const BRUTE_FORCE_FAILS = 5;
@@ -296,6 +297,21 @@ export function suspiciousChange(
           severity: drop >= 80 ? 'high' : 'medium',
         };
       }
+    }
+  }
+  // An admin granted a permission that can remove or alter data.
+  if (entity === 'users' && Array.isArray(n.extraPermissions)) {
+    const before = Array.isArray(o.extraPermissions)
+      ? (o.extraPermissions as string[])
+      : [];
+    const risky = (n.extraPermissions as string[]).filter(
+      (p) => HIGH_RISK.includes(p as never) && !before.includes(p),
+    );
+    if (risky.length) {
+      return {
+        reason: `${name} was granted high-risk permission(s): ${risky.join(', ')}`,
+        severity: 'medium',
+      };
     }
   }
   if (

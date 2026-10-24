@@ -89,9 +89,7 @@ export class AddressesCustomerController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "List the current customer's addresses" })
-  async list(
-    @CurrentUser('id') userId: string,
-  ): Promise<AddressListResponse> {
+  async list(@CurrentUser('id') userId: string): Promise<AddressListResponse> {
     return this.service.findAll({ userId });
   }
 

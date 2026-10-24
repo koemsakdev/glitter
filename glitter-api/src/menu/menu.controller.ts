@@ -20,7 +20,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
@@ -42,6 +42,7 @@ import { MenuService } from './menu.service';
 export class MenuController {
   constructor(private readonly menuService: MenuService) {}
 
+  @RequirePermission('storefront.manage')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
@@ -72,6 +73,7 @@ export class MenuController {
     return this.menuService.findAll(location, activeFilter);
   }
 
+  @RequirePermission('storefront.manage')
   @Patch('reorder')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
@@ -93,6 +95,7 @@ export class MenuController {
     return this.menuService.findOne(id);
   }
 
+  @RequirePermission('storefront.manage')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
@@ -108,6 +111,7 @@ export class MenuController {
     return this.menuService.update(id, dto);
   }
 
+  @RequirePermission('storefront.manage')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)

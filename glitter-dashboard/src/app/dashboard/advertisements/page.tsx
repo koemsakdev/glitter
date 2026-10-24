@@ -203,6 +203,7 @@ export default function AdvertisementsPage() {
                                         </span>
                                         <span className="ml-auto">
                                             <RowActions
+ permission="storefront.manage"
                                                 onEdit={() => openForm(ad)}
                                                 onDelete={() => setDeleting(ad)}
                                                 audit={{

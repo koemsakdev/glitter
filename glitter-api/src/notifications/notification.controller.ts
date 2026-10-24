@@ -19,9 +19,7 @@ export class NotificationsController {
 
   @Get()
   @ApiOperation({ summary: "List the current user's notifications" })
-  list(
-    @CurrentUser('id') userId: string,
-  ): Promise<NotificationListResponse> {
+  list(@CurrentUser('id') userId: string): Promise<NotificationListResponse> {
     return this.service.list(userId);
   }
 
@@ -39,9 +37,7 @@ export class NotificationsController {
   @Patch('read-all')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Mark all notifications as read' })
-  async markAllRead(
-    @CurrentUser('id') userId: string,
-  ): Promise<{ ok: true }> {
+  async markAllRead(@CurrentUser('id') userId: string): Promise<{ ok: true }> {
     await this.service.markAllRead(userId);
     return { ok: true };
   }

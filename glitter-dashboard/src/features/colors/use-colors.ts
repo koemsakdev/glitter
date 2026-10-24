@@ -1,10 +1,7 @@
-import {
-    useMutation,
-    useQuery,
-    useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import type { Color, ColorFormValues } from '@/types/color';
+import { removeFromCache } from '@/lib/remove-from-cache';
 
 const COLORS_KEY = ['colors'] as const;
 
@@ -62,7 +59,8 @@ export function useDeleteColor() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => apiClient.delete(`/api/colors/${id}`),
-        onSuccess: () => {
+        onSuccess: (_data, id) => {
+            removeFromCache(queryClient, COLORS_KEY, id);
             void queryClient.invalidateQueries({ queryKey: COLORS_KEY });
         },
     });

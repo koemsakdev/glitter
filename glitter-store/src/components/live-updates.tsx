@@ -3,27 +3,31 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { expireLiveTags } from '@/app/actions/live';
+import { useAuth } from '@/lib/auth';
 import { LIVE_TAGS } from '@/lib/live-tags';
+import { getLiveSocket, onLiveChange, reconnectLive } from '@/lib/realtime';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5001';
-const REFRESH_ON = new Set(Object.keys(LIVE_TAGS));
+const REFRESH_ON = Object.keys(LIVE_TAGS);
 
 /**
- * Subscribes to the API's SSE stream (a one-way live push, like a socket) and
- * soft-refreshes the page — re-running the server components — whenever
- * storefront-relevant data changes in the dashboard. Cached fetches are
- * expired first (expireLiveTags), so the refresh pulls genuinely fresh data
- * and edits/deletes appear without a manual reload or navigation.
+ * Keeps the storefront live over the shared Socket.IO connection: whenever
+ * storefront-relevant data changes in the dashboard (a product added, edited
+ * or deleted, a banner, the menu…), cached fetches are expired
+ * (expireLiveTags) and the page soft-refreshes — no manual reload.
  */
 export function LiveUpdates() {
     const router = useRouter();
+    const { user } = useAuth();
+    const userId = user?.id ?? null;
+
+    // Sign-in / sign-out → re-handshake so we join (or leave) our own room.
+    useEffect(() => {
+        reconnectLive();
+    }, [userId]);
 
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout> | undefined;
         const changed = new Set<string>();
-        let source: EventSource | null = null;
-        let reconnect: ReturnType<typeof setTimeout> | undefined;
-        let closed = false;
 
         const scheduleRefresh = () => {
             // A single dashboard save often emits several events in a row (the
@@ -37,66 +41,28 @@ export function LiveUpdates() {
                 expireLiveTags(events)
                     .catch(() => {})
                     .finally(() => router.refresh());
-            }, 400);
+            }, 300);
         };
 
-        const connect = () => {
-            // Never hold more than one stream, and never open one while the tab
-            // is in the background — a browser only allows ~6 connections per
-            // host, so a background tab's stream would needlessly occupy a slot
-            // and can starve real requests (login, the chat, …) in other tabs.
-            if (closed || source || document.visibilityState === 'hidden') return;
-            source = new EventSource(`${API_URL}/api/realtime/events`);
-            source.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data) as { entity?: string };
-                    if (data.entity && REFRESH_ON.has(data.entity)) {
-                        changed.add(data.entity);
-                        scheduleRefresh();
-                    }
-                } catch {
-                    // ignore malformed events
-                }
-            };
-            source.onerror = () => {
-                // The stream dropped (e.g. the API restarted). Re-open it —
-                // EventSource's built-in retry can stall after a CLOSED state.
-                if (source && source.readyState === EventSource.CLOSED) {
-                    disconnect();
-                    clearTimeout(reconnect);
-                    reconnect = setTimeout(connect, 2000);
-                }
-            };
-        };
+        const off = onLiveChange(REFRESH_ON, (entity) => {
+            changed.add(entity);
+            scheduleRefresh();
+        });
 
-        const disconnect = () => {
-            clearTimeout(reconnect);
-            source?.close();
-            source = null;
+        // After a dropped connection (API restart, Wi-Fi blip) we may have
+        // missed events — refresh once when it comes back.
+        const socket = getLiveSocket();
+        let wasConnected = socket.connected;
+        const onConnect = () => {
+            if (wasConnected) scheduleRefresh();
+            wasConnected = true;
         };
-
-        // Free the connection when the tab is hidden; restore it when visible.
-        // On becoming visible again, also refresh once — while hidden the SSE
-        // was closed, so we may have missed change events (e.g. an edit made in
-        // the dashboard tab). This makes returning to the storefront show the
-        // latest without a manual reload.
-        const onVisibility = () => {
-            if (document.visibilityState === 'hidden') {
-                disconnect();
-            } else {
-                connect();
-                scheduleRefresh();
-            }
-        };
-
-        connect();
-        document.addEventListener('visibilitychange', onVisibility);
+        socket.on('connect', onConnect);
 
         return () => {
-            closed = true;
-            document.removeEventListener('visibilitychange', onVisibility);
+            off();
+            socket.off('connect', onConnect);
             clearTimeout(timer);
-            disconnect();
         };
     }, [router]);
 

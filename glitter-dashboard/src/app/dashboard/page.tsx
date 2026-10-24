@@ -20,6 +20,7 @@ import { WelcomeHeader } from '@/features/dashboard/components/welcome-header';
 import { useDashboardStats } from '@/features/dashboard/use-dashboard';
 import { formatPrice } from '@/lib/formatters';
 import { useI18n } from '@/lib/i18n';
+import { usePermission } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/auth-store';
 
 function pctChange(cur: number, prev: number): number {
@@ -33,21 +34,25 @@ export default function DashboardHomePage() {
     const role = useAuthStore((s) => s.user?.role);
     // The analytics home (and its stats endpoint) is manager+ only. Cashiers
     // land on Orders instead of hitting a 403 here.
-    const canViewStats = role === 'manager' || role === 'admin';
+    const canViewStats = usePermission('reports.view');
 
     const [preset, setPreset] = useState('30d');
     const [range, setRange] = useState<DateRange>(() =>
-        (RANGE_PRESETS.find((p) => p.key === '30d') ?? RANGE_PRESETS[1]).range(),
+        (
+            RANGE_PRESETS.find((p) => p.key === '30d') ?? RANGE_PRESETS[1]
+        ).range(),
     );
 
     useEffect(() => {
         if (role && !canViewStats) router.replace('/dashboard/orders');
     }, [role, canViewStats, router]);
 
-    const { data: stats, isLoading, isError, refetch } = useDashboardStats(
-        range,
-        canViewStats,
-    );
+    const {
+        data: stats,
+        isLoading,
+        isError,
+        refetch,
+    } = useDashboardStats(range, canViewStats);
 
     // Still hydrating the role, or redirecting a cashier away.
     if (!canViewStats) return <DashboardSkeleton />;

@@ -1,10 +1,7 @@
-import {
-    useMutation,
-    useQuery,
-    useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import type { Badge, BadgeFormValues } from '@/types/badge';
+import { removeFromCache } from '@/lib/remove-from-cache';
 
 const BADGES_KEY = ['badges'] as const;
 
@@ -77,7 +74,8 @@ export function useDeleteBadge() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => apiClient.delete(`/api/badges/${id}`),
-        onSuccess: () => {
+        onSuccess: (_data, id) => {
+            removeFromCache(queryClient, BADGES_KEY, id);
             void queryClient.invalidateQueries({ queryKey: BADGES_KEY });
         },
     });

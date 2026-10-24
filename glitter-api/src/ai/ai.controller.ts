@@ -13,7 +13,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AiService } from './ai.service';
 import {
@@ -42,6 +42,7 @@ export class AiController {
    * Generate brand info (website URL or description)
    * POST /ai/brand
    */
+  @RequirePermission('catalog.manage')
   @Post('brand')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Generate brand info with AI' })
@@ -61,6 +62,7 @@ export class AiController {
    * Generate category info (description)
    * POST /ai/category
    */
+  @RequirePermission('catalog.manage')
   @Post('category')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Generate category info with AI' })
@@ -76,6 +78,7 @@ export class AiController {
     return { data: { value, field: dto.field } };
   }
 
+  @RequirePermission('products.edit')
   @Post('product')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

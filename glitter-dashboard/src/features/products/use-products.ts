@@ -1,10 +1,7 @@
-import {
-    useMutation,
-    useQuery,
-    useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { productApi } from './product-api';
 import type { ProductFormValues, ProductQuery } from '@/types/product';
+import { removeFromCache } from '@/lib/remove-from-cache';
 
 const PRODUCTS_KEY = ['products'] as const;
 
@@ -43,9 +40,9 @@ export function useUpdateProduct() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({
-                         id,
-                         values,
-                     }: {
+            id,
+            values,
+        }: {
             id: string;
             values: ProductFormValues;
         }) => productApi.update(id, values),
@@ -70,6 +67,7 @@ export function useDeleteProduct() {
     return useMutation({
         mutationFn: (id: string) => productApi.delete(id),
         onSuccess: (_data, id) => {
+            removeFromCache(queryClient, PRODUCTS_KEY, id);
             // Refresh lists etc., but NOT the deleted product's own detail
             // query: the detail page is still mounted until the redirect
             // finishes, and refetching it would 404 and flash "Could not

@@ -20,10 +20,7 @@ import {
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
-import {
-  ProductsService,
-  type ProductSearchItem,
-} from './product.service';
+import { ProductsService, type ProductSearchItem } from './product.service';
 import {
   ProductDetailResponseDto,
   ProductListResponseDto,
@@ -35,7 +32,7 @@ import {
 import { UseGuards } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 
 @ApiTags('Products')
@@ -44,6 +41,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
+  @RequirePermission('products.edit')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -115,6 +113,7 @@ export class ProductsController {
    * Useful one-time after data imports or manual DB fixes.
    * POST /api/products/sync-stock
    */
+  @RequirePermission('products.edit')
   @Post('sync-stock')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -167,6 +166,7 @@ export class ProductsController {
     return this.productsService.findOne(id);
   }
 
+  @RequirePermission('products.edit')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -189,6 +189,7 @@ export class ProductsController {
    * Resync totalStock for a specific product.
    * PATCH /api/products/:id/sync-stock
    */
+  @RequirePermission('products.edit')
   @Patch(':id/sync-stock')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -205,6 +206,7 @@ export class ProductsController {
     return this.productsService.syncStock(id);
   }
 
+  @RequirePermission('products.edit')
   @Patch(':id/archive')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -219,6 +221,7 @@ export class ProductsController {
     return this.productsService.archive(id);
   }
 
+  @RequirePermission('products.delete')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({

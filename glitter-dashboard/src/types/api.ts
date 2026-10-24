@@ -22,6 +22,17 @@ export interface User {
   profileImageSource: ProfileImageSource;
   role: UserRole;
   branchId: string | null;
+  /** The assigned branch (managers/cashiers). */
+  branch?: {
+    id: string;
+    branchCode: string;
+    branchNameEn: string;
+    branchNameKm: string;
+  };
+  /** Permissions an admin granted on top of the role. */
+  extraPermissions?: string[];
+  /** Everything the user may do (role defaults + extras; all for admins). */
+  permissions?: string[];
   accountStatus: AccountStatus;
   isProfileComplete: boolean;
   missingFields?: string[];

@@ -33,6 +33,7 @@ import {
 } from '@/features/orders/use-orders';
 import { getErrorMessage } from '@/lib/api-client';
 import { formatPrice } from '@/lib/formatters';
+import { usePermission } from '@/lib/permissions';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
 import {
     ORDER_TRANSITIONS,
@@ -79,9 +80,9 @@ function isAbaKhqr(
 }
 
 function formatDate(value: string | null): string {
-    if (!value) return '—';
+    if (!value) return '';
     const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return '—';
+    if (Number.isNaN(d.getTime())) return '';
     return new Intl.DateTimeFormat('en-US', {
         dateStyle: 'medium',
         timeStyle: 'short',
@@ -94,9 +95,7 @@ export function OrderDetailView({ id }: { id: string }) {
     const { data: order, isLoading, isError, refetch } = useOrder(id);
     const updateStatus = useUpdateOrderStatus();
     const updatePayment = useUpdatePaymentStatus();
-    const canCancelRefund = useAuthStore(
-        (s) => s.user?.role === 'admin' || s.user?.role === 'manager',
-    );
+    const canCancelRefund = usePermission('orders.refund');
 
     if (isLoading) return <LoadingScreen variant="page" />;
 
@@ -267,9 +266,7 @@ export function OrderDetailView({ id }: { id: string }) {
                                                     : 'text-muted-foreground'
                                             }`}
                                         >
-                                            {t(
-                                                `order.status.${step}` as const,
-                                            )}
+                                            {t(`order.status.${step}` as const)}
                                         </span>
                                     </div>
                                     {i < STEP_FLOW.length - 1 && (
@@ -366,7 +363,6 @@ export function OrderDetailView({ id }: { id: string }) {
 
                 {/* Sidebar (right, 1/3) */}
                 <div className="space-y-6">
-
                     {/* Customer */}
                     <DetailSection title={t('order.detail.customer')}>
                         <div className="space-y-2.5">
@@ -453,8 +449,10 @@ export function OrderDetailView({ id }: { id: string }) {
                                                     order.paymentMethodName,
                                                 )
                                                     ? 'ABA KHQR'
-                                                    : (order.paymentMethodName ??
-                                                          '')
+                                                    : (
+                                                          order.paymentMethodName ??
+                                                          ''
+                                                      )
                                                           .replace(
                                                               /\s*\([^)]*\)\s*$/,
                                                               '',
@@ -490,7 +488,9 @@ export function OrderDetailView({ id }: { id: string }) {
                                                     rel="noopener noreferrer"
                                                     className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-pink-600 hover:underline dark:text-pink-400"
                                                 >
-                                                    {t('order.delivery.viewMap')}
+                                                    {t(
+                                                        'order.delivery.viewMap',
+                                                    )}
                                                     <ExternalLink className="size-3" />
                                                 </a>
                                             )}
@@ -651,7 +651,9 @@ function OrderItemsTable({ order }: { order: Order }) {
                     <span className="text-muted-foreground">
                         {t('order.detail.subtotal')}
                     </span>
-                    <span className="tabular-nums">{formatPrice(order.subtotal)}</span>
+                    <span className="tabular-nums">
+                        {formatPrice(order.subtotal)}
+                    </span>
                 </div>
                 {order.discountTotal > 0 && (
                     <div className="flex items-center justify-between">

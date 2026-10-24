@@ -1,8 +1,4 @@
-import {
-    useMutation,
-    useQuery,
-    useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { productVariantApi } from './product-variant-api';
 import type {
     BulkCreateVariantsPayload,
@@ -50,10 +46,10 @@ export function useUpdateProductVariant() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({
-                         id,
-                         productId: _productId,
-                         payload,
-                     }: {
+            id,
+            productId: _productId,
+            payload,
+        }: {
             id: string;
             productId: string;
             payload: UpdateVariantPayload;

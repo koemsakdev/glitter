@@ -1,6 +1,19 @@
 'use client';
 
-import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
+import {
+    ArrowLeft,
+    CircleAlert,
+    CircleCheck,
+    Eye,
+    EyeOff,
+    History,
+    KeyRound,
+    Loader2,
+    Lock,
+    LogOut,
+    ShieldCheck,
+    type LucideIcon,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -16,7 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/lib/i18n';
 
 const inputClass =
-    'h-11 shadow-none focus-visible:outline-none focus-visible:ring-0 rounded-lg focus-visible:border-pink-500 dark:focus-visible:border-pink-800';
+    'h-11 rounded-xl shadow-none focus-visible:outline-none focus-visible:ring-0 focus-visible:border-pink-500 dark:focus-visible:border-pink-700';
 
 export function ChangePasswordView() {
     const { t } = useI18n();
@@ -28,7 +41,6 @@ export function ChangePasswordView() {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [show, setShow] = useState(false);
 
     async function handleSubmit() {
         if (!currentPassword) {
@@ -75,95 +87,238 @@ export function ChangePasswordView() {
         }
     }
 
-    return (
-        <div className="mx-auto max-w-lg space-y-6">
-            <button
-                type="button"
-                onClick={() => router.back()}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-                <ArrowLeft className="size-4" />
-                {t('changePassword.back')}
-            </button>
+    const confirmTouched = confirmPassword.length > 0;
+    const matches = confirmTouched && confirmPassword === newPassword;
+    const canSubmit =
+        currentPassword.length > 0 &&
+        isStrongPassword(newPassword) &&
+        confirmPassword === newPassword &&
+        !changePassword.isPending;
 
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                    {t('changePassword.title')}
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                    {t('changePassword.subtitle')}
-                </p>
+    return (
+        <form
+            onSubmit={(e) => {
+                e.preventDefault();
+                void handleSubmit();
+            }}
+            className="space-y-6"
+        >
+            {/* Header — same pattern as other pages */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                    <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                        {t('changePassword.title')}
+                    </h1>
+                    <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+                        {t('changePassword.subtitle')}
+                    </p>
+                </div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="sm:shrink-0"
+                    onClick={() => router.back()}
+                >
+                    <ArrowLeft className="size-4" />
+                    {t('common.back')}
+                </Button>
             </div>
 
-            <form
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    void handleSubmit();
-                }}
-                className="space-y-4 rounded-xl border bg-card p-5"
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                {/* ── Left: what to know ── */}
+                <aside className="space-y-6 lg:order-first">
+                    <section className="rounded-xl border bg-card p-6">
+                        <div className="flex items-start gap-3">
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                                <ShieldCheck className="size-4" />
+                            </span>
+                            <div className="min-w-0">
+                                <h2 className="text-base font-semibold">
+                                    {t('changePassword.info.title')}
+                                </h2>
+                                <ul className="mt-3 space-y-2.5 text-sm text-muted-foreground">
+                                    <li className="flex gap-2">
+                                        <LogOut className="mt-0.5 size-4 shrink-0" />
+                                        {t('changePassword.info.signOut')}
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <KeyRound className="mt-0.5 size-4 shrink-0" />
+                                        {t('changePassword.info.unique')}
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <History className="mt-0.5 size-4 shrink-0" />
+                                        {t('changePassword.info.logged')}
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </section>
+                </aside>
+
+                {/* ── Right: the form ── */}
+                <section className="rounded-xl border bg-card lg:col-span-2 lg:self-start">
+                    <header className="border-b px-6 py-4">
+                        <h2 className="text-base font-semibold">
+                            {t('changePassword.form.title')}
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                            {t('changePassword.form.hint')}
+                        </p>
+                    </header>
+
+                    <div className="space-y-5 p-6">
+                        <Field label={t('changePassword.current')}>
+                            <PasswordInput
+                                icon={Lock}
+                                value={currentPassword}
+                                onChange={setCurrentPassword}
+                                placeholder={t(
+                                    'changePassword.current.placeholder',
+                                )}
+                                autoComplete="current-password"
+                            />
+                        </Field>
+
+                        <div className="border-t" />
+
+                        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                            <Field label={t('changePassword.new')}>
+                                <PasswordInput
+                                    icon={KeyRound}
+                                    value={newPassword}
+                                    onChange={setNewPassword}
+                                    placeholder={t(
+                                        'changePassword.new.placeholder',
+                                    )}
+                                    autoComplete="new-password"
+                                />
+                            </Field>
+                            <Field label={t('changePassword.confirm')}>
+                                <PasswordInput
+                                    icon={KeyRound}
+                                    value={confirmPassword}
+                                    onChange={setConfirmPassword}
+                                    placeholder={t(
+                                        'changePassword.confirm.placeholder',
+                                    )}
+                                    autoComplete="new-password"
+                                    invalid={confirmTouched && !matches}
+                                    valid={matches}
+                                />
+                                {confirmTouched && (
+                                    <p
+                                        aria-live="polite"
+                                        className={`flex items-center gap-1.5 text-xs ${
+                                            matches
+                                                ? 'text-emerald-600 dark:text-emerald-400'
+                                                : 'text-destructive'
+                                        }`}
+                                    >
+                                        {matches ? (
+                                            <CircleCheck className="size-3.5" />
+                                        ) : (
+                                            <CircleAlert className="size-3.5" />
+                                        )}
+                                        {matches
+                                            ? t('changePassword.match')
+                                            : t(
+                                                  'changePassword.validation.mismatch',
+                                              )}
+                                    </p>
+                                )}
+                            </Field>
+                        </div>
+                        {newPassword && (
+                            <PasswordStrength password={newPassword} />
+                        )}
+                    </div>
+
+                    <footer className="flex flex-col-reverse gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-xs text-muted-foreground">
+                            {t('changePassword.info.signOut')}
+                        </span>
+                        <div className="flex gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => router.back()}
+                                disabled={changePassword.isPending}
+                            >
+                                {t('common.cancel')}
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={!canSubmit}
+                                className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
+                            >
+                                {changePassword.isPending ? (
+                                    <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <KeyRound className="size-4" />
+                                )}
+                                {t('changePassword.submit')}
+                            </Button>
+                        </div>
+                    </footer>
+                </section>
+            </div>
+        </form>
+    );
+}
+
+/** Password field with a leading icon and its own show/hide toggle. */
+function PasswordInput({
+    icon: Icon,
+    value,
+    onChange,
+    placeholder,
+    autoComplete,
+    invalid,
+    valid,
+}: {
+    icon: LucideIcon;
+    value: string;
+    onChange: (v: string) => void;
+    placeholder?: string;
+    autoComplete: string;
+    invalid?: boolean;
+    valid?: boolean;
+}) {
+    const { t } = useI18n();
+    const [show, setShow] = useState(false);
+    return (
+        <div className="relative">
+            <Icon className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+                type={show ? 'text' : 'password'}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={placeholder}
+                autoComplete={autoComplete}
+                aria-invalid={invalid || undefined}
+                className={`${inputClass} pl-10 pr-11 ${
+                    valid
+                        ? 'border-emerald-500 focus-visible:border-emerald-500 dark:focus-visible:border-emerald-500'
+                        : ''
+                }`}
+            />
+            <button
+                type="button"
+                onClick={() => setShow((v) => !v)}
+                aria-label={
+                    show ? t('changePassword.hide') : t('changePassword.show')
+                }
+                title={
+                    show ? t('changePassword.hide') : t('changePassword.show')
+                }
+                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground hover:text-foreground"
             >
-                <Field label={t('changePassword.current')}>
-                    <Input
-                        type={show ? 'text' : 'password'}
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder={t('changePassword.current.placeholder')}
-                        className={inputClass}
-                        autoComplete="current-password"
-                    />
-                </Field>
-                <Field label={t('changePassword.new')}>
-                    <Input
-                        type={show ? 'text' : 'password'}
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder={t('changePassword.new.placeholder')}
-                        className={inputClass}
-                        autoComplete="new-password"
-                    />
-                    {newPassword && <PasswordStrength password={newPassword} />}
-                </Field>
-                <Field label={t('changePassword.confirm')}>
-                    <Input
-                        type={show ? 'text' : 'password'}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder={t('changePassword.confirm.placeholder')}
-                        className={inputClass}
-                        autoComplete="new-password"
-                    />
-                </Field>
-
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-                    <button
-                        type="button"
-                        onClick={() => setShow((v) => !v)}
-                        className="inline-flex items-center gap-1.5 hover:text-foreground"
-                    >
-                        {show ? (
-                            <EyeOff className="size-4" />
-                        ) : (
-                            <Eye className="size-4" />
-                        )}
-                        {show
-                            ? t('changePassword.hide')
-                            : t('changePassword.show')}
-                    </button>
-                </label>
-
-                <div className="flex justify-end pt-2">
-                    <Button
-                        type="submit"
-                        disabled={changePassword.isPending}
-                        className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
-                    >
-                        {changePassword.isPending && (
-                            <Loader2 className="mr-2 size-4 animate-spin" />
-                        )}
-                        {t('changePassword.submit')}
-                    </Button>
-                </div>
-            </form>
+                {show ? (
+                    <EyeOff className="size-4" />
+                ) : (
+                    <Eye className="size-4" />
+                )}
+            </button>
         </div>
     );
 }

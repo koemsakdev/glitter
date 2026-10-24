@@ -28,7 +28,7 @@ export function DashboardSidebar() {
     const [query, setQuery] = useState('');
 
     const allGroups = useMemo(
-        () => (user ? filterNavigationByRole(user.role) : []),
+        () => (user ? filterNavigationByRole(user) : []),
         [user],
     );
 

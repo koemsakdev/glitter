@@ -38,7 +38,7 @@ import {
 import { UseGuards } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 
 @ApiTags('Product Variants')
@@ -47,6 +47,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 export class ProductVariantsController {
   constructor(private readonly variantsService: ProductVariantsService) {}
 
+  @RequirePermission('products.edit')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -67,6 +68,7 @@ export class ProductVariantsController {
     return this.variantsService.create(dto);
   }
 
+  @RequirePermission('products.edit')
   @Post('bulk')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -164,6 +166,7 @@ export class ProductVariantsController {
 
   @UseGuards(RolesGuard)
   @Roles('admin')
+  @RequirePermission('products.edit')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a variant' })
@@ -177,6 +180,7 @@ export class ProductVariantsController {
     return this.variantsService.update(id, dto);
   }
 
+  @RequirePermission('products.edit')
   @Patch(':id/adjust-stock')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -200,6 +204,7 @@ export class ProductVariantsController {
     return this.variantsService.adjustStock(id, deltaNum);
   }
 
+  @RequirePermission('products.edit')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({

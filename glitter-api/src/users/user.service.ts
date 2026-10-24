@@ -25,6 +25,12 @@ import {
   UserListResponse,
   UserResponse,
 } from './types/user-response.type';
+import {
+  effectivePermissions,
+  isPermission,
+  ROLE_DEFAULTS,
+  type Permission,
+} from '../auth/permissions';
 
 const fileLogger = new NestLogger('UsersService');
 
@@ -89,6 +95,7 @@ export class UsersService {
 
     const role: UserRole = dto.role ?? 'customer';
     const username = dto.username?.trim().toLowerCase() || null;
+    if (role === 'admin') await this.assertNoOtherAdmin();
 
     // Staff sign in with a username (email optional); customers with email.
     if (role !== 'customer' && !username) {
@@ -222,6 +229,31 @@ export class UsersService {
     };
   }
 
+  /**
+   * Replace a manager's/cashier's extra permissions (admin only). Role
+   * defaults are implied and not stored; admins already have everything.
+   */
+  async setPermissions(
+    id: string,
+    permissions: Permission[],
+  ): Promise<UserDetailResponse> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException(`User with ID ${id} not found`);
+    if (user.role === 'admin') {
+      throw new BadRequestException('Admins already have every permission');
+    }
+    if (user.role === 'customer') {
+      throw new BadRequestException('Customers cannot be given permissions');
+    }
+    const defaults = ROLE_DEFAULTS[user.role] ?? [];
+    user.extraPermissions = [...new Set(permissions)]
+      .filter(isPermission)
+      .filter((p) => !defaults.includes(p))
+      .sort();
+    await this.userRepository.save(user);
+    return this.findOne(id);
+  }
+
   async findOne(id: string): Promise<UserDetailResponse> {
     const user = await this.userRepository.findOne({
       where: { id },
@@ -320,8 +352,13 @@ export class UsersService {
     if (dto.role !== undefined || dto.branchId !== undefined) {
       await this.validateRoleBranchCombination(newRole, newBranchId);
 
+      if (newRole === 'admin' && user.role !== 'admin') {
+        await this.assertNoOtherAdmin(user.id);
+      }
       if (dto.role !== undefined) {
-        // Role change invalidates tokens so new permissions take effect
+        // Role change invalidates tokens so new permissions take effect.
+        // Extra permissions belonged to the old role — start clean.
+        if (newRole !== user.role) user.extraPermissions = [];
         user.role = newRole;
         user.tokenVersion += 1;
       }
@@ -899,6 +936,23 @@ export class UsersService {
     }
   }
 
+  /**
+   * The shop has exactly ONE admin — the owner, who manages staff, sees the
+   * audit log and payment settings. Refuse a second one. (If there's none at
+   * all, e.g. after a reset, the first admin is allowed.)
+   */
+  private async assertNoOtherAdmin(exceptUserId?: string): Promise<void> {
+    const qb = this.userRepository
+      .createQueryBuilder('u')
+      .where('u.role = :role', { role: 'admin' });
+    if (exceptUserId) qb.andWhere('u.id != :id', { id: exceptUserId });
+    if ((await qb.getCount()) > 0) {
+      throw new ConflictException(
+        'There can only be one admin. Give this person the Manager role and grant the permissions they need instead.',
+      );
+    }
+  }
+
   private async validateRoleBranchCombination(
     role: UserRole,
     branchId: string | null,
@@ -998,6 +1052,8 @@ export class UsersService {
       profileImageSource: entity.profileImageSource,
       role: entity.role,
       branchId: entity.branchId,
+      extraPermissions: entity.extraPermissions ?? [],
+      permissions: effectivePermissions(entity),
       accountStatus: entity.accountStatus,
       isProfileComplete: entity.isProfileComplete,
       missingFields: this.computeMissingFields(entity),

@@ -1,10 +1,7 @@
-import {
-    useMutation,
-    useQuery,
-    useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import type { Voucher, VoucherFormValues } from '@/types/voucher';
+import { removeFromCache } from '@/lib/remove-from-cache';
 
 const VOUCHERS_KEY = ['vouchers'] as const;
 
@@ -55,8 +52,7 @@ export function useUpdateVoucher() {
         // Optimistic so the active switch responds instantly.
         onMutate: async ({ id, values }) => {
             await queryClient.cancelQueries({ queryKey: VOUCHERS_KEY });
-            const previous =
-                queryClient.getQueryData<Voucher[]>(VOUCHERS_KEY);
+            const previous = queryClient.getQueryData<Voucher[]>(VOUCHERS_KEY);
             queryClient.setQueryData<Voucher[]>(VOUCHERS_KEY, (old) =>
                 old?.map((v) => (v.id === id ? { ...v, ...values } : v)),
             );
@@ -77,7 +73,8 @@ export function useDeleteVoucher() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => apiClient.delete(`/api/vouchers/${id}`),
-        onSuccess: () => {
+        onSuccess: (_data, id) => {
+            removeFromCache(queryClient, VOUCHERS_KEY, id);
             void queryClient.invalidateQueries({ queryKey: VOUCHERS_KEY });
         },
     });

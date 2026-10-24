@@ -46,7 +46,7 @@ import {
 import { UseGuards } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 
 @ApiTags('Inventory Branch')
@@ -55,6 +55,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 export class InventoryBranchController {
   constructor(private readonly service: InventoryBranchService) {}
 
+  @RequirePermission('inventory.manage')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -77,6 +78,7 @@ export class InventoryBranchController {
     return this.service.create(dto);
   }
 
+  @RequirePermission('inventory.manage')
   @Post('set')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -311,6 +313,7 @@ export class InventoryBranchController {
    * Transfer stock between branches
    * POST /inventory-branch/transfer
    */
+  @RequirePermission('inventory.manage')
   @Post('transfer')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -337,6 +340,7 @@ export class InventoryBranchController {
     return this.service.transfer(dto);
   }
 
+  @RequirePermission('inventory.manage')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -358,6 +362,7 @@ export class InventoryBranchController {
     return this.service.update(id, dto);
   }
 
+  @RequirePermission('inventory.manage')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({

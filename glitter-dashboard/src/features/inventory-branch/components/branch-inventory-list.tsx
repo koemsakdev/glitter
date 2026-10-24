@@ -35,11 +35,14 @@ export function BranchInventoryList({ branchId }: BranchInventoryListProps) {
         return () => window.clearTimeout(handle);
     }, [searchInput]);
 
-    const { data, isLoading, isPlaceholderData } = useBranchInventory(branchId, {
-        page,
-        limit: pageSize,
-        search: search || undefined,
-    });
+    const { data, isLoading, isPlaceholderData } = useBranchInventory(
+        branchId,
+        {
+            page,
+            limit: pageSize,
+            search: search || undefined,
+        },
+    );
 
     const groups = data?.data ?? [];
     const total = data?.total ?? 0;
@@ -211,13 +214,13 @@ function VariantPill({ variant }: { variant: BranchInventoryVariantRow }) {
     const border = isOut
         ? 'border-destructive/30 bg-destructive/5'
         : isLow
-            ? 'border-amber-300/50 bg-amber-50 dark:border-amber-700/40 dark:bg-amber-500/5'
-            : 'border-border/60 bg-muted/30';
+          ? 'border-amber-300/50 bg-amber-50 dark:border-amber-700/40 dark:bg-amber-500/5'
+          : 'border-border/60 bg-muted/30';
     const count = isOut
         ? 'text-destructive'
         : isLow
-            ? 'text-amber-600 dark:text-amber-400'
-            : 'text-foreground';
+          ? 'text-amber-600 dark:text-amber-400'
+          : 'text-foreground';
 
     return (
         <div
@@ -230,8 +233,12 @@ function VariantPill({ variant }: { variant: BranchInventoryVariantRow }) {
                     style={{ backgroundColor: variant.colorHex }}
                 />
             )}
-            <span className="font-medium text-foreground">{label || '—'}</span>
-            <span className={`font-mono font-semibold ${count}`}>{available}</span>
+            {label && (
+                <span className="font-medium text-foreground">{label}</span>
+            )}
+            <span className={`font-mono font-semibold ${count}`}>
+                {available}
+            </span>
         </div>
     );
 }

@@ -43,17 +43,19 @@ import {
 import { getErrorMessage } from '@/lib/api-client';
 import { getFileUrl } from '@/lib/file-url';
 import { useI18n } from '@/lib/i18n';
+import { usePermission } from '@/lib/permissions';
 import { useToast } from '@/hooks/use-toast';
 
 export default function InventoryPage() {
     const { t, language } = useI18n();
     const { data: branches, isLoading: branchesLoading } = useActiveBranches();
 
-    const branchName = (b?: {
-        branchNameEn: string;
-        branchNameKm: string;
-    }) =>
-        b ? (language === 'km' ? b.branchNameKm || b.branchNameEn : b.branchNameEn) : '';
+    const branchName = (b?: { branchNameEn: string; branchNameKm: string }) =>
+        b
+            ? language === 'km'
+                ? b.branchNameKm || b.branchNameEn
+                : b.branchNameEn
+            : '';
     const pName = (p: { nameEn: string; nameKm: string }) =>
         language === 'km' ? p.nameKm || p.nameEn : p.nameEn;
     const [search, setSearch] = useState('');
@@ -422,6 +424,8 @@ function VariantRow({
     variant: InventoryVariantRow;
     onAdjust: () => void;
 }) {
+    // Setting stock needs "inventory.manage" (managers by default, or granted).
+    const canAdjust = usePermission('inventory.manage');
     const { t } = useI18n();
     const swatch = variant.colorHex ?? undefined;
     const colorName =
@@ -440,7 +444,7 @@ function VariantRow({
                 />
             )}
             <div className="min-w-0 flex-1">
-                <p className="text-sm">{label || '—'}</p>
+                {label && <p className="text-sm">{label}</p>}
                 <p className="font-mono text-[11px] text-muted-foreground">
                     {variant.variantSku}
                 </p>
@@ -467,15 +471,17 @@ function VariantRow({
                     : `${variant.quantityAvailable}`}
             </span>
 
-            <Button
-                variant="outline"
-                size="sm"
-                onClick={onAdjust}
-                className="shrink-0"
-            >
-                <Pencil className="mr-1.5 size-3.5" />
-                {t('inventory.adjust')}
-            </Button>
+            {canAdjust && (
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onAdjust}
+                    className="shrink-0"
+                >
+                    <Pencil className="mr-1.5 size-3.5" />
+                    {t('inventory.adjust')}
+                </Button>
+            )}
         </div>
     );
 }

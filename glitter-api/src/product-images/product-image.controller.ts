@@ -43,7 +43,7 @@ import type { ImageType } from './entities/product-image.entity';
 import { UseGuards } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 
 // Upload destination
@@ -90,6 +90,7 @@ export class ProductImagesController {
    * Upload a single product image
    * POST /api/product-images
    */
+  @RequirePermission('products.edit')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
@@ -171,6 +172,7 @@ export class ProductImagesController {
    * Upload multiple images at once
    * POST /api/product-images/bulk
    */
+  @RequirePermission('products.edit')
   @Post('bulk')
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
@@ -322,6 +324,7 @@ export class ProductImagesController {
    * Update an image (replace file and/or metadata)
    * PATCH /api/product-images/:id
    */
+  @RequirePermission('products.edit')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(
@@ -387,6 +390,7 @@ export class ProductImagesController {
    * Reorder images for a product (drag-and-drop gallery)
    * PUT /api/product-images/product/:productId/reorder
    */
+  @RequirePermission('products.edit')
   @Put('product/:productId/reorder')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -420,6 +424,7 @@ export class ProductImagesController {
    * Delete an image
    * DELETE /api/product-images/:id
    */
+  @RequirePermission('products.edit')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
@@ -443,6 +448,7 @@ export class ProductImagesController {
    * Delete all images for a product
    * DELETE /api/product-images/product/:productId
    */
+  @RequirePermission('products.edit')
   @Delete('product/:productId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({

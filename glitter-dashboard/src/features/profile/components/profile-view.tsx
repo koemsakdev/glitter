@@ -1,6 +1,26 @@
 'use client';
 
-import { Camera, Loader2, Trash2 } from 'lucide-react';
+import { format } from 'date-fns';
+import {
+    CalendarDays,
+    ArrowLeft,
+    AtSign,
+    Camera,
+    ChevronRight,
+    Clock,
+    KeyRound,
+    Loader2,
+    Mail,
+    Phone,
+    Save,
+    Store,
+    Trash2,
+    Upload,
+    UserRound,
+    type LucideIcon,
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { SafeImage as Image } from '@/components/ui/safe-image';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -22,10 +42,11 @@ import { useI18n } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/auth-store';
 
 const inputClass =
-    'h-11 shadow-none focus-visible:outline-none focus-visible:ring-0 rounded-lg focus-visible:border-pink-500 dark:focus-visible:border-pink-800';
+    'h-11 rounded-xl shadow-none focus-visible:outline-none focus-visible:ring-0 focus-visible:border-pink-500 dark:focus-visible:border-pink-700';
 
 export function ProfileView() {
-    const { t } = useI18n();
+    const { t, language } = useI18n();
+    const router = useRouter();
     const { toast } = useToast();
     const user = useAuthStore((s) => s.user);
     const fileRef = useRef<HTMLInputElement>(null);
@@ -101,7 +122,10 @@ export function ProfileView() {
             // 1) Persist the avatar change first (if any), so the profile
             //    update response reflects the final image.
             if (avatarFile) {
-                await uploadAvatar.mutateAsync({ id: user!.id, file: avatarFile });
+                await uploadAvatar.mutateAsync({
+                    id: user!.id,
+                    file: avatarFile,
+                });
             } else if (removeFlag) {
                 await removeAvatar.mutateAsync(user!.id);
             }
@@ -132,129 +156,310 @@ export function ProfileView() {
         }
     }
 
-    return (
-        <div className="mx-auto max-w-2xl space-y-6">
-            <SavingOverlay open={saving} label={t('common.saving')} />
+    const dirty =
+        fullName.trim() !== (user.fullName ?? '') ||
+        email.trim() !== (user.email ?? '') ||
+        phoneNumber.trim() !== (user.phoneNumber ?? '') ||
+        Boolean(avatarFile) ||
+        removeFlag;
+    const branchName = user.branch
+        ? language === 'km'
+            ? user.branch.branchNameKm
+            : user.branch.branchNameEn
+        : null;
 
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                    {t('profile.title')}
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                    {t('profile.subtitle')}
-                </p>
+    return (
+        <form
+            onSubmit={(e) => {
+                e.preventDefault();
+                void handleSave();
+            }}
+            className="space-y-6"
+        >
+            <SavingOverlay open={saving} label={t('common.saving')} />
+            <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={handleAvatarPick}
+            />
+
+            {/* Header — same pattern as other pages: title left, action right */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                    <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                        {t('profile.title')}
+                    </h1>
+                    <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+                        {t('profile.subtitle')}
+                    </p>
+                </div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="sm:shrink-0"
+                    onClick={() => router.back()}
+                >
+                    <ArrowLeft className="size-4" />
+                    {t('common.back')}
+                </Button>
             </div>
 
-            <form
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    void handleSave();
-                }}
-                className="space-y-6"
-            >
-                {/* Avatar */}
-                <div className="flex items-center gap-5 rounded-xl border bg-card p-5">
-                    <div className="flex size-20 items-center justify-center overflow-hidden rounded-full bg-pink-100 text-xl font-semibold text-pink-700 dark:bg-pink-500/15 dark:text-pink-300">
-                        {shownAvatar ? (
-                            <Image
-                                src={shownAvatar}
-                                alt={user.fullName}
-                                fallback={initials}
-                                width={80}
-                                height={80}
-                                className="size-full object-cover"
-                                unoptimized
-                            />
-                        ) : (
-                            initials
-                        )}
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <UserRoleBadge role={user.role} />
-                            <UserStatusBadge status={user.accountStatus} />
-                        </div>
-                        <div className="flex gap-2">
-                            <input
-                                ref={fileRef}
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={handleAvatarPick}
-                            />
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                disabled={saving}
-                                onClick={() => fileRef.current?.click()}
-                            >
-                                <Camera className="mr-2 size-4" />
-                                {t('profile.avatar.change')}
-                            </Button>
-                            {shownAvatar && (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                {/* ── Left: who you are + security ── */}
+                <div className="space-y-6">
+                    <section className="rounded-xl border bg-card p-6">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    disabled={saving}
+                                    onClick={() => fileRef.current?.click()}
+                                    aria-label={t('profile.avatar.change')}
+                                    className="flex size-28 items-center justify-center overflow-hidden rounded-full bg-muted text-3xl font-semibold text-foreground/70 ring-1 ring-border transition-opacity hover:opacity-90"
+                                >
+                                    {shownAvatar ? (
+                                        <Image
+                                            src={shownAvatar}
+                                            alt={user.fullName}
+                                            fallback={initials}
+                                            width={112}
+                                            height={112}
+                                            className="size-full object-cover"
+                                            unoptimized
+                                        />
+                                    ) : (
+                                        initials
+                                    )}
+                                </button>
+                                <span className="pointer-events-none absolute bottom-0.5 right-0.5 flex size-8 items-center justify-center rounded-full border bg-card shadow-sm">
+                                    <Camera className="size-4" />
+                                </span>
+                            </div>
+                            <p className="mt-4 text-lg font-semibold">
+                                {user.fullName}
+                            </p>
+                            {user.username && (
+                                <p className="font-mono text-sm text-muted-foreground">
+                                    @{user.username}
+                                </p>
+                            )}
+                            <div className="mt-3 flex flex-wrap justify-center gap-2">
+                                <UserRoleBadge role={user.role} />
+                                <UserStatusBadge status={user.accountStatus} />
+                            </div>
+                            <div className="mt-4 flex flex-wrap justify-center gap-2">
                                 <Button
                                     type="button"
                                     variant="outline"
                                     size="sm"
                                     disabled={saving}
-                                    onClick={handleAvatarRemove}
-                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={() => fileRef.current?.click()}
                                 >
-                                    <Trash2 className="mr-2 size-4" />
-                                    {t('profile.avatar.remove')}
+                                    <Upload className="size-3.5" />
+                                    {shownAvatar
+                                        ? t('profile.avatar.change')
+                                        : t('user.form.uploadPhoto')}
                                 </Button>
+                                {shownAvatar && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        disabled={saving}
+                                        onClick={handleAvatarRemove}
+                                        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                    >
+                                        <Trash2 className="size-3.5" />
+                                        {t('profile.avatar.remove')}
+                                    </Button>
+                                )}
+                            </div>
+                            {(avatarFile || removeFlag) && (
+                                <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                                    {t('profile.avatar.pending')}
+                                </p>
                             )}
                         </div>
-                        {(avatarFile || removeFlag) && (
-                            <p className="text-xs text-muted-foreground">
-                                {t('profile.avatar.pending')}
-                            </p>
-                        )}
-                    </div>
+
+                        <dl className="mt-6 space-y-3 border-t pt-5 text-sm">
+                            {branchName && (
+                                <SummaryRow
+                                    icon={Store}
+                                    label={t('user.field.branch')}
+                                >
+                                    {branchName}
+                                </SummaryRow>
+                            )}
+                            <SummaryRow
+                                icon={CalendarDays}
+                                label={t('user.col.joined')}
+                            >
+                                {format(new Date(user.createdAt), 'PP')}
+                            </SummaryRow>
+                            <SummaryRow
+                                icon={Clock}
+                                label={t('user.detail.updated')}
+                            >
+                                {format(new Date(user.updatedAt), 'PP')}
+                            </SummaryRow>
+                        </dl>
+                    </section>
+
+                    <section className="rounded-xl border bg-card p-6">
+                        <div className="flex items-start gap-3">
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                                <KeyRound className="size-4" />
+                            </span>
+                            <div className="min-w-0">
+                                <h2 className="text-base font-semibold">
+                                    {t('profile.section.security')}
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    {t('profile.section.securityHint')}
+                                </p>
+                            </div>
+                        </div>
+                        <Button
+                            variant="outline"
+                            className="mt-4 w-full"
+                            nativeButton={false}
+                            render={<Link href="/dashboard/change-password" />}
+                        >
+                            {t('changePassword.title')}
+                            <ChevronRight className="size-4" />
+                        </Button>
+                    </section>
                 </div>
 
-                {/* Editable fields */}
-                <div className="space-y-4 rounded-xl border bg-card p-5">
-                    <Field label={t('user.field.fullName')}>
-                        <Input
-                            value={fullName}
-                            onChange={(e) => setFullName(e.target.value)}
-                            className={inputClass}
-                        />
-                    </Field>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <Field label={t('user.field.email')}>
-                            <Input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className={inputClass}
-                            />
+                {/* ── Right: personal information ── */}
+                <section className="rounded-xl border bg-card lg:col-span-2 lg:self-start">
+                    <header className="border-b px-6 py-4">
+                        <h2 className="text-base font-semibold">
+                            {t('profile.section.personal')}
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                            {t('profile.section.personalHint')}
+                        </p>
+                    </header>
+                    <div className="space-y-5 p-6">
+                        <Field label={t('user.field.fullName')}>
+                            <IconInput icon={UserRound}>
+                                <Input
+                                    value={fullName}
+                                    onChange={(e) =>
+                                        setFullName(e.target.value)
+                                    }
+                                    className={`${inputClass} pl-10`}
+                                />
+                            </IconInput>
                         </Field>
-                        <Field label={t('user.field.phone')}>
-                            <Input
-                                value={phoneNumber}
-                                onChange={(e) => setPhoneNumber(e.target.value)}
-                                className={inputClass}
-                            />
-                        </Field>
+                        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                            <Field label={t('user.field.email')}>
+                                <IconInput icon={Mail}>
+                                    <Input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) =>
+                                            setEmail(e.target.value)
+                                        }
+                                        placeholder="name@example.com"
+                                        className={`${inputClass} pl-10`}
+                                    />
+                                </IconInput>
+                            </Field>
+                            <Field label={t('user.field.phone')}>
+                                <IconInput icon={Phone}>
+                                    <Input
+                                        value={phoneNumber}
+                                        onChange={(e) =>
+                                            setPhoneNumber(e.target.value)
+                                        }
+                                        placeholder="012 345 678"
+                                        className={`${inputClass} pl-10`}
+                                    />
+                                </IconInput>
+                            </Field>
+                        </div>
+                        {user.username && (
+                            <Field label={t('user.field.username')}>
+                                <IconInput icon={AtSign}>
+                                    <Input
+                                        value={user.username}
+                                        readOnly
+                                        disabled
+                                        className={`${inputClass} pl-10 font-mono`}
+                                    />
+                                </IconInput>
+                                <p className="text-xs text-muted-foreground">
+                                    {t('profile.usernameHint')}
+                                </p>
+                            </Field>
+                        )}
                     </div>
-
-                    <div className="flex justify-end pt-2">
+                    <footer className="flex flex-col-reverse gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <span
+                            className={`text-xs ${
+                                dirty
+                                    ? 'text-amber-600 dark:text-amber-400'
+                                    : 'text-muted-foreground'
+                            }`}
+                        >
+                            {dirty
+                                ? t('profile.unsaved')
+                                : t('profile.allSaved')}
+                        </span>
                         <Button
                             type="submit"
-                            disabled={saving}
+                            disabled={saving || !dirty}
                             className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
                         >
-                            {saving && (
-                                <Loader2 className="mr-2 size-4 animate-spin" />
+                            {saving ? (
+                                <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                                <Save className="size-4" />
                             )}
                             {t('profile.save.submit')}
                         </Button>
-                    </div>
-                </div>
-            </form>
+                    </footer>
+                </section>
+            </div>
+        </form>
+    );
+}
+
+/** Small label/value row in the profile summary card. */
+function SummaryRow({
+    icon: Icon,
+    label,
+    children,
+}: {
+    icon: LucideIcon;
+    label: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="flex items-center gap-3">
+            <Icon className="size-4 shrink-0 text-muted-foreground" />
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="ml-auto truncate font-medium">{children}</dd>
+        </div>
+    );
+}
+
+/** Input wrapper with a leading icon. */
+function IconInput({
+    icon: Icon,
+    children,
+}: {
+    icon: LucideIcon;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="relative">
+            <Icon className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            {children}
         </div>
     );
 }

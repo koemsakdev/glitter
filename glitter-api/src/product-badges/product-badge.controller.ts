@@ -32,7 +32,7 @@ import {
 import { UseGuards } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 
 @ApiTags('Product Badges')
@@ -41,6 +41,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 export class ProductBadgesController {
   constructor(private readonly badgesService: ProductBadgesService) {}
 
+  @RequirePermission('products.edit')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -81,6 +82,7 @@ export class ProductBadgesController {
     return this.badgesService.create(dto);
   }
 
+  @RequirePermission('products.edit')
   @Put('product/:productId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -167,6 +169,7 @@ export class ProductBadgesController {
 
   @UseGuards(RolesGuard)
   @Roles('admin')
+  @RequirePermission('products.edit')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a badge' })
@@ -182,6 +185,7 @@ export class ProductBadgesController {
 
   @UseGuards(RolesGuard)
   @Roles('admin')
+  @RequirePermission('products.edit')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a badge' })

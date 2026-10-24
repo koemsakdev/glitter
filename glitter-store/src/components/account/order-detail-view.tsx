@@ -19,8 +19,8 @@ import {
 } from '@/lib/order-ui';
 import type { OrderInfo } from '@/components/checkout/receipt-card';
 import type { OrderDetail } from '@/lib/types';
+import { onLiveChange } from '@/lib/realtime';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 
 /** A clean, consistent payment label. ABA/KHQR always reads "ABA KHQR"
  *  (regardless of what was stored — some old orders have a "(proof uploaded)"
@@ -120,18 +120,10 @@ export function OrderDetailView({
                 .catch(() => active && setState('notfound'));
         }
         load();
-        const src = new EventSource(`${API_URL}/api/realtime/events`);
-        src.onmessage = (e) => {
-            try {
-                const d = JSON.parse(e.data) as { entity?: string };
-                if (d.entity === 'orders') load();
-            } catch {
-                // ignore
-            }
-        };
+        const off = onLiveChange(['orders'], () => load());
         return () => {
             active = false;
-            src.close();
+            off();
         };
     }, [user, authFetch, id]);
 

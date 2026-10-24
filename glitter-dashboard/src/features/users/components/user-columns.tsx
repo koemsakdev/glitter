@@ -24,7 +24,7 @@ interface UserColumnsContext {
 
 function formatDate(value: string): string {
     const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return '—';
+    if (Number.isNaN(d.getTime())) return '';
     return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(d);
 }
 
@@ -84,9 +84,11 @@ export function getUserColumns({
                                     {u.fullName}
                                 </div>
                             )}
-                            <div className="truncate text-xs text-muted-foreground">
-                                {u.email ?? '—'}
-                            </div>
+                            {u.email && (
+                                <div className="truncate text-xs text-muted-foreground">
+                                    {u.email}
+                                </div>
+                            )}
                         </div>
                     </div>
                 );
@@ -96,11 +98,12 @@ export function getUserColumns({
             accessorKey: 'phoneNumber',
             meta: { sortKey: 'phoneNumber' },
             header: t('user.col.phone'),
-            cell: ({ row }) => (
-                <span className="font-mono text-sm text-muted-foreground">
-                    {row.original.phoneNumber ?? '—'}
-                </span>
-            ),
+            cell: ({ row }) =>
+                row.original.phoneNumber ? (
+                    <span className="font-mono text-sm text-muted-foreground">
+                        {row.original.phoneNumber}
+                    </span>
+                ) : null,
         },
         ...(showRole
             ? [
@@ -122,12 +125,7 @@ export function getUserColumns({
                       header: t('user.col.branch'),
                       cell: ({ row }) => {
                           const b = row.original.branch;
-                          if (!b)
-                              return (
-                                  <span className="text-muted-foreground">
-                                      —
-                                  </span>
-                              );
+                          if (!b) return null;
                           return (
                               <span className="text-sm">
                                   {language === 'km'
@@ -159,7 +157,9 @@ export function getUserColumns({
         },
         {
             id: 'actions',
-            header: () => <span className="sr-only">{t('common.actions')}</span>,
+            header: () => (
+                <span className="sr-only">{t('common.actions')}</span>
+            ),
             size: 60,
             cell: ({ row }) => (
                 <RowActions

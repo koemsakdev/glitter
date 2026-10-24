@@ -9,8 +9,8 @@ interface BranchInventorySummaryCardProps {
 }
 
 export function BranchInventorySummaryCard({
-                                               branchId,
-                                           }: BranchInventorySummaryCardProps) {
+    branchId,
+}: BranchInventorySummaryCardProps) {
     const { t } = useI18n();
     const { data, isLoading } = useBranchInventorySummary(branchId);
 
@@ -57,9 +57,13 @@ export function BranchInventorySummaryCard({
                             <p className="truncate text-xs text-muted-foreground">
                                 {stat.label}
                             </p>
-                            <p className="mt-1 text-2xl font-bold tabular-nums">
-                                {isLoading ? '—' : stat.value.toLocaleString()}
-                            </p>
+                            {isLoading ? (
+                                <span className="mt-2 block h-7 w-16 animate-pulse rounded-md bg-muted" />
+                            ) : (
+                                <p className="mt-1 text-2xl font-bold tabular-nums">
+                                    {stat.value.toLocaleString()}
+                                </p>
+                            )}
                         </div>
                         <div
                             className={`flex size-9 shrink-0 items-center justify-center rounded-md ${stat.iconBg}`}

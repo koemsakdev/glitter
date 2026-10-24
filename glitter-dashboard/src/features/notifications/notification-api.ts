@@ -24,7 +24,7 @@ async function fetchNotifications(): Promise<NotificationList> {
     return data;
 }
 
-/** List + unread count, kept fresh live by the RealtimeListener (SSE). */
+/** List + unread count, kept fresh live by the RealtimeListener (socket). */
 export function useNotifications() {
     const qc = useQueryClient();
     const query = useQuery({ queryKey: KEY, queryFn: fetchNotifications });

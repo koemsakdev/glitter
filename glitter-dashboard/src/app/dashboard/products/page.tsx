@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { DeleteProductDialog } from '@/features/products/components/delete-product-dialog';
 import { getProductColumns } from '@/features/products/components/product-columns';
-import { useIsAdmin } from '@/lib/permissions';
+import { usePermission } from '@/lib/permissions';
 import {
     DEFAULT_PRODUCT_SORT,
     PRODUCT_SORT_OPTIONS,
@@ -30,23 +30,24 @@ import { useWishlistCounts } from '@/features/wishlists/use-wishlists';
 import { useBrandOptions } from '@/lib/hooks/use-brand-options';
 import { useCategoryOptions } from '@/lib/hooks/use-category-options';
 import { useI18n } from '@/lib/i18n';
-import type {
-    Product,
-    ProductSortBy,
-    ProductSortOrder,
-} from '@/types/product';
+import type { Product, ProductSortBy, ProductSortOrder } from '@/types/product';
 import { useSelectedBranchId } from '@/stores/use-branch-context';
 
 export default function ProductsPage() {
-    const isAdmin = useIsAdmin();
+    // Admins, or staff granted these permissions.
+    const canEdit = usePermission('products.edit');
+    const canDelete = usePermission('products.delete');
     const { t, language } = useI18n();
     const deleteModal = useDeleteProductModal();
-    const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+    const [deletingProduct, setDeletingProduct] = useState<Product | null>(
+        null,
+    );
 
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [search, setSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState<ProductStatusFilter>('all');
+    const [statusFilter, setStatusFilter] =
+        useState<ProductStatusFilter>('all');
     const [brandFilter, setBrandFilter] = useState<string>('');
     const [categoryFilter, setCategoryFilter] = useState<string>('');
     const selectedBranchId = useSelectedBranchId();
@@ -137,12 +138,13 @@ export default function ProductsPage() {
     const columns = useMemo(
         () =>
             getProductColumns({
-                canManage: isAdmin,
+                canManage: canEdit,
+                canDelete,
                 t,
                 language,
                 brandsById,
                 categoriesById,
-                hasBranchFilter: Boolean(selectedBranchId),  // ← NEW
+                hasBranchFilter: Boolean(selectedBranchId), // ← NEW
                 wishlistCounts,
                 onDelete: (product) => {
                     setDeletingProduct(product);
@@ -150,7 +152,16 @@ export default function ProductsPage() {
                 },
             }),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [t, language, brandsById, categoriesById, selectedBranchId, wishlistCounts, isAdmin],
+        [
+            t,
+            language,
+            brandsById,
+            categoriesById,
+            selectedBranchId,
+            wishlistCounts,
+            canEdit,
+            canDelete,
+        ],
     );
 
     function handleStatusChange(value: ProductStatusFilter) {
@@ -197,8 +208,8 @@ export default function ProductsPage() {
                         {t('product.list.subtitle')}
                     </p>
                 </div>
-                {isAdmin && (
-                <Button
+                {canEdit && (
+                    <Button
                         className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800 sm:shrink-0"
                         nativeButton={false}
                         render={
@@ -266,7 +277,6 @@ export default function ProductsPage() {
                         emptyMessage={t('product.filter.categoryEmpty')}
                     />
                 </div>
-
             </div>
 
             {/* Table */}
@@ -302,18 +312,18 @@ export default function ProductsPage() {
                             title={t('product.list.empty')}
                             description={t('product.list.emptyHelp')}
                             action={
-                                isAdmin && (
-                                <Button
-                                    size="sm"
-                                    className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
-                                    nativeButton={false}
-                                    render={
-                                        <Link href="/dashboard/products/new">
-                                            <Plus className="mr-2 size-4" />
-                                            {t('product.action.create')}
-                                        </Link>
-                                    }
-                                />
+                                canEdit && (
+                                    <Button
+                                        size="sm"
+                                        className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
+                                        nativeButton={false}
+                                        render={
+                                            <Link href="/dashboard/products/new">
+                                                <Plus className="mr-2 size-4" />
+                                                {t('product.action.create')}
+                                            </Link>
+                                        }
+                                    />
                                 )
                             }
                         />

@@ -17,8 +17,8 @@ import {
     paymentStatusLabel,
 } from '@/lib/order-ui';
 import type { OrderSummary } from '@/lib/types';
+import { onLiveChange } from '@/lib/realtime';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 
 export function OrdersView({ lang: initialLang }: { lang: Lang }) {
     const { lang } = useLang(initialLang);
@@ -46,18 +46,10 @@ export function OrdersView({ lang: initialLang }: { lang: Lang }) {
                 });
         }
         load();
-        const src = new EventSource(`${API_URL}/api/realtime/events`);
-        src.onmessage = (e) => {
-            try {
-                const d = JSON.parse(e.data) as { entity?: string };
-                if (d.entity === 'orders') load();
-            } catch {
-                // ignore
-            }
-        };
+        const off = onLiveChange(['orders'], () => load());
         return () => {
             active = false;
-            src.close();
+            off();
         };
     }, [user, authFetch]);
 

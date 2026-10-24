@@ -237,7 +237,8 @@ export class AiChatService {
         const primary =
           p.images?.find((i) => i.imageType === 'primary') ?? p.images?.[0];
         return {
-          name: (language === 'km' ? p.nameKm : p.nameEn) || p.nameEn || p.nameKm,
+          name:
+            (language === 'km' ? p.nameKm : p.nameEn) || p.nameEn || p.nameKm,
           price: Number(p.price),
           slug: p.slug,
           imageUrl: primary?.imageUrl ?? null,
@@ -445,11 +446,8 @@ export class AiChatService {
     // assistant can answer "what do you sell / what brands / how many products".
     try {
       const cats = await this.categories.findAll(1, 50);
-      const names = cats.data
-        .map((c) => c.nameEn || c.nameKm)
-        .filter(Boolean);
-      if (names.length)
-        lines.push(`Product categories: ${names.join(', ')}.`);
+      const names = cats.data.map((c) => c.nameEn || c.nameKm).filter(Boolean);
+      if (names.length) lines.push(`Product categories: ${names.join(', ')}.`);
     } catch {
       /* ignore */
     }
@@ -655,7 +653,10 @@ export class AiChatService {
     );
   }
 
-  private async callGemini(prompt: string, temperature: number): Promise<string> {
+  private async callGemini(
+    prompt: string,
+    temperature: number,
+  ): Promise<string> {
     const apiKey = process.env.GOOGLE_API_KEY as string;
 
     let lastError: Error | null = null;
@@ -692,7 +693,9 @@ export class AiChatService {
         return text;
       } catch (err) {
         lastError = err as Error;
-        this.logger.warn(`Gemini model "${model}" failed: ${lastError.message}`);
+        this.logger.warn(
+          `Gemini model "${model}" failed: ${lastError.message}`,
+        );
         if (lastError.message.toLowerCase().includes('quota')) break;
       }
     }
@@ -724,9 +727,7 @@ export class AiChatService {
           error?: { message?: string };
         };
         if (!res.ok) {
-          throw new Error(
-            data.error?.message ?? `Groq returned ${res.status}`,
-          );
+          throw new Error(data.error?.message ?? `Groq returned ${res.status}`);
         }
         const text = data.choices?.[0]?.message?.content;
         if (!text) throw new Error('Empty response from Groq');

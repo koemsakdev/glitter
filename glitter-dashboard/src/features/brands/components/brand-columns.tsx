@@ -2,17 +2,19 @@
 
 import type { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
-import {
-    ImageIcon, LinkIcon,
-    } from 'lucide-react';
+import { ImageIcon, LinkIcon } from 'lucide-react';
 import { SafeImage as Image } from '@/components/ui/safe-image';
 import { Badge } from '@/components/ui/badge';
 import { RowActions } from '@/components/resource/row-actions';
 import { getFileUrl } from '@/lib/file-url';
 import type { useI18n } from '@/lib/i18n';
 import type { Brand } from '@/types/brand';
-import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip";
-import Link from "next/link";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import Link from 'next/link';
 
 interface BrandColumnsContext {
     t: ReturnType<typeof useI18n>['t'];
@@ -61,9 +63,11 @@ export function getBrandColumns({
                 const brand = row.original;
                 return (
                     <div className="flex flex-col">
-                        <span className="font-medium text-foreground">{brand.name}</span>
+                        <span className="font-medium text-foreground">
+                            {brand.name}
+                        </span>
                         <span className="text-xs text-muted-foreground md:hidden">
-                          {brand.slug}
+                            {brand.slug}
                         </span>
                     </div>
                 );
@@ -74,7 +78,7 @@ export function getBrandColumns({
             header: () => t('brand.list.column.slug'),
             cell: ({ row }) => (
                 <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-                  {row.original.slug}
+                    {row.original.slug}
                 </span>
             ),
         },
@@ -83,7 +87,12 @@ export function getBrandColumns({
             header: () => t('brand.list.column.website'),
             cell: ({ row }) => {
                 const url = row.original.websiteUrl;
-                if (!url) return <span className="text-sm text-muted-foreground">N/A</span>;
+                if (!url)
+                    return (
+                        <span className="text-sm text-muted-foreground">
+                            N/A
+                        </span>
+                    );
                 return (
                     <Tooltip>
                         <TooltipTrigger>
@@ -94,7 +103,7 @@ export function getBrandColumns({
                                 className="inline-flex max-w-50 items-center gap-1 text-sm text-blue-600 hover:underline dark:text-blue-500"
                             >
                                 <span className="truncate">
-                                  {url.replace(/^https?:\/\//, "")}
+                                    {url.replace(/^https?:\/\//, '')}
                                 </span>
                                 <LinkIcon className="size-3 shrink-0" />
                             </Link>
@@ -120,7 +129,10 @@ export function getBrandColumns({
                     );
                 }
                 return (
-                    <Badge variant="secondary" className="text-muted-foreground">
+                    <Badge
+                        variant="secondary"
+                        className="text-muted-foreground"
+                    >
                         <span className="mr-1 inline-block size-1.5 rounded-full bg-muted-foreground" />
                         {t('brand.status.inactive')}
                     </Badge>
@@ -133,16 +145,19 @@ export function getBrandColumns({
             header: () => t('brand.list.column.created'),
             cell: ({ row }) => (
                 <span className="text-sm text-muted-foreground">
-                  {format(new Date(row.original.createdAt), 'MMM d, yyyy')}
+                    {format(new Date(row.original.createdAt), 'MMM d, yyyy')}
                 </span>
             ),
         },
         {
             id: 'actions',
-            header: () => <span className="sr-only">{t('common.actions')}</span>,
+            header: () => (
+                <span className="sr-only">{t('common.actions')}</span>
+            ),
             size: 60,
             cell: ({ row }) => (
                 <RowActions
+                    permission="catalog.manage"
                     viewHref={`/dashboard/brands/${row.original.id}`}
                     onEdit={() => onEdit(row.original)}
                     onDelete={() => onDelete(row.original)}

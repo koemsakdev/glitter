@@ -29,8 +29,8 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
       router.replace('/login');
       return;
     }
-    if (!canAccessPath(user.role, pathname)) {
-      router.replace(homePathForRole(user.role));
+    if (!canAccessPath(user, pathname)) {
+      router.replace(homePathForRole(user));
     }
   }, [isHydrated, user, router, pathname]);
 
@@ -47,7 +47,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   if (
     !user ||
     user.role === 'customer' ||
-    !canAccessPath(user.role, pathname)
+    !canAccessPath(user, pathname)
   ) {
     return null;
   }

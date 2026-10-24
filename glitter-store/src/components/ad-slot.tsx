@@ -6,6 +6,7 @@ import { fileUrl } from '@/lib/api';
 import { useLang } from '@/lib/lang-context';
 import { pick, type Lang } from '@/lib/locale';
 import type { Advertisement } from '@/lib/types';
+import { onLiveChange } from '@/lib/realtime';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 
@@ -47,19 +48,11 @@ export function AdSlot({
         load(true);
 
         // Live updates: refetch when ads change in the dashboard (no view spam).
-        const source = new EventSource(`${API_URL}/api/realtime/events`);
-        source.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data) as { entity?: string };
-                if (data.entity === 'advertisements') load(false);
-            } catch {
-                // ignore malformed events
-            }
-        };
+        const off = onLiveChange(['advertisements'], () => load(false));
 
         return () => {
             active = false;
-            source.close();
+            off();
         };
     }, [location]);
 

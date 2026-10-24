@@ -127,6 +127,7 @@ export default function ColorsPage() {
                                 </p>
                             </div>
                             <RowActions
+ permission="catalog.manage"
                                 onEdit={() => openForm(c)}
                                 onDelete={() => setDeleting(c)}
                                 audit={{

@@ -6,6 +6,7 @@ import type {
     BranchFormValues,
     BranchListParams,
 } from '@/types/branch';
+import { removeFromCache } from '@/lib/remove-from-cache';
 
 const BRANCHES_KEY = ['branches'] as const;
 
@@ -75,7 +76,8 @@ export function useDeleteBranch() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => branchApi.delete(id),
-        onSuccess: () => {
+        onSuccess: (_data, id) => {
+            removeFromCache(queryClient, BRANCHES_KEY, id);
             void queryClient.invalidateQueries({ queryKey: BRANCHES_KEY });
         },
     });

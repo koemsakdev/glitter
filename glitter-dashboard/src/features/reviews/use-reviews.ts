@@ -5,11 +5,8 @@ import {
     useQueryClient,
 } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import type {
-    Review,
-    ReviewListResponse,
-    ReviewStatus,
-} from '@/types/review';
+import type { Review, ReviewListResponse, ReviewStatus } from '@/types/review';
+import { removeFromCache } from '@/lib/remove-from-cache';
 
 const REVIEWS_KEY = ['reviews'] as const;
 
@@ -55,7 +52,8 @@ export function useDeleteReview() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => apiClient.delete(`/api/reviews/${id}`),
-        onSuccess: () => {
+        onSuccess: (_data, id) => {
+            removeFromCache(queryClient, REVIEWS_KEY, id);
             void queryClient.invalidateQueries({ queryKey: REVIEWS_KEY });
         },
     });

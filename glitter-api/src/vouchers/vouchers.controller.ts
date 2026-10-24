@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateVoucherDto } from './dto/create-voucher.dto';
 import { UpdateVoucherDto } from './dto/update-voucher.dto';
@@ -54,6 +54,7 @@ export class VouchersController {
     return { data: await this.service.findActivePublic() };
   }
 
+  @RequirePermission('promotions.manage')
   @Get()
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
@@ -63,6 +64,7 @@ export class VouchersController {
     return { data: await this.service.findAll() };
   }
 
+  @RequirePermission('promotions.manage')
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
@@ -72,6 +74,7 @@ export class VouchersController {
     return { data: await this.service.findOne(id) };
   }
 
+  @RequirePermission('promotions.manage')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
@@ -83,6 +86,7 @@ export class VouchersController {
     return { data: await this.service.create(dto) };
   }
 
+  @RequirePermission('promotions.manage')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
@@ -95,6 +99,7 @@ export class VouchersController {
     return { data: await this.service.update(id, dto) };
   }
 
+  @RequirePermission('promotions.manage')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)

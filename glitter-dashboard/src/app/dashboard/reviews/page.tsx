@@ -145,12 +145,14 @@ export default function ReviewsPage() {
                             >
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div className="min-w-0">
-                                        <Link
-                                            href={`/dashboard/products/${r.productId}`}
-                                            className="text-sm font-semibold hover:text-pink-600 dark:hover:text-pink-300"
-                                        >
-                                            {r.productNameEn ?? '—'}
-                                        </Link>
+                                        {r.productNameEn && (
+                                            <Link
+                                                href={`/dashboard/products/${r.productId}`}
+                                                className="text-sm font-semibold hover:text-pink-600 dark:hover:text-pink-300"
+                                            >
+                                                {r.productNameEn}
+                                            </Link>
+                                        )}
                                         <div className="mt-1.5 flex flex-wrap items-center gap-2">
                                             <span className="relative shrink-0">
                                                 {getFileUrl(
@@ -271,6 +273,7 @@ export default function ReviewsPage() {
                                     )}
                                     <div className="ml-auto">
                                         <RowActions
+                                            deletePermission="reviews.delete"
                                             onDelete={() => setDeleting(r)}
                                             audit={{
                                                 entity: 'reviews',

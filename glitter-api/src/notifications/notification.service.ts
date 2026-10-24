@@ -31,8 +31,11 @@ export class NotificationsService {
     data: Record<string, unknown>,
     link: string | null = null,
   ): Promise<void> {
-    await this.repo.save(this.repo.create({ userId, type, data, link }));
+    const row = await this.repo.save(
+      this.repo.create({ userId, type, data, link }),
+    );
     this.realtime.publish('notifications');
+    this.realtime.sendTo([userId], { ...this.toResponse(row), isRead: false });
   }
 
   /** Fan out a notification to every active staff member. */
@@ -46,10 +49,17 @@ export class NotificationsService {
       select: ['id'],
     });
     if (staff.length === 0) return;
-    await this.repo.save(
+    const rows = await this.repo.save(
       staff.map((s) => this.repo.create({ userId: s.id, type, data, link })),
     );
     this.realtime.publish('notifications');
+    // Each staff member gets their own row (own id / read state).
+    for (const row of rows) {
+      this.realtime.sendTo([row.userId], {
+        ...this.toResponse(row),
+        isRead: false,
+      });
+    }
   }
 
   async list(userId: string, limit = 30): Promise<NotificationListResponse> {

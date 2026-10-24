@@ -15,7 +15,7 @@ import { useLogout } from '@/features/auth/use-auth';
 import { getFileUrl } from '@/lib/file-url';
 import { useI18n } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/auth-store';
-import {useToast} from "@/hooks/use-toast";
+import { useToast } from '@/hooks/use-toast';
 
 function getInitials(fullName: string | null | undefined): string {
     if (!fullName) return 'U';
@@ -45,7 +45,10 @@ export function UserMenu() {
     const avatarUrl = getFileUrl(user.profileImageUrl);
 
     async function handleLogout() {
-        const toastId = showLoadingToast(t('common.toast.logout'), t('common.toast.wait'));
+        const toastId = showLoadingToast(
+            t('common.toast.logout'),
+            t('common.toast.wait'),
+        );
         try {
             await logout.mutateAsync();
             // Turn the "Signing out…" toast into the result, in place.
@@ -54,15 +57,15 @@ export function UserMenu() {
                 title: t('common.toast.success'),
                 description: t('common.toast.logout.success'),
                 variant: 'success',
-            })
+            });
             router.replace('/login');
         } catch (error) {
             toast({
                 id: toastId,
                 title: t('common.toast.error'),
                 description: t('common.toast.logout.fail'),
-                variant: 'destructive'
-            })
+                variant: 'destructive',
+            });
             console.error('Error during logout:', error);
         }
     }
@@ -84,7 +87,9 @@ export function UserMenu() {
                             </AvatarFallback>
                         </Avatar>
                         <div className="hidden flex-col items-start leading-tight sm:flex">
-                            <span className="text-sm font-medium">{fullName}</span>
+                            <span className="text-sm font-medium">
+                                {fullName}
+                            </span>
                             <span className="text-xs capitalize text-muted-foreground">
                                 {role}
                             </span>
@@ -96,14 +101,18 @@ export function UserMenu() {
             <DropdownMenuContent align="end" className="w-56">
                 <div className="flex flex-col gap-0.5 px-2 py-1.5">
                     <span className="text-sm font-medium">{fullName}</span>
-                    <span className="truncate text-xs text-muted-foreground">
-                        {user.email ?? '—'}
-                    </span>
+                    {(user.email || user.username) && (
+                        <span className="truncate text-xs text-muted-foreground">
+                            {user.email ?? `@${user.username}`}
+                        </span>
+                    )}
                 </div>
 
                 <DropdownMenuSeparator />
 
-                <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>
+                <DropdownMenuItem
+                    onClick={() => router.push('/dashboard/profile')}
+                >
                     <UserIcon className="mr-2 size-4" />
                     <span>{t('user.profile')}</span>
                 </DropdownMenuItem>

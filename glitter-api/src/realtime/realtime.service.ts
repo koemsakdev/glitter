@@ -7,9 +7,16 @@ export interface RealtimeEvent {
   at: number;
 }
 
+/** A push meant for specific signed-in users only (e.g. a new notification). */
+export interface DirectEvent {
+  userIds: string[];
+  payload: Record<string, unknown>;
+}
+
 /**
  * In-memory event bus. Services call `publish(entity)` after a mutation and
- * the SSE endpoint streams it to every connected dashboard / storefront client.
+ * the Socket.IO gateway (and the legacy SSE endpoint) pushes it to every
+ * connected dashboard / storefront tab.
  *
  * It also tells the storefront SERVER (when STORE_REVALIDATE_URL is set) so
  * its cached data is expired even if no shopper has the store open — e.g. a
@@ -20,6 +27,8 @@ export class RealtimeService {
   private readonly logger = new Logger(RealtimeService.name);
   private readonly subject = new Subject<RealtimeEvent>();
   readonly stream$ = this.subject.asObservable();
+  private readonly direct = new Subject<DirectEvent>();
+  readonly direct$ = this.direct.asObservable();
 
   private pending = new Set<string>();
   private flushTimer: NodeJS.Timeout | null = null;
@@ -27,6 +36,11 @@ export class RealtimeService {
   publish(entity: string): void {
     this.subject.next({ entity, at: Date.now() });
     this.queueStoreRevalidate(entity);
+  }
+
+  /** Push a payload to the given users' open tabs only. */
+  sendTo(userIds: string[], payload: Record<string, unknown>): void {
+    this.direct.next({ userIds, payload });
   }
 
   /** Batch a burst of events (one save can emit several) into one call. */

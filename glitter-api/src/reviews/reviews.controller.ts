@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewStatusDto } from './dto/update-review-status.dto';
@@ -41,6 +41,7 @@ export class ReviewsController {
     return this.reviewsService.create(dto);
   }
 
+  @RequirePermission('reviews.moderate')
   @Get()
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
@@ -90,6 +91,7 @@ export class ReviewsController {
     return this.reviewsService.unmarkHelpful(id);
   }
 
+  @RequirePermission('reviews.moderate')
   @Patch(':id/status')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
@@ -102,6 +104,7 @@ export class ReviewsController {
     return this.reviewsService.updateStatus(id, dto.status);
   }
 
+  @RequirePermission('reviews.delete')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)

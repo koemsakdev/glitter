@@ -1,8 +1,4 @@
-import {
-    useMutation,
-    useQuery,
-    useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { productImageApi } from './product-image-api';
 import type { ImageType } from '@/types/product';
 
@@ -20,10 +16,10 @@ export function useBulkUploadProductImages() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({
-                         productId,
-                         files,
-                         imageType,
-                     }: {
+            productId,
+            files,
+            imageType,
+        }: {
             productId: string;
             files: File[];
             imageType?: ImageType;
@@ -55,9 +51,9 @@ export function useReorderProductImages() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({
-                         productId,
-                         imageIds,
-                     }: {
+            productId,
+            imageIds,
+        }: {
             productId: string;
             imageIds: string[];
         }) => productImageApi.reorder(productId, imageIds),

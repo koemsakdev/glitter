@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addressApi } from './address-api';
 import type { AddressFormValues } from '@/types/address';
+import { removeFromCache } from '@/lib/remove-from-cache';
 
 const ADDRESSES_KEY = ['addresses'] as const;
 
@@ -40,8 +41,10 @@ export function useDeleteAddress() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => addressApi.remove(id),
-        onSuccess: () =>
-            void queryClient.invalidateQueries({ queryKey: ADDRESSES_KEY }),
+        onSuccess: (_data, id) => {
+            removeFromCache(queryClient, ADDRESSES_KEY, id);
+            void queryClient.invalidateQueries({ queryKey: ADDRESSES_KEY });
+        },
     });
 }
 

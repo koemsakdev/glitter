@@ -7,7 +7,10 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DetailField, DetailSection } from '@/components/feedback/detail-section';
+import {
+    DetailField,
+    DetailSection,
+} from '@/components/feedback/detail-section';
 import { ErrorState } from '@/components/feedback/error-state';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { CategoryFormDialog } from '@/features/categories/components/category-form-dialog';
@@ -27,8 +30,12 @@ export function CategoryDetailView({ id }: CategoryDetailViewProps) {
     const { t, language } = useI18n();
     const { data: category, isLoading, isError, refetch } = useCategory(id);
 
-    const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-    const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
+    const [editingCategory, setEditingCategory] = useState<Category | null>(
+        null,
+    );
+    const [deletingCategory, setDeletingCategory] = useState<Category | null>(
+        null,
+    );
 
     const modifyModal = useModifyCategoryModal();
     const deleteModal = useDeleteCategoryModal();
@@ -84,13 +91,17 @@ export function CategoryDetailView({ id }: CategoryDetailViewProps) {
                         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
                             {primaryName}
                         </h1>
-                        <p className="mt-1 text-sm text-muted-foreground">{secondaryName}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {secondaryName}
+                        </p>
                         <div className="mt-2 flex items-center gap-2">
                             <CategoryTypeBadge type={category.categoryType} />
-                            <span className="text-sm text-muted-foreground">·</span>
                             <span className="text-sm text-muted-foreground">
-                {category.slug}
-              </span>
+                                ·
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                                {category.slug}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -135,12 +146,14 @@ export function CategoryDetailView({ id }: CategoryDetailViewProps) {
                         {category.nameKm}
                     </DetailField>
                     <DetailField label={t('category.field.slug')}>
-            <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs">
-              {category.slug}
-            </span>
+                        <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs">
+                            {category.slug}
+                        </span>
                     </DetailField>
                     <DetailField label={t('category.field.displayOrder')}>
-                        <span className="font-mono">{category.displayOrder}</span>
+                        <span className="font-mono">
+                            {category.displayOrder}
+                        </span>
                     </DetailField>
                     <DetailField label={t('category.field.type')}>
                         <CategoryTypeBadge type={category.categoryType} />
@@ -224,7 +237,9 @@ function CategoryTypeBadge({ type }: { type: CategoryType }) {
 
     return (
         <Badge className={style.bg}>
-            <span className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`} />
+            <span
+                className={`mr-1 inline-block size-1.5 rounded-full ${style.dot}`}
+            />
             {type}
         </Badge>
     );

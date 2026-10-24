@@ -26,6 +26,7 @@ import { ProductVariantEntity } from '../product-variants/entities/product-varia
 import { InventoryBranchEntity } from '../inventory-branch/entities/inventory-branch.entity';
 import { ProductImageEntity } from '../product-images/entities/product-image.entity';
 import { ShipmentEntity } from '../shipments/entities/shipment.entity';
+import { AppSettingEntity } from '../app-settings/entities/app-setting.entity';
 import { AuditAction, AuditLogEntity } from './entities/audit-log.entity';
 
 /** Where to find a readable name for each kind of record. */
@@ -51,6 +52,7 @@ export const LABELS: Record<
   inventory: { target: InventoryBranchEntity, field: 'id' },
   'product-images': { target: ProductImageEntity, field: 'imageUrl' },
   shipments: { target: ShipmentEntity, field: 'trackingNumber' },
+  'app-settings': { target: AppSettingEntity, field: 'settingKey' },
 };
 
 /** Fields never worth showing in a change diff. */
@@ -76,6 +78,64 @@ export function plain(row: Record<string, unknown>): Record<string, unknown> {
       out[k] = v.toISOString();
     }
   }
+  return out;
+}
+
+/** Name of a list item for summaries (banner, social link, theme…). */
+function itemName(v: unknown): string {
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    for (const k of [
+      'nameEn',
+      'name',
+      'titleEn',
+      'labelEn',
+      'label',
+      'platform',
+      'id',
+    ]) {
+      if (typeof o[k] === 'string' && o[k]) return o[k];
+    }
+  }
+  return typeof v === 'string' || typeof v === 'number' ? String(v) : 'item';
+}
+
+/**
+ * The store settings live in ONE row as a JSON document. For the audit trail,
+ * turn it into readable fields: top-level values as-is, nested objects as
+ * "parent.child", and lists as their item names (+ "(edited)" via a content
+ * fingerprint, so a change inside an item still shows up).
+ */
+export function settingsSnapshot(
+  row: Record<string, unknown>,
+): Record<string, unknown> {
+  let doc: unknown = row.settingValue;
+  try {
+    doc = JSON.parse(String(row.settingValue));
+  } catch {
+    return { value: row.settingValue };
+  }
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc))
+    return { value: doc };
+  const out: Record<string, unknown> = {};
+  const put = (key: string, v: unknown, depth: number) => {
+    if (Array.isArray(v)) {
+      const names = v.map(itemName);
+      out[key] = names.length ? names.join(', ') : '';
+      // fingerprint so edits inside an item are detected (hidden in the UI)
+      out[`${key}.__hash`] =
+        JSON.stringify(v).length + ':' + JSON.stringify(v).slice(0, 2000);
+    } else if (v && typeof v === 'object' && depth < 2) {
+      for (const [k, x] of Object.entries(v as Record<string, unknown>))
+        put(`${key}.${k}`, x, depth + 1);
+    } else if (v && typeof v === 'object') {
+      out[key] = JSON.stringify(v);
+    } else {
+      out[key] = v ?? null;
+    }
+  };
+  for (const [k, v] of Object.entries(doc as Record<string, unknown>))
+    put(k, v, 1);
   return out;
 }
 
@@ -378,7 +438,8 @@ export class AuditLogService {
         string,
         unknown
       > | null;
-      return row ? plain(row) : null;
+      if (!row) return null;
+      return entity === 'app-settings' ? settingsSnapshot(row) : plain(row);
     } catch {
       return null;
     }

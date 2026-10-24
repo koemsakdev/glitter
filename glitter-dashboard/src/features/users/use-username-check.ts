@@ -21,7 +21,11 @@ export type UsernameStatus =
  */
 export function useUsernameCheck(
     username: string,
-    opts: { currentUsername?: string | null; excludeId?: string; enabled: boolean },
+    opts: {
+        currentUsername?: string | null;
+        excludeId?: string;
+        enabled: boolean;
+    },
 ): UsernameStatus {
     const name = username.trim().toLowerCase();
     const [debounced, setDebounced] = useState(name);

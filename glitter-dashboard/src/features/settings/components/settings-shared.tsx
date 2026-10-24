@@ -1,13 +1,12 @@
 'use client';
 
-import { Loader2, Save } from 'lucide-react';
+import { Check, History, Loader2, RotateCcw, Save } from 'lucide-react';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
-import { SavingOverlay } from '@/components/feedback/saving-overlay';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -17,8 +16,11 @@ import {
 import {
     DEFAULT_STORE_CONFIG,
     type StoreConfig,
+    mergeStoreConfig,
 } from '@/features/settings/store-config';
 import { getErrorMessage } from '@/lib/api-client';
+import { useIsAdmin } from '@/lib/permissions';
+import { useAuditTrail } from '@/stores/use-audit-trail';
 import { useI18n } from '@/lib/i18n';
 
 export const inputClass =
@@ -47,6 +49,8 @@ export function SettingsPage({
     const { t } = useI18n();
     const { toast } = useToast();
     const { data, isLoading } = useStoreConfig();
+    const isAdmin = useIsAdmin();
+    const showTrail = useAuditTrail((st) => st.show);
     const save = useSaveStoreConfig();
 
     const [config, setConfig] = useState<StoreConfig>(DEFAULT_STORE_CONFIG);
@@ -61,12 +65,30 @@ export function SettingsPage({
         setConfig((prev) => ({ ...prev, [key]: value }));
     }
 
+    // What's on the server vs. what's on screen → "unsaved changes".
+    // Both sides go through the same normaliser, so defaults filled in by the
+    // server after a save don't count as a change.
+    const savedJson = data ? JSON.stringify(mergeStoreConfig(data.config)) : '';
+    const dirty =
+        Boolean(data) && JSON.stringify(mergeStoreConfig(config)) !== savedJson;
+    const [justSaved, setJustSaved] = useState(false);
+
+    // Warn before leaving the page with unsaved edits.
+    useEffect(() => {
+        if (!dirty) return;
+        const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+        window.addEventListener('beforeunload', warn);
+        return () => window.removeEventListener('beforeunload', warn);
+    }, [dirty]);
+
     function handleSave() {
         save.mutate(
             { config, settingId: data?.settingId ?? null },
             {
-                onSuccess: () =>
-                    toast({ title: t('settings.saved'), variant: 'success' }),
+                onSuccess: () => {
+                    setJustSaved(true);
+                    setTimeout(() => setJustSaved(false), 2200);
+                },
                 onError: (error) =>
                     toast({
                         title: t('common.toast.error'),
@@ -77,11 +99,40 @@ export function SettingsPage({
         );
     }
 
+    function discard() {
+        if (data) setConfig(data.config);
+    }
+
     if (isLoading) return <LoadingScreen variant="page" />;
 
+    const saveButton = (
+        <Button
+            onClick={handleSave}
+            disabled={save.isPending || (!dirty && !justSaved)}
+            className={cn(
+                'min-w-32 text-white transition-colors sm:shrink-0',
+                justSaved
+                    ? 'bg-emerald-500 hover:bg-emerald-500 disabled:opacity-100'
+                    : 'bg-pink-400 hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800',
+            )}
+        >
+            {save.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+            ) : justSaved ? (
+                <Check className="size-4" />
+            ) : (
+                <Save className="size-4" />
+            )}
+            {save.isPending
+                ? t('settings.saving')
+                : justSaved
+                  ? t('settings.savedShort')
+                  : t('common.save')}
+        </Button>
+    );
+
     return (
-        <div className="space-y-6 pb-12">
-            <SavingOverlay open={save.isPending} />
+        <div className="space-y-6 pb-24">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                     <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
@@ -93,20 +144,85 @@ export function SettingsPage({
                         </p>
                     )}
                 </div>
-                <Button
-                    onClick={handleSave}
-                    disabled={save.isPending}
-                    className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800 sm:shrink-0"
-                >
-                    {save.isPending ? (
-                        <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                        <Save className="size-4" />
+                <div className="flex items-center gap-2 sm:shrink-0">
+                    <span
+                        aria-live="polite"
+                        className={cn(
+                            'hidden items-center gap-1.5 text-xs sm:inline-flex',
+                            dirty
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-muted-foreground',
+                        )}
+                    >
+                        <span
+                            className={cn(
+                                'size-1.5 rounded-full',
+                                dirty ? 'bg-amber-500' : 'bg-emerald-500',
+                            )}
+                        />
+                        {dirty ? t('settings.unsaved') : t('settings.allSaved')}
+                    </span>
+                    {isAdmin && data?.settingId && (
+                        <Button
+                            variant="outline"
+                            onClick={() =>
+                                showTrail({
+                                    entity: 'app-settings',
+                                    id: data.settingId!,
+                                    label: t('nav.appSettings'),
+                                })
+                            }
+                        >
+                            <History className="size-4" />
+                            {t('rowActions.auditTrail')}
+                        </Button>
                     )}
-                    {t('common.save')}
-                </Button>
+                    {saveButton}
+                </div>
             </div>
             {children({ config, set, setConfig })}
+
+            {/* Floating save bar while there are unsaved changes */}
+            <div
+                className={cn(
+                    'pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 transition-all duration-300',
+                    dirty || save.isPending
+                        ? 'translate-y-0 opacity-100'
+                        : 'translate-y-6 opacity-0',
+                )}
+            >
+                <div className="pointer-events-auto flex items-center gap-3 rounded-full border bg-background/95 py-2 pl-4 pr-2 shadow-xl backdrop-blur">
+                    <span className="flex items-center gap-2 text-sm">
+                        <span className="size-2 rounded-full bg-amber-500" />
+                        {t('settings.unsaved')}
+                    </span>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-full"
+                        disabled={save.isPending}
+                        onClick={discard}
+                    >
+                        <RotateCcw className="size-3.5" />
+                        {t('settings.discard')}
+                    </Button>
+                    <Button
+                        size="sm"
+                        onClick={handleSave}
+                        disabled={save.isPending}
+                        className="rounded-full bg-pink-500 text-white hover:bg-pink-600 dark:bg-pink-700 dark:hover:bg-pink-800"
+                    >
+                        {save.isPending ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                            <Save className="size-3.5" />
+                        )}
+                        {save.isPending
+                            ? t('settings.saving')
+                            : t('settings.saveChanges')}
+                    </Button>
+                </div>
+            </div>
         </div>
     );
 }

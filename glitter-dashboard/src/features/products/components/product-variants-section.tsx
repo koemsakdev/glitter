@@ -181,7 +181,9 @@ export function ProductVariantsSection({
                                 ))}
                                 <input
                                     value={sizeInput}
-                                    onChange={(e) => setSizeInput(e.target.value)}
+                                    onChange={(e) =>
+                                        setSizeInput(e.target.value)
+                                    }
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
                                             e.preventDefault();
@@ -191,7 +193,9 @@ export function ProductVariantsSection({
                                     onBlur={addSize}
                                     placeholder={
                                         sizes.length === 0
-                                            ? t('product.variant.sizesPlaceholder')
+                                            ? t(
+                                                  'product.variant.sizesPlaceholder',
+                                              )
                                             : ''
                                     }
                                     className="h-7 min-w-25 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
@@ -210,12 +214,16 @@ export function ProductVariantsSection({
                             ) : (
                                 <div className="flex flex-wrap gap-1.5">
                                     {colors.map((c: Color) => {
-                                        const on = pickedColorIds.includes(c.id);
+                                        const on = pickedColorIds.includes(
+                                            c.id,
+                                        );
                                         return (
                                             <button
                                                 key={c.id}
                                                 type="button"
-                                                onClick={() => togglePicked(c.id)}
+                                                onClick={() =>
+                                                    togglePicked(c.id)
+                                                }
                                                 className={cn(
                                                     'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors',
                                                     on
@@ -243,7 +251,10 @@ export function ProductVariantsSection({
                             type="button"
                             size="sm"
                             onClick={generate}
-                            disabled={sizes.length === 0 && pickedColorIds.length === 0}
+                            disabled={
+                                sizes.length === 0 &&
+                                pickedColorIds.length === 0
+                            }
                             className="bg-pink-400 text-white hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800"
                         >
                             <Plus className="size-4" />
@@ -274,7 +285,7 @@ export function ProductVariantsSection({
                                         <span className="text-sm font-medium">
                                             {[row.size, row.color]
                                                 .filter(Boolean)
-                                                .join(' · ') || '—'}
+                                                .join(' · ')}
                                         </span>
                                         <span className="ml-1 truncate font-mono text-[11px] text-muted-foreground">
                                             {row.variantSku}
@@ -291,7 +302,9 @@ export function ProductVariantsSection({
                                     <div className="mt-2 max-w-60">
                                         <div>
                                             <label className="mb-1 block text-[11px] text-muted-foreground">
-                                                {t('product.variant.priceOverrideLabel')}
+                                                {t(
+                                                    'product.variant.priceOverrideLabel',
+                                                )}
                                             </label>
                                             <div className="relative">
                                                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
@@ -301,15 +314,19 @@ export function ProductVariantsSection({
                                                     type="number"
                                                     step="0.01"
                                                     min={0}
-                                                    value={row.priceOverride ?? ''}
+                                                    value={
+                                                        row.priceOverride ?? ''
+                                                    }
                                                     onChange={(e) =>
                                                         updateRow(row.id, {
                                                             priceOverride:
-                                                                e.target.value ===
+                                                                e.target
+                                                                    .value ===
                                                                 ''
                                                                     ? null
                                                                     : Number(
-                                                                          e.target
+                                                                          e
+                                                                              .target
                                                                               .value,
                                                                       ),
                                                         })
@@ -321,7 +338,6 @@ export function ProductVariantsSection({
                                                 />
                                             </div>
                                         </div>
-
                                     </div>
                                 </div>
                             ))}
@@ -333,8 +349,9 @@ export function ProductVariantsSection({
                             rows={state.rows.map((r) => ({
                                 id: r.id,
                                 label:
-                                    [r.size, r.color].filter(Boolean).join(' · ') ||
-                                    r.variantSku,
+                                    [r.size, r.color]
+                                        .filter(Boolean)
+                                        .join(' · ') || r.variantSku,
                                 colorHex: r.color ? r.colorHex : undefined,
                             }))}
                             initialStock={initialStock}

@@ -170,6 +170,13 @@ function humanize(key: string, lang: Lang): string {
 }
 
 export function fieldLabel(key: string, lang: Lang): string {
+    // Nested settings ("appearance.fontScale") → "Appearance › Font scale"
+    if (key.includes('.')) {
+        return key
+            .split('.')
+            .map((part) => fieldLabel(part, lang))
+            .join(' › ');
+    }
     const l = LABELS[key];
     return l ? l[lang === 'km' ? 1 : 0] : humanize(key, lang);
 }
@@ -201,7 +208,7 @@ export function readableValue(
 ): ReadableValue {
     const yes = lang === 'km' ? 'បាទ/ចាស' : 'Yes';
     const no = lang === 'km' ? 'ទេ' : 'No';
-    if (empty(value)) return { text: '—' };
+    if (empty(value)) return { text: '' };
     if (key === 'password' || (/password/i.test(key) && value === '***')) {
         return { text: lang === 'km' ? 'បានប្តូរ' : 'Changed' };
     }
@@ -229,6 +236,13 @@ export function readableValue(
 
     if (key === 'role' && typeof value === 'string' && ROLE[value]) {
         return { text: ROLE[value][lang === 'km' ? 1 : 0] };
+    }
+    if (
+        typeof value === 'string' &&
+        /^#[0-9a-f]{3,8}$/i.test(value) &&
+        /colou?r|hex|theme/i.test(key)
+    ) {
+        return { text: value.toUpperCase(), swatch: value };
     }
     if (key === 'colorHex' && typeof value === 'string') {
         return { text: value.toUpperCase(), swatch: value };
@@ -303,15 +317,35 @@ export function readableChanges(
     const oldV = e.changes?.old_value ?? {};
     const newV = e.changes?.new_value ?? {};
     const isCreate = !e.changes?.old_value && !!e.changes?.new_value;
-    const keys = Array.from(
+    const all = Array.from(
         new Set([...Object.keys(oldV), ...Object.keys(newV)]),
-    )
+    );
+    const out: ReadableChange[] = [];
+    // Settings lists carry a hidden "<list>.__hash" fingerprint: when only it
+    // changed, something inside the list was edited — say so, plainly.
+    for (const k of all) {
+        if (!k.endsWith('.__hash') || isCreate) continue;
+        const list = k.slice(0, -'.__hash'.length);
+        if (!all.includes(list)) {
+            out.push({
+                key: list,
+                label: fieldLabel(list, lang),
+                before: null,
+                after: { text: lang === 'km' ? 'បានកែ' : 'Edited' },
+            });
+        }
+    }
+    const keys = all
+        .filter((k) => !k.endsWith('.__hash'))
         .filter(isVisibleField)
         .filter((k) => !(isCreate && empty(newV[k])));
-    return keys.map((k) => ({
-        key: k,
-        label: fieldLabel(k, lang),
-        before: isCreate ? null : readableValue(k, oldV[k], refs, lang),
-        after: readableValue(k, newV[k], refs, lang),
-    }));
+    return [
+        ...out,
+        ...keys.map((k) => ({
+            key: k,
+            label: fieldLabel(k, lang),
+            before: isCreate ? null : readableValue(k, oldV[k], refs, lang),
+            after: readableValue(k, newV[k], refs, lang),
+        })),
+    ];
 }

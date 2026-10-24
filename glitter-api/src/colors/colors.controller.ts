@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateColorDto } from './dto/create-color.dto';
 import { UpdateColorDto } from './dto/update-color.dto';
@@ -33,6 +33,7 @@ export class ColorsController {
     return { data: await this.service.findAll() };
   }
 
+  @RequirePermission('catalog.manage')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
@@ -42,6 +43,7 @@ export class ColorsController {
     return { data: await this.service.create(dto) };
   }
 
+  @RequirePermission('catalog.manage')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
@@ -54,6 +56,7 @@ export class ColorsController {
     return { data: await this.service.update(id, dto) };
   }
 
+  @RequirePermission('catalog.manage')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)

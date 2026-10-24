@@ -1,9 +1,15 @@
 'use client';
 
-import { Camera, Loader2, Save, Trash2, X } from 'lucide-react';
+import { Camera, Loader2, Save, Trash2, Upload, X } from 'lucide-react';
 import { SafeImage as Image } from '@/components/ui/safe-image';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
     useRemoveUserAvatar,
     useUploadUserAvatar,
@@ -17,6 +23,10 @@ interface UserAvatarUploaderProps {
     userId: string;
     profileImageUrl: string | null;
     name: string;
+    /** 'hero' = large avatar with a camera badge menu (profile headers). */
+    variant?: 'default' | 'hero';
+    /** Whether the viewer may change the photo (hero variant). */
+    editable?: boolean;
 }
 
 /** Avatar image that falls back to initials if the URL fails to load. */
@@ -48,6 +58,8 @@ export function UserAvatarUploader({
     userId,
     profileImageUrl,
     name,
+    variant = 'default',
+    editable = true,
 }: UserAvatarUploaderProps) {
     const { t } = useI18n();
     const { toast } = useToast();
@@ -118,6 +130,105 @@ export function UserAvatarUploader({
                 variant: 'destructive',
             });
         }
+    }
+
+    if (variant === 'hero') {
+        return (
+            <div className="flex flex-col items-start gap-2">
+                <div className="relative">
+                    <div className="flex size-24 items-center justify-center overflow-hidden rounded-full bg-muted text-2xl font-semibold text-foreground/70 ring-1 ring-border">
+                        {shown ? (
+                            <AvatarImage
+                                key={shown}
+                                src={shown}
+                                name={name}
+                                initials={initials}
+                            />
+                        ) : (
+                            initials
+                        )}
+                    </div>
+                    {busy && (
+                        <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+                            <Loader2 className="size-6 animate-spin text-white" />
+                        </div>
+                    )}
+                    {editable && !file && (
+                        <>
+                            <input
+                                ref={fileRef}
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                className="hidden"
+                                onChange={pick}
+                            />
+                            <DropdownMenu>
+                                <DropdownMenuTrigger
+                                    render={
+                                        <button
+                                            type="button"
+                                            disabled={busy}
+                                            aria-label={t(
+                                                'profile.avatar.change',
+                                            )}
+                                            className="absolute -bottom-0.5 -right-0.5 flex size-8 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-pink-500"
+                                        />
+                                    }
+                                >
+                                    <Camera className="size-4" />
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    align="start"
+                                    className="w-48"
+                                >
+                                    <DropdownMenuItem
+                                        onClick={() => fileRef.current?.click()}
+                                    >
+                                        <Upload className="mr-2 size-4" />
+                                        {t('user.form.uploadPhoto')}
+                                    </DropdownMenuItem>
+                                    {currentAvatar && (
+                                        <DropdownMenuItem
+                                            onClick={() => void remove()}
+                                            className="text-destructive focus:text-destructive"
+                                        >
+                                            <Trash2 className="mr-2 size-4" />
+                                            {t('profile.avatar.remove')}
+                                        </DropdownMenuItem>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </>
+                    )}
+                </div>
+                {/* New photo picked — confirm before uploading */}
+                {file && (
+                    <div className="flex gap-1.5">
+                        <Button
+                            type="button"
+                            size="sm"
+                            disabled={busy}
+                            onClick={save}
+                            className="h-8 rounded-full bg-pink-500 text-white hover:bg-pink-600 dark:bg-pink-700 dark:hover:bg-pink-800"
+                        >
+                            <Save className="size-3.5" />
+                            {t('user.avatar.save')}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={busy}
+                            onClick={cancelStaged}
+                            className="h-8 rounded-full"
+                        >
+                            <X className="size-3.5" />
+                            {t('common.cancel')}
+                        </Button>
+                    </div>
+                )}
+            </div>
+        );
     }
 
     return (

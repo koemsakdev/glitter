@@ -39,9 +39,9 @@ interface BranchDetailViewProps {
 }
 
 function formatDate(date: string | Date | undefined | null): string {
-    if (!date) return '—';
+    if (!date) return '';
     const d = new Date(date);
-    if (Number.isNaN(d.getTime())) return '—';
+    if (Number.isNaN(d.getTime())) return '';
     return new Intl.DateTimeFormat('en-US', {
         dateStyle: 'medium',
         timeStyle: 'short',
@@ -92,13 +92,13 @@ export function BranchDetailView({ id }: BranchDetailViewProps) {
                     )}
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="inline-block whitespace-nowrap rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-              {branch.branchCode}
-            </span>
+                        <span className="inline-block whitespace-nowrap rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
+                            {branch.branchCode}
+                        </span>
                         <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-              <MapPin className="size-3.5" />
+                            <MapPin className="size-3.5" />
                             {branch.city}
-            </span>
+                        </span>
                     </div>
                 </div>
 
@@ -118,7 +118,9 @@ export function BranchDetailView({ id }: BranchDetailViewProps) {
                         variant="outline"
                         nativeButton={false}
                         render={
-                            <Link href={`/dashboard/branches/${branch.id}/edit`}>
+                            <Link
+                                href={`/dashboard/branches/${branch.id}/edit`}
+                            >
                                 <Edit className="mr-2 size-4" />
                                 {t('branch.action.edit')}
                             </Link>
@@ -219,20 +221,24 @@ export function BranchDetailView({ id }: BranchDetailViewProps) {
                                 </a>
                             </span>
                         </DetailField>
-                        <DetailField label={t('branch.field.email')}>
-                            <span className="inline-flex items-center gap-2">
-                                <Mail className="size-3.5 text-muted-foreground" />
-                                <a
-                                    href={`mailto:${branch.email}`}
-                                    className="truncate hover:text-pink-600 dark:hover:text-pink-300"
-                                >
-                                    {branch.email}
-                                </a>
-                            </span>
-                        </DetailField>
+                        {branch.email && (
+                            <DetailField label={t('branch.field.email')}>
+                                <span className="inline-flex items-center gap-2">
+                                    <Mail className="size-3.5 text-muted-foreground" />
+                                    <a
+                                        href={`mailto:${branch.email}`}
+                                        className="truncate hover:text-pink-600 dark:hover:text-pink-300"
+                                    >
+                                        {branch.email}
+                                    </a>
+                                </span>
+                            </DetailField>
+                        )}
 
                         {branch.openingHours && (
-                            <DetailField label={t('branch.detail.openingHours')}>
+                            <DetailField
+                                label={t('branch.detail.openingHours')}
+                            >
                                 <span className="inline-flex items-start gap-2">
                                     <Clock className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                                     <span className="whitespace-pre-wrap">

@@ -22,16 +22,16 @@ export function UserFormDialog({
     const isEdit = Boolean(user);
 
     return (
-        <ResponsiveModal open={open} onOpenChange={onOpenChange}>
+        <ResponsiveModal
+            open={open}
+            onOpenChange={onOpenChange}
+            className="sm:max-w-xl"
+        >
             <div className="flex flex-col">
-                <div className="px-6 pb-4 pt-6">
-                    <h2 className="text-xl font-bold tracking-tight">
-                        {isEdit ? t('user.edit.title') : t('user.create.title')}
-                    </h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        {isEdit ? user?.fullName : t('user.list.subtitle')}
-                    </p>
-                </div>
+                {/* Screen-reader title; the form shows a live preview header. */}
+                <h2 className="sr-only">
+                    {isEdit ? t('user.edit.title') : t('user.create.title')}
+                </h2>
                 <UserForm
                     key={user?.id ?? 'new'}
                     user={user}

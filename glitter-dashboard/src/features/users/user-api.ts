@@ -18,6 +18,12 @@ export interface UserSummary {
     role: string;
 }
 
+export interface PermissionCatalog {
+    groups: { id: string; permissions: string[] }[];
+    roleDefaults: Record<string, string[]>;
+    adminOnly: string[];
+}
+
 export const userApi = {
     async list(query: UserQuery = {}): Promise<UserListResponse> {
         const { data } = await apiClient.get<UserListResponse>('/api/users', {
@@ -81,6 +87,21 @@ export const userApi = {
     },
 
     /** Admin: set or reset a user's login password. */
+    /** Admin: replace a manager's/cashier's extra permissions. */
+    async setPermissions(id: string, permissions: string[]): Promise<User> {
+        const { data } = await apiClient.patch<ApiEnvelope<User>>(
+            `/api/users/${id}/permissions`,
+            { permissions },
+        );
+        return data.data;
+    },
+    /** Admin: grantable permissions (grouped), role defaults, admin-only list. */
+    async permissionCatalog(): Promise<PermissionCatalog> {
+        const { data } = await apiClient.get<ApiEnvelope<PermissionCatalog>>(
+            '/api/users/permissions/catalog',
+        );
+        return data.data;
+    },
     async setPassword(id: string, password: string): Promise<void> {
         await apiClient.patch(`/api/users/${id}/password`, { password });
     },

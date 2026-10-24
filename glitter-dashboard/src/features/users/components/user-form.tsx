@@ -9,8 +9,15 @@ import {
     Eye,
     EyeOff,
     Loader2,
+    KeyRound,
+    Mail,
+    Phone,
+    ShieldCheck,
+    Store,
     Trash2,
+    Upload,
     UserRound,
+    type LucideIcon,
 } from 'lucide-react';
 import { RoleOptionCards } from '@/features/users/components/role-access';
 import {
@@ -26,13 +33,6 @@ import {
     isStrongPassword,
     PasswordStrength,
 } from '@/components/ui/password-strength';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useActiveBranches } from '@/features/branches/use-branches';
 import {
@@ -62,7 +62,7 @@ const STATUS_LABELS: Record<AccountStatus, TranslationKey> = {
 };
 
 const inputClass =
-    'h-11 shadow-none focus-visible:outline-none focus-visible:ring-0 rounded-lg focus-visible:border-pink-500 dark:focus-visible:border-pink-800';
+    'h-11 rounded-xl shadow-none focus-visible:outline-none focus-visible:ring-0 focus-visible:border-pink-500 dark:focus-visible:border-pink-700';
 
 interface UserFormProps {
     user?: User | null;
@@ -313,6 +313,17 @@ export function UserForm({
             usernameStatus === 'taken' ||
             usernameStatus === 'checking');
 
+    const branchName = (() => {
+        const b = branches?.find((x) => x.id === branchId);
+        return b ? (language === 'km' ? b.branchNameKm : b.branchNameEn) : null;
+    })();
+    const roleKey: Record<UserRole, TranslationKey> = {
+        admin: 'user.role.admin',
+        manager: 'user.role.manager',
+        cashier: 'user.role.cashier',
+        customer: 'user.role.customer',
+    };
+
     return (
         <form
             onSubmit={(e) => {
@@ -321,7 +332,7 @@ export function UserForm({
             }}
             className="flex flex-col"
         >
-            {/* Thin progress bar along the top while saving. */}
+            {/* Thin progress bar along the top while saving */}
             <div
                 aria-hidden
                 className={`h-0.5 overflow-hidden bg-pink-100 transition-opacity dark:bg-pink-500/10 ${
@@ -329,7 +340,7 @@ export function UserForm({
                 }`}
             >
                 <div
-                    className={`h-full bg-pink-400 transition-[width] duration-500 ease-out dark:bg-pink-600 ${
+                    className={`h-full bg-pink-500 transition-[width] duration-500 ease-out ${
                         saveStep === 'done'
                             ? 'w-full'
                             : saveStep === 'photo'
@@ -343,15 +354,37 @@ export function UserForm({
                 />
             </div>
 
-            <fieldset
-                disabled={saving}
-                className={`space-y-4 px-6 pb-2 pt-2 transition-opacity ${
-                    saving ? 'pointer-events-none opacity-60' : ''
-                }`}
-            >
-                {/* Avatar */}
-                <div className="flex items-center gap-4">
-                    <div className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-pink-100 to-pink-50 text-xl font-semibold text-pink-600 ring-2 ring-pink-200/70 dark:from-pink-500/20 dark:to-pink-500/5 dark:text-pink-300 dark:ring-pink-500/25">
+            {/* ── Title ── */}
+            <div className="px-6 pt-5">
+                <p className="text-lg font-bold tracking-tight">
+                    {isEdit ? t('user.edit.title') : t('user.create.title')}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    {isEdit ? user?.fullName : t('user.form.createHint')}
+                </p>
+            </div>
+
+            {/* ── Profile photo card with live preview ── */}
+            <div className="mx-6 mt-5 flex items-center gap-4 rounded-2xl border bg-linear-to-br from-pink-50/80 to-transparent p-4 dark:from-pink-500/10">
+                <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={pickAvatar}
+                />
+                <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => fileRef.current?.click()}
+                    aria-label={t('profile.avatar.change')}
+                    className={`group relative flex size-20 shrink-0 items-center justify-center rounded-full transition-colors ${
+                        shownAvatar || initials !== '?'
+                            ? 'bg-pink-100 text-xl font-semibold text-pink-600 dark:bg-pink-500/20 dark:text-pink-200'
+                            : 'border-2 border-dashed border-pink-300 bg-white text-pink-400 hover:border-pink-400 hover:bg-pink-50 dark:border-pink-700 dark:bg-zinc-900'
+                    }`}
+                >
+                    <span className="flex size-full items-center justify-center overflow-hidden rounded-full">
                         {shownAvatar ? (
                             <Image
                                 src={shownAvatar}
@@ -360,7 +393,7 @@ export function UserForm({
                                     initials !== '?' ? (
                                         initials
                                     ) : (
-                                        <UserRound className="size-9 text-pink-400 dark:text-pink-300/70" />
+                                        <UserRound className="size-8" />
                                     )
                                 }
                                 width={80}
@@ -371,255 +404,351 @@ export function UserForm({
                         ) : initials !== '?' ? (
                             initials
                         ) : (
-                            <UserRound className="size-9 text-pink-400 dark:text-pink-300/70" />
+                            <UserRound className="size-8" />
                         )}
+                    </span>
+                    {/* Camera badge — makes it obvious the photo is clickable */}
+                    <span className="absolute -bottom-0.5 -right-0.5 flex size-7 items-center justify-center rounded-full border-2 border-background bg-pink-500 text-white shadow-sm transition-transform group-hover:scale-110">
+                        <Camera className="size-3.5" />
+                    </span>
+                </button>
+
+                <div className="min-w-0 flex-1 space-y-2">
+                    <div className="min-w-0">
+                        <p className="truncate text-base font-semibold leading-tight">
+                            {fullName.trim() || t('user.form.namePreview')}
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                            {!isCustomerMode && username && (
+                                <span className="font-mono">@{username}</span>
+                            )}
+                            <span className="rounded-full bg-pink-500/10 px-2 py-0.5 font-medium text-pink-700 dark:text-pink-300">
+                                {t(roleKey[isCustomerMode ? 'customer' : role])}
+                            </span>
+                            {needsBranch && branchName && (
+                                <span className="inline-flex items-center gap-1">
+                                    <Store className="size-3" />
+                                    {branchName}
+                                </span>
+                            )}
+                        </div>
                     </div>
-                    <div className="flex gap-2">
-                        <input
-                            ref={fileRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={pickAvatar}
-                        />
+                    <div className="flex flex-wrap items-center gap-2">
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             disabled={saving}
                             onClick={() => fileRef.current?.click()}
+                            className="h-8 rounded-full bg-background"
                         >
-                            <Camera className="mr-2 size-4" />
-                            {t('profile.avatar.change')}
+                            <Upload className="size-3.5" />
+                            {shownAvatar
+                                ? t('profile.avatar.change')
+                                : t('user.form.uploadPhoto')}
                         </Button>
                         {shownAvatar && (
                             <Button
                                 type="button"
-                                variant="outline"
+                                variant="ghost"
                                 size="sm"
                                 disabled={saving}
                                 onClick={clearAvatar}
-                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                className="h-8 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                             >
-                                <Trash2 className="mr-2 size-4" />
+                                <Trash2 className="size-3.5" />
                                 {t('profile.avatar.remove')}
                             </Button>
                         )}
+                        <span className="text-[11px] text-muted-foreground">
+                            {t('user.form.photoHint')}
+                        </span>
                     </div>
                 </div>
+            </div>
 
-                <Field label={t('user.field.fullName')}>
-                    <Input
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        placeholder="Koemsak Sovann"
-                        className={inputClass}
-                    />
-                </Field>
-
-                {!isCustomerMode && (
-                    <Field label={t('user.field.username')}>
-                        <div className="relative">
+            <fieldset
+                disabled={saving}
+                className={`space-y-6 px-6 pb-2 pt-6 transition-opacity ${
+                    saving ? 'pointer-events-none opacity-60' : ''
+                }`}
+            >
+                {/* ── Profile ── */}
+                <FormSection
+                    icon={UserRound}
+                    title={t('user.form.section.profile')}
+                >
+                    <Field label={t('user.field.fullName')}>
+                        <IconInput icon={UserRound}>
                             <Input
-                                value={username}
-                                onChange={(e) =>
-                                    setUsername(
-                                        e.target.value
-                                            .toLowerCase()
-                                            .replace(/\s+/g, ''),
-                                    )
-                                }
-                                placeholder="dara"
-                                autoComplete="off"
-                                autoCapitalize="none"
-                                spellCheck={false}
-                                aria-invalid={
-                                    usernameStatus === 'invalid' ||
-                                    usernameStatus === 'taken'
-                                }
-                                aria-describedby="username-status"
-                                className={`${inputClass} pr-10 font-mono ${
-                                    usernameStatus === 'available'
-                                        ? 'border-emerald-500 focus-visible:border-emerald-500 dark:focus-visible:border-emerald-500'
-                                        : ''
-                                }`}
+                                value={fullName}
+                                onChange={(e) => setFullName(e.target.value)}
+                                placeholder="Koemsak Sovann"
+                                className={`${inputClass} pl-10`}
                             />
-                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                                {usernameStatus === 'checking' && (
-                                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                                )}
-                                {usernameStatus === 'available' && (
-                                    <CircleCheck className="size-4 text-emerald-500" />
-                                )}
-                                {(usernameStatus === 'invalid' ||
-                                    usernameStatus === 'taken') && (
-                                    <CircleAlert className="size-4 text-destructive" />
-                                )}
-                            </span>
-                        </div>
-                        <p
-                            id="username-status"
-                            aria-live="polite"
-                            className={`text-xs ${
-                                usernameStatus === 'available'
-                                    ? 'text-emerald-600 dark:text-emerald-400'
-                                    : usernameStatus === 'invalid' ||
+                        </IconInput>
+                    </Field>
+
+                    {!isCustomerMode && (
+                        <Field label={t('user.field.username')}>
+                            <div className="relative">
+                                <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center font-mono text-sm text-muted-foreground">
+                                    @
+                                </span>
+                                <Input
+                                    value={username}
+                                    onChange={(e) =>
+                                        setUsername(
+                                            e.target.value
+                                                .toLowerCase()
+                                                .replace(/\s+/g, ''),
+                                        )
+                                    }
+                                    placeholder="dara"
+                                    autoComplete="off"
+                                    autoCapitalize="none"
+                                    spellCheck={false}
+                                    aria-invalid={
+                                        usernameStatus === 'invalid' ||
                                         usernameStatus === 'taken'
-                                      ? 'text-destructive'
-                                      : 'text-muted-foreground'
-                            }`}
-                        >
-                            {usernameStatus === 'invalid'
-                                ? usernameFormatError(username, t)
-                                : usernameStatus === 'taken'
-                                  ? t('user.username.taken')
-                                  : usernameStatus === 'available'
-                                    ? t('user.username.available')
-                                    : usernameStatus === 'checking'
-                                      ? t('user.username.checking')
-                                      : usernameStatus === 'error'
-                                        ? t('user.username.checkFailed')
-                                        : t('user.form.usernameHint')}
-                        </p>
-                    </Field>
-                )}
-
-                {canSetPassword && (
-                    <Field
-                        label={
-                            isEdit
-                                ? t('user.field.setNewPassword')
-                                : t('user.field.password')
-                        }
-                    >
-                        <div className="relative">
-                            <Input
-                                type={showPassword ? 'text' : 'password'}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder={
-                                    isEdit
-                                        ? t(
-                                              'user.field.setNewPassword.placeholder',
-                                          )
-                                        : t('user.field.password.placeholder')
-                                }
-                                autoComplete="new-password"
-                                className={`${inputClass} pr-11`}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword((v) => !v)}
-                                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground hover:text-foreground"
-                                tabIndex={-1}
-                                aria-label={showPassword ? 'Hide' : 'Show'}
+                                    }
+                                    aria-describedby="username-status"
+                                    className={`${inputClass} pl-8 pr-10 font-mono ${
+                                        usernameStatus === 'available'
+                                            ? 'border-emerald-500 focus-visible:border-emerald-500 dark:focus-visible:border-emerald-500'
+                                            : ''
+                                    }`}
+                                />
+                                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                                    {usernameStatus === 'checking' && (
+                                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                                    )}
+                                    {usernameStatus === 'available' && (
+                                        <CircleCheck className="size-4 text-emerald-500" />
+                                    )}
+                                    {(usernameStatus === 'invalid' ||
+                                        usernameStatus === 'taken') && (
+                                        <CircleAlert className="size-4 text-destructive" />
+                                    )}
+                                </span>
+                            </div>
+                            <p
+                                id="username-status"
+                                aria-live="polite"
+                                className={`text-xs ${
+                                    usernameStatus === 'available'
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : usernameStatus === 'invalid' ||
+                                            usernameStatus === 'taken'
+                                          ? 'text-destructive'
+                                          : 'text-muted-foreground'
+                                }`}
                             >
-                                {showPassword ? (
-                                    <EyeOff className="size-4" />
-                                ) : (
-                                    <Eye className="size-4" />
-                                )}
-                            </button>
-                        </div>
-                        {password && <PasswordStrength password={password} />}
-                        <p className="text-xs text-muted-foreground">
-                            {isEdit
-                                ? t('user.form.resetPasswordHint')
-                                : t('user.form.passwordHint')}
-                        </p>
-                    </Field>
-                )}
+                                {usernameStatus === 'invalid'
+                                    ? usernameFormatError(username, t)
+                                    : usernameStatus === 'taken'
+                                      ? t('user.username.taken')
+                                      : usernameStatus === 'available'
+                                        ? t('user.username.available')
+                                        : usernameStatus === 'checking'
+                                          ? t('user.username.checking')
+                                          : usernameStatus === 'error'
+                                            ? t('user.username.checkFailed')
+                                            : t('user.form.usernameHint')}
+                            </p>
+                        </Field>
+                    )}
+                </FormSection>
 
-                {!isCustomerMode && (
-                    <Field label={t('user.field.role')}>
-                        <RoleOptionCards
-                            value={role}
-                            disabled={isSelf}
-                            onChange={(r) => {
-                                setRole(r);
-                                if (!BRANCH_ROLES.includes(r)) setBranchId('');
-                            }}
-                        />
-                    </Field>
-                )}
-
-                {needsBranch && (
-                    <Field label={t('user.field.branch')}>
-                        <Combobox
-                            options={branchOptions}
-                            value={branchId}
-                            onChange={setBranchId}
-                            placeholder={t('user.field.branch.placeholder')}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                            {t('user.form.branchHint')}
-                        </p>
-                    </Field>
-                )}
-
-                <Field label={t('user.field.status')}>
-                    <Select
-                        value={accountStatus}
-                        disabled={isSelf}
-                        onValueChange={(v) =>
-                            v && setAccountStatus(v as AccountStatus)
-                        }
+                {/* ── Sign-in ── */}
+                {canSetPassword && (
+                    <FormSection
+                        icon={KeyRound}
+                        title={t('user.form.section.signIn')}
                     >
-                        <SelectTrigger className="h-11 w-full">
-                            <SelectValue>
-                                {(v: string) => t(STATUS_LABELS[v as AccountStatus])}
-                            </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                            {ACCOUNT_STATUSES.filter((s) => s !== 'deleted').map(
-                                (s) => (
-                                    <SelectItem key={s} value={s}>
-                                        {t(STATUS_LABELS[s])}
-                                    </SelectItem>
-                                ),
+                        <Field
+                            label={
+                                isEdit
+                                    ? t('user.field.setNewPassword')
+                                    : t('user.field.password')
+                            }
+                        >
+                            <IconInput icon={KeyRound}>
+                                <Input
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={password}
+                                    onChange={(e) =>
+                                        setPassword(e.target.value)
+                                    }
+                                    placeholder={
+                                        isEdit
+                                            ? t(
+                                                  'user.field.setNewPassword.placeholder',
+                                              )
+                                            : t(
+                                                  'user.field.password.placeholder',
+                                              )
+                                    }
+                                    autoComplete="new-password"
+                                    className={`${inputClass} pl-10 pr-11`}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword((v) => !v)}
+                                    className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground hover:text-foreground"
+                                    tabIndex={-1}
+                                    aria-label={showPassword ? 'Hide' : 'Show'}
+                                >
+                                    {showPassword ? (
+                                        <EyeOff className="size-4" />
+                                    ) : (
+                                        <Eye className="size-4" />
+                                    )}
+                                </button>
+                            </IconInput>
+                            {password && (
+                                <PasswordStrength password={password} />
                             )}
-                        </SelectContent>
-                    </Select>
-                </Field>
-
-                {isSelf && (
-                    <p className="text-xs text-muted-foreground">
-                        {t('user.form.selfHint')}
-                    </p>
+                            <p className="text-xs text-muted-foreground">
+                                {isEdit
+                                    ? t('user.form.resetPasswordHint')
+                                    : t('user.form.passwordHint')}
+                            </p>
+                        </Field>
+                    </FormSection>
                 )}
 
-                {/* Contact details — optional for staff (kept for when
-                    everyone has a work email). */}
+                {/* ── Role, branch & status ── */}
+                <FormSection
+                    icon={ShieldCheck}
+                    title={
+                        isCustomerMode
+                            ? t('user.form.section.status')
+                            : t('user.form.section.access')
+                    }
+                >
+                    {!isCustomerMode && (
+                        <Field label={t('user.field.role')}>
+                            <RoleOptionCards
+                                value={role}
+                                disabled={isSelf}
+                                onChange={(r) => {
+                                    setRole(r);
+                                    if (!BRANCH_ROLES.includes(r))
+                                        setBranchId('');
+                                }}
+                            />
+                        </Field>
+                    )}
+
+                    {needsBranch && (
+                        <Field label={t('user.field.branch')}>
+                            <Combobox
+                                options={branchOptions}
+                                value={branchId}
+                                onChange={setBranchId}
+                                placeholder={t('user.field.branch.placeholder')}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                {t('user.form.branchHint')}
+                            </p>
+                        </Field>
+                    )}
+
+                    <Field label={t('user.field.status')}>
+                        <div
+                            role="radiogroup"
+                            className="grid grid-cols-2 gap-2"
+                        >
+                            {ACCOUNT_STATUSES.filter(
+                                (st) => st !== 'deleted',
+                            ).map((st) => {
+                                const on = accountStatus === st;
+                                return (
+                                    <button
+                                        key={st}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={on}
+                                        disabled={isSelf}
+                                        onClick={() => setAccountStatus(st)}
+                                        className={`flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                                            on
+                                                ? st === 'active'
+                                                    ? 'border-emerald-400 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-400/25 dark:border-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300'
+                                                    : 'border-amber-400 bg-amber-50 text-amber-800 ring-2 ring-amber-400/25 dark:border-amber-600 dark:bg-amber-500/10 dark:text-amber-300'
+                                                : 'text-muted-foreground hover:bg-accent'
+                                        }`}
+                                    >
+                                        <span
+                                            className={`size-2 rounded-full ${
+                                                st === 'active'
+                                                    ? 'bg-emerald-500'
+                                                    : 'bg-amber-500'
+                                            }`}
+                                        />
+                                        {t(STATUS_LABELS[st])}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {isSelf && (
+                            <p className="text-xs text-muted-foreground">
+                                {t('user.form.selfHint')}
+                            </p>
+                        )}
+                    </Field>
+                </FormSection>
+
+                {/* ── Contact (optional for staff) ── */}
                 {isCustomerMode ? (
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <Field label={t('user.field.email')}>
-                            <Input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="name@example.com"
-                                className={inputClass}
-                            />
-                        </Field>
-                        <Field label={t('user.field.phone')}>
-                            <Input
-                                value={phoneNumber}
-                                onChange={(e) => setPhoneNumber(e.target.value)}
-                                placeholder="+855..."
-                                className={inputClass}
-                            />
-                        </Field>
-                    </div>
+                    <FormSection
+                        icon={Mail}
+                        title={t('user.form.section.contact')}
+                    >
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <Field label={t('user.field.email')}>
+                                <IconInput icon={Mail}>
+                                    <Input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) =>
+                                            setEmail(e.target.value)
+                                        }
+                                        placeholder="name@example.com"
+                                        className={`${inputClass} pl-10`}
+                                    />
+                                </IconInput>
+                            </Field>
+                            <Field label={t('user.field.phone')}>
+                                <IconInput icon={Phone}>
+                                    <Input
+                                        value={phoneNumber}
+                                        onChange={(e) =>
+                                            setPhoneNumber(e.target.value)
+                                        }
+                                        placeholder="012 345 678"
+                                        className={`${inputClass} pl-10`}
+                                    />
+                                </IconInput>
+                            </Field>
+                        </div>
+                    </FormSection>
                 ) : (
-                    <div className="rounded-lg border border-dashed">
+                    <div className="overflow-hidden rounded-xl border">
                         <button
                             type="button"
                             onClick={() => setShowContact((v) => !v)}
-                            className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium"
+                            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
                         >
-                            <span>
-                                {t('user.form.contactOptional')}
-                                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                                <Mail className="size-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block text-sm font-medium">
+                                    {t('user.form.contactOptional')}
+                                </span>
+                                <span className="block text-xs text-muted-foreground">
                                     {t('user.form.contactOptionalHint')}
                                 </span>
                             </span>
@@ -630,37 +759,44 @@ export function UserForm({
                             />
                         </button>
                         {showContact && (
-                            <div className="px-4 pb-4">
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="grid grid-cols-1 gap-4 border-t px-4 py-4 sm:grid-cols-2">
                                 <Field label={t('user.field.email')}>
-                                    <Input
-                                        type="email"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        placeholder="name@example.com"
-                                        className={inputClass}
-                                    />
+                                    <IconInput icon={Mail}>
+                                        <Input
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) =>
+                                                setEmail(e.target.value)
+                                            }
+                                            placeholder="name@example.com"
+                                            className={`${inputClass} pl-10`}
+                                        />
+                                    </IconInput>
                                 </Field>
                                 <Field label={t('user.field.phone')}>
-                                    <Input
-                                        value={phoneNumber}
-                                        onChange={(e) => setPhoneNumber(e.target.value)}
-                                        placeholder="+855..."
-                                        className={inputClass}
-                                    />
+                                    <IconInput icon={Phone}>
+                                        <Input
+                                            value={phoneNumber}
+                                            onChange={(e) =>
+                                                setPhoneNumber(e.target.value)
+                                            }
+                                            placeholder="012 345 678"
+                                            className={`${inputClass} pl-10`}
+                                        />
+                                    </IconInput>
                                 </Field>
-                            </div>
                             </div>
                         )}
                     </div>
                 )}
             </fieldset>
 
-            <div className="sticky bottom-0 mt-6 flex justify-end gap-2 border-t bg-neutral-50 px-6 py-4 dark:bg-neutral-800">
+            <div className="sticky bottom-0 mt-6 flex justify-end gap-2 border-t bg-background/95 px-6 py-4 backdrop-blur">
                 {onCancel && (
                     <Button
                         type="button"
                         variant="outline"
+                        className="rounded-full"
                         onClick={onCancel}
                         disabled={saving}
                     >
@@ -670,26 +806,75 @@ export function UserForm({
                 <Button
                     type="submit"
                     disabled={saving || usernameBlocked}
-                    className={`min-w-36 text-white transition-colors ${
+                    className={`min-w-36 rounded-full text-white transition-colors ${
                         saveStep === 'done'
                             ? 'bg-emerald-500 hover:bg-emerald-500 disabled:opacity-100'
-                            : 'bg-pink-400 hover:bg-pink-500 dark:bg-pink-700 dark:text-pink-200 dark:hover:bg-pink-800'
+                            : 'bg-pink-500 hover:bg-pink-600 dark:bg-pink-700 dark:hover:bg-pink-800'
                     }`}
                 >
                     {saveStep === 'done' ? (
                         <Check className="mr-2 size-4" />
                     ) : (
-                        saving && <Loader2 className="mr-2 size-4 animate-spin" />
+                        saving && (
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                        )
                     )}
                     {stepLabel ??
-                        (isEdit ? t('user.edit.submit') : t('user.create.submit'))}
+                        (isEdit
+                            ? t('user.edit.submit')
+                            : t('user.create.submit'))}
                 </Button>
             </div>
         </form>
     );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/** A titled group of fields with a small icon. */
+function FormSection({
+    icon: Icon,
+    title,
+    children,
+}: {
+    icon: LucideIcon;
+    title: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <section className="space-y-4">
+            <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="flex size-6 items-center justify-center rounded-md bg-pink-500/10 text-pink-600 dark:text-pink-300">
+                    <Icon className="size-3.5" />
+                </span>
+                {title}
+            </h3>
+            {children}
+        </section>
+    );
+}
+
+/** Input wrapper with a leading icon. */
+function IconInput({
+    icon: Icon,
+    children,
+}: {
+    icon: LucideIcon;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="relative">
+            <Icon className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            {children}
+        </div>
+    );
+}
+
+function Field({
+    label,
+    children,
+}: {
+    label: string;
+    children: React.ReactNode;
+}) {
     return (
         <div className="space-y-1.5">
             <label className="text-sm font-medium">{label}</label>

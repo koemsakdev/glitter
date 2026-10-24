@@ -85,7 +85,10 @@ export function OrderItemPicker({ branchId, onAdd }: OrderItemPickerProps) {
         availability.branches
             .filter((b) => b.branchId === branchId)
             .forEach((b) =>
-                map.set(b.variantId, (map.get(b.variantId) ?? 0) + b.quantityAvailable),
+                map.set(
+                    b.variantId,
+                    (map.get(b.variantId) ?? 0) + b.quantityAvailable,
+                ),
             );
         return map;
     }, [availability, branchId]);
@@ -205,7 +208,9 @@ export function OrderItemPicker({ branchId, onAdd }: OrderItemPickerProps) {
                                             </span>
                                             <span className="min-w-0">
                                                 <span className="block truncate text-sm font-medium">
-                                                    {language === 'km' ? p.nameKm : p.nameEn}
+                                                    {language === 'km'
+                                                        ? p.nameKm
+                                                        : p.nameEn}
                                                 </span>
                                                 <span className="block truncate font-mono text-xs text-muted-foreground">
                                                     {p.sku}
@@ -220,24 +225,23 @@ export function OrderItemPicker({ branchId, onAdd }: OrderItemPickerProps) {
                 )}
             </div>
 
-            {/* Variant chips — shown once a product is picked */}
-            {product && (
+            {/* Variant chips — shown once a product is picked (hidden if it has none) */}
+            {product && variants?.length !== 0 && (
                 <div className="space-y-2">
                     <label className="block text-sm font-medium">
                         {t('order.create.selectVariant')}
                     </label>
                     {!variants ? (
                         <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                    ) : variants.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">—</p>
                     ) : (
                         <div className="flex flex-wrap gap-2">
                             {variants.map((v) => {
                                 const label =
-                                    [v.size, v.color].filter(Boolean).join(' · ') ||
-                                    v.variantSku;
+                                    [v.size, v.color]
+                                        .filter(Boolean)
+                                        .join(' · ') || v.variantSku;
                                 const avail = branchId
-                                    ? availByVariant.get(v.id) ?? 0
+                                    ? (availByVariant.get(v.id) ?? 0)
                                     : null;
                                 const outOfStock = avail !== null && avail <= 0;
                                 const selected = variantId === v.id;
@@ -252,13 +256,16 @@ export function OrderItemPicker({ branchId, onAdd }: OrderItemPickerProps) {
                                             selected
                                                 ? 'border-pink-500 bg-pink-50 dark:border-pink-700 dark:bg-pink-500/10'
                                                 : 'border-border/60 hover:bg-muted/50',
-                                            outOfStock && 'cursor-not-allowed opacity-50',
+                                            outOfStock &&
+                                                'cursor-not-allowed opacity-50',
                                         )}
                                     >
                                         {v.colorHex && (
                                             <span
                                                 className="size-3.5 shrink-0 rounded-full border border-border"
-                                                style={{ backgroundColor: v.colorHex }}
+                                                style={{
+                                                    backgroundColor: v.colorHex,
+                                                }}
                                             />
                                         )}
                                         <span className="font-medium text-foreground">
@@ -276,8 +283,12 @@ export function OrderItemPicker({ branchId, onAdd }: OrderItemPickerProps) {
                                                 }
                                             >
                                                 {outOfStock
-                                                    ? t('order.create.outOfStock')
-                                                    : t('order.create.inStock').replace(
+                                                    ? t(
+                                                          'order.create.outOfStock',
+                                                      )
+                                                    : t(
+                                                          'order.create.inStock',
+                                                      ).replace(
                                                           '{count}',
                                                           String(avail),
                                                       )}
@@ -299,7 +310,11 @@ export function OrderItemPicker({ branchId, onAdd }: OrderItemPickerProps) {
                                 min={1}
                                 value={qty}
                                 onChange={(e) =>
-                                    setQty(e.target.value === '' ? 1 : Number(e.target.value))
+                                    setQty(
+                                        e.target.value === ''
+                                            ? 1
+                                            : Number(e.target.value),
+                                    )
                                 }
                                 className="h-11"
                             />
