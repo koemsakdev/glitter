@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Logger as NestLogger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { promises as fs } from 'fs';
@@ -17,6 +18,8 @@ import {
 } from './types/brand-response.type';
 import { ImageOptimizationService } from '../common/services/image-optimization.service';
 import { RealtimeService } from '../realtime/realtime.service';
+
+const fileLogger = new NestLogger('BrandsService');
 
 const BRAND_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'brands');
 
@@ -278,7 +281,11 @@ export class BrandsService {
         throw error;
       }
     } catch (error) {
-      console.error('Error deleting logo file:', error);
+      fileLogger.warn({
+        message: 'Error deleting logo file',
+        event: { action: 'file.delete', outcome: 'failure' },
+        error: error as unknown,
+      });
     }
   }
 

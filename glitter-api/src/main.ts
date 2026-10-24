@@ -1,12 +1,20 @@
 // Must run before anything opens a DB connection.
 import './common/db-timezone';
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { HttpAdapterHost, NestFactory } from '@nestjs/core';
+import { Logger, ValidationPipe } from '@nestjs/common';
+import { EcsLogger } from './common/logging/ecs-logger';
+import { HttpErrorLogFilter } from './common/logging/http-error-log.filter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // All logs are ECS JSON lines (see common/logging/ecs-logger.ts).
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(new EcsLogger());
+  // Every failed request is logged once with its exact reason.
+  app.useGlobalFilters(
+    new HttpErrorLogFilter(app.get(HttpAdapterHost).httpAdapter),
+  );
 
   app.setGlobalPrefix('api');
 
@@ -53,8 +61,11 @@ async function bootstrap() {
   const PORT = process.env.PORT || 5000;
   await app.listen(PORT);
 
-  console.log(`Server running on http://localhost:${PORT}`);
-  console.log(`Swagger docs at http://localhost:${PORT}/swagger`);
+  new Logger('Bootstrap').log({
+    message: `API listening on port ${PORT}`,
+    event: { action: 'app.start', outcome: 'success' },
+    url: { port: Number(PORT), path: '/api' },
+  });
 }
 
 void bootstrap();

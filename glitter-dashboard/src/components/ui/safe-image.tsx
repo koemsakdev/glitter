@@ -2,6 +2,7 @@
 
 import Image, { type ImageProps } from 'next/image';
 import { useState, type ImgHTMLAttributes, type ReactNode } from 'react';
+import { ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type SafeImageProps = Omit<ImageProps, 'src'> & {
@@ -15,7 +16,7 @@ type SafeImageProps = Omit<ImageProps, 'src'> & {
  * When the source is missing or fails to load (404, blocked, offline), it
  * renders a stand-in picture in the same box instead:
  *   - round images (avatars) → the person's initials, from `alt`
- *   - everything else → the shop logo, softly faded
+ *   - everything else → a soft tinted box with an image icon sized to fit
  * Pass `fallback` to use something else.
  */
 export function SafeImage({
@@ -37,7 +38,9 @@ export function SafeImage({
                 alt={alt}
                 className={className}
                 fill={Boolean(props.fill)}
-                width={typeof props.width === 'number' ? props.width : undefined}
+                width={
+                    typeof props.width === 'number' ? props.width : undefined
+                }
                 height={
                     typeof props.height === 'number' ? props.height : undefined
                 }
@@ -139,12 +142,22 @@ function ImageStandIn({
     }
 
     return (
-        <span role="img" aria-label={alt} style={style} className={box}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-                src="/logo.png"
-                alt=""
-                className="h-1/2 max-h-16 w-1/2 max-w-16 object-contain opacity-30 grayscale"
+        <span
+            role="img"
+            aria-label={alt}
+            style={style}
+            className={cn(
+                box,
+                // Size the icon from the box itself (container units).
+                '[container-type:size] bg-linear-to-br from-muted via-muted/70 to-pink-500/10 dark:to-pink-500/15',
+                // Width normally comes from the photo — keep the box square.
+                /\bw-auto\b/.test(className ?? '') && 'aspect-square',
+            )}
+        >
+            <ImageIcon
+                aria-hidden="true"
+                strokeWidth={1.5}
+                className="size-[38cqmin] max-h-12 min-h-3.5 max-w-12 min-w-3.5 text-muted-foreground/45"
             />
         </span>
     );

@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Logger as NestLogger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { promises as fs } from 'fs';
@@ -22,6 +23,8 @@ import {
   ProductImageResponse,
 } from './types/product-image-response.type';
 import { ImageOptimizationService } from '../common/services/image-optimization.service';
+
+const fileLogger = new NestLogger('ProductImagesService');
 
 const PRODUCT_IMAGE_UPLOAD_DIR = path.join(
   process.cwd(),
@@ -320,7 +323,11 @@ export class ProductImagesService {
       const filename = imageUrl.replace('/upload/products/', '');
       await this.deleteFileByFilename(filename);
     } catch (error) {
-      console.error('Error deleting image file:', error);
+      fileLogger.warn({
+        message: 'Error deleting image file',
+        event: { action: 'file.delete', outcome: 'failure' },
+        error: error as unknown,
+      });
     }
   }
 
@@ -340,7 +347,11 @@ export class ProductImagesService {
       ) {
         return;
       }
-      console.error('Error deleting file:', error);
+      fileLogger.warn({
+        message: 'Error deleting file',
+        event: { action: 'file.delete', outcome: 'failure' },
+        error: error as unknown,
+      });
     }
   }
 

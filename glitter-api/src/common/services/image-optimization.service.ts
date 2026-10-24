@@ -35,7 +35,7 @@ export class ImageOptimizationService {
         await this.tryUnlink(uploadedFilePath);
       }
 
-      this.logger.log(`Optimized ${originalFilename} → ${targetFilename}`);
+      this.logger.debug(`Optimized ${originalFilename} → ${targetFilename}`);
       return targetFilename;
     } catch (error) {
       this.logger.warn(

@@ -8,7 +8,7 @@ export interface Branch {
     streetAddress: string;
     city: string;
     phoneNumber: string;
-    email: string;
+    email: string | null;
     latitude: number;
     longitude: number;
     openingHours: string | null;
@@ -18,13 +18,14 @@ export interface Branch {
 }
 
 export interface BranchFormValues {
-    branchCode: string;
+    /** Left out on create — the API generates it (e.g. GS-PP-001). */
+    branchCode?: string;
     branchNameEn: string;
     branchNameKm: string;
     streetAddress: string;
     city: string;
     phoneNumber: string;
-    email: string;
+    email?: string | null;
     latitude: number;
     longitude: number;
     openingHours?: string | null;

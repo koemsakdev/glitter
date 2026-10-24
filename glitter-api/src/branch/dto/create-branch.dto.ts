@@ -14,12 +14,13 @@ import type { BranchStatus } from '../entities/branch.entity';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateBranchDto {
-  @ApiProperty({ example: 'GS-PHN-TTP' })
+  /** Generated from the city when left out (e.g. GS-PP-001). */
+  @ApiProperty({ example: 'GS-PP-001', required: false })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MinLength(2)
   @MaxLength(20)
-  branchCode!: string;
+  branchCode?: string;
 
   @ApiProperty({ example: 'Glitter Shop Toul Tom Pong' })
   @IsString()
@@ -53,10 +54,10 @@ export class CreateBranchDto {
   @MaxLength(20)
   phoneNumber!: string;
 
-  @ApiProperty({ example: 'glittershopbyka@gmail.com' })
+  @ApiProperty({ example: 'glittershopbyka@gmail.com', required: false })
+  @IsOptional()
   @IsEmail()
-  @IsNotEmpty()
-  email!: string;
+  email?: string | null;
 
   @ApiProperty({ example: 11.5419 })
   @IsLatitude()

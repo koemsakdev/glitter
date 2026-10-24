@@ -25,6 +25,37 @@ export interface KhqrResult {
   expiresAt: string;
 }
 
+/**
+ * PayWay status codes we've met, in plain words. Anything else falls back to
+ * ABA's own message. (ABA also returns a trace_id we log for their support.)
+ */
+const ABA_REASONS: Record<string, string> = {
+  '1': 'Invalid hash — the API key is wrong or the signed fields do not match',
+  '2': 'Invalid transaction ID',
+  '3': 'Invalid amount',
+  '4': 'Duplicate transaction ID — this tran_id was already used',
+  '5': 'Invalid currency',
+  '6': 'Transaction not found at ABA',
+  '32': 'This PayWay service is not enabled for the merchant — ask ABA to enable the KHQR (generate-qr) API for this merchant ID',
+};
+
+/** A PayWay request ABA refused — carries ABA's code for the logs/clients. */
+export class AbaGatewayError extends ServiceUnavailableException {
+  constructor(
+    readonly abaCode: string,
+    readonly reason: string,
+    readonly traceId?: string,
+  ) {
+    super({
+      statusCode: 503,
+      code: `ABA_${abaCode || 'ERROR'}`,
+      message: reason,
+      abaCode,
+      traceId,
+    });
+  }
+}
+
 /** How long a checkout KHQR stays valid before the customer must re-generate.
  *  Kept short so an abandoned popup can't poll ABA forever. */
 export const KHQR_LIFETIME_MIN = 5;
@@ -304,18 +335,25 @@ export class AbaPaywayService {
     };
 
     const json = await this.post<GenerateQrResponse>(
+      'aba.generate_qr',
       `${creds.baseUrl}/api/payment-gateway/v1/payments/generate-qr`,
       body,
+      {
+        tranId: params.tranId,
+        amount: params.amount,
+        currency,
+        sandbox: creds.sandbox,
+        merchantId: creds.merchantId,
+      },
     );
 
     const code = String(json.status?.code ?? '');
     if ((code !== '0' && code !== '00') || !json.qrString) {
-      this.logger.warn(
-        `generate-qr failed: ${code} ${json.status?.message ?? ''}`,
-      );
-      throw new ServiceUnavailableException(
-        json.status?.message || 'Could not generate KHQR',
-      );
+      throw this.rejected('aba.generate_qr', code, json.status?.message, json, {
+        tranId: params.tranId,
+        merchantId: creds.merchantId,
+        sandbox: creds.sandbox,
+      });
     }
 
     return {
@@ -331,6 +369,137 @@ export class AbaPaywayService {
     };
   }
 
+  /**
+   * Admin "Test connection": checks the credentials and which PayWay services
+   * this merchant can use, each with the exact reason when it can't.
+   */
+  async diagnose(): Promise<{
+    environment: 'sandbox' | 'production';
+    merchantId: string;
+    checks: {
+      id: 'credentials' | 'khqr_api' | 'hosted_checkout';
+      ok: boolean;
+      detail: string;
+    }[];
+  }> {
+    const creds = await this.config.getCredentials();
+    const checks: {
+      id: 'credentials' | 'khqr_api' | 'hosted_checkout';
+      ok: boolean;
+      detail: string;
+    }[] = [];
+    const environment = creds.sandbox ? 'sandbox' : 'production';
+    if (!creds.enabled || !creds.merchantId || !creds.apiKey) {
+      checks.push({
+        id: 'credentials',
+        ok: false,
+        detail: !creds.enabled
+          ? 'ABA PayWay is switched off in payment settings'
+          : 'Merchant ID or API key is missing',
+      });
+      return { environment, merchantId: creds.merchantId, checks };
+    }
+    const tranId = `CHK${Date.now().toString().slice(-12)}`;
+
+    // 1. Credentials: ABA only answers "not found" if the hash checks out.
+    try {
+      const reqTime = this.reqTime();
+      const res = await this.post<{
+        status?: { code?: string | number; message?: string };
+      }>(
+        'aba.diagnose',
+        `${creds.baseUrl}/api/payment-gateway/v1/payments/check-transaction-2`,
+        {
+          req_time: reqTime,
+          merchant_id: creds.merchantId,
+          tran_id: tranId,
+          hash: this.hash([reqTime, creds.merchantId, tranId], creds.apiKey),
+        },
+        { tranId, merchantId: creds.merchantId, sandbox: creds.sandbox },
+      );
+      const code = String(res.status?.code ?? '');
+      const ok = code === '6' || code === '0' || code === '00';
+      checks.push({
+        id: 'credentials',
+        ok,
+        detail: ok
+          ? 'Merchant ID and API key accepted by ABA'
+          : (ABA_REASONS[code] ?? res.status?.message ?? `ABA code ${code}`),
+      });
+    } catch (e) {
+      checks.push({
+        id: 'credentials',
+        ok: false,
+        detail: (e as Error).message,
+      });
+    }
+
+    // 2. KHQR API (used by the "ABA KHQR" payment option).
+    try {
+      await this.generateKhqr({ tranId, amount: '0.01' });
+      checks.push({
+        id: 'khqr_api',
+        ok: true,
+        detail: 'KHQR (generate-qr) API is enabled',
+      });
+    } catch (e) {
+      checks.push({
+        id: 'khqr_api',
+        ok: false,
+        detail: e instanceof AbaGatewayError ? e.reason : (e as Error).message,
+      });
+    }
+
+    // 3. Hosted checkout (used by "ABA KHQR E-Commerce").
+    try {
+      const { actionUrl, fields } = await this.generateCheckoutParams({
+        tranId: `${tranId}H`,
+        amount: '0.01',
+      });
+      const form = new FormData();
+      for (const [k, v] of Object.entries(fields)) form.append(k, v);
+      const res = await fetch(actionUrl, {
+        method: 'POST',
+        body: form,
+        signal: AbortSignal.timeout(15_000),
+      });
+      const body = await res.text();
+      const isPage = /<html/i.test(body) && /checkout/i.test(body);
+      let detail = 'Hosted checkout page opens';
+      if (!isPage) {
+        try {
+          const j = JSON.parse(body) as {
+            status?: { code?: string | number; message?: string };
+          };
+          const code = String(j.status?.code ?? '');
+          detail =
+            ABA_REASONS[code] ?? j.status?.message ?? `HTTP ${res.status}`;
+        } catch {
+          detail = `Unexpected response (HTTP ${res.status})`;
+        }
+      }
+      checks.push({ id: 'hosted_checkout', ok: isPage, detail });
+    } catch (e) {
+      checks.push({
+        id: 'hosted_checkout',
+        ok: false,
+        detail: (e as Error).message,
+      });
+    }
+
+    this.logger.log({
+      message: `ABA connection test: ${checks.map((c) => `${c.id}=${c.ok ? 'ok' : 'fail'}`).join(', ')}`,
+      event: {
+        kind: 'event',
+        category: ['payment'],
+        action: 'aba.diagnose',
+        outcome: checks.every((c) => c.ok) ? 'success' : 'failure',
+      },
+      aba: { merchant_id: creds.merchantId, sandbox: creds.sandbox, checks },
+    });
+    return { environment, merchantId: creds.merchantId, checks };
+  }
+
   /** Poll the authoritative payment status for a transaction. */
   async checkTransaction(tranId: string): Promise<AbaPaymentStatus> {
     return (await this.checkTransactionDetail(tranId)).status;
@@ -344,6 +513,7 @@ export class AbaPaywayService {
     const hash = this.hash([reqTime, creds.merchantId, tranId], creds.apiKey);
 
     const json = await this.post<CheckTxnResponse>(
+      'aba.check_transaction',
       `${creds.baseUrl}/api/payment-gateway/v1/payments/check-transaction-2`,
       {
         req_time: reqTime,
@@ -351,6 +521,7 @@ export class AbaPaywayService {
         tran_id: tranId,
         hash,
       },
+      { tranId, sandbox: creds.sandbox, merchantId: creds.merchantId },
     );
 
     // ABA nests the transaction fields under `data` — read there first, then
@@ -378,24 +549,129 @@ export class AbaPaywayService {
     };
   }
 
-  private async post<T>(url: string, body: unknown): Promise<T> {
+  /**
+   * Log + build the error for a request ABA answered but refused.
+   * The reason is ABA's code translated to plain words (see ABA_REASONS).
+   */
+  private rejected(
+    action: string,
+    code: string,
+    abaMessage: string | undefined,
+    json: unknown,
+    ctx: Record<string, unknown>,
+  ): AbaGatewayError {
+    const traceId = (json as { status?: { trace_id?: string } })?.status
+      ?.trace_id;
+    const reason =
+      ABA_REASONS[code] ?? abaMessage ?? 'ABA PayWay refused the request';
+    this.logger.warn({
+      message: `ABA ${action.replace('aba.', '')} refused: ${reason}`,
+      event: {
+        kind: 'event',
+        category: ['payment'],
+        action,
+        outcome: 'failure',
+        reason,
+      },
+      aba: {
+        code,
+        message: abaMessage,
+        trace_id: traceId,
+        tran_id: ctx.tranId,
+        merchant_id: ctx.merchantId,
+        sandbox: ctx.sandbox,
+      },
+    });
+    return new AbaGatewayError(code, reason, traceId);
+  }
+
+  /** POST JSON to PayWay; logs every call (ECS) with timing and outcome. */
+  private async post<T>(
+    action: string,
+    url: string,
+    body: unknown,
+    ctx: Record<string, unknown> = {},
+  ): Promise<T> {
+    const started = process.hrtime.bigint();
+    const duration = () => Number(process.hrtime.bigint() - started);
+    const aba = {
+      tran_id: ctx.tranId,
+      merchant_id: ctx.merchantId,
+      sandbox: ctx.sandbox,
+    };
     let res: Response;
     try {
       res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(15_000),
       });
     } catch (err) {
-      this.logger.error(`ABA request failed: ${url}`, err as Error);
-      throw new ServiceUnavailableException('Payment gateway unreachable');
+      const reason =
+        (err as Error)?.name === 'TimeoutError'
+          ? 'ABA PayWay did not answer within 15 seconds'
+          : 'Could not reach ABA PayWay (network/DNS error)';
+      this.logger.error({
+        message: `ABA ${action.replace('aba.', '')} failed: ${reason}`,
+        event: {
+          kind: 'event',
+          category: ['payment'],
+          action,
+          outcome: 'failure',
+          reason,
+          duration: duration(),
+        },
+        url: { full: url },
+        aba,
+        error: err as unknown,
+      });
+      throw new AbaGatewayError('UNREACHABLE', reason);
     }
     const text = await res.text();
+    let json: T;
     try {
-      return JSON.parse(text) as T;
+      json = JSON.parse(text) as T;
     } catch {
-      this.logger.error(`ABA non-JSON response (${res.status}): ${text}`);
-      throw new ServiceUnavailableException('Invalid payment gateway response');
+      const reason = `ABA PayWay returned a non-JSON response (HTTP ${res.status})`;
+      this.logger.error({
+        message: `ABA ${action.replace('aba.', '')} failed: ${reason}`,
+        event: {
+          kind: 'event',
+          category: ['payment'],
+          action,
+          outcome: 'failure',
+          reason,
+          duration: duration(),
+        },
+        http: {
+          response: {
+            status_code: res.status,
+            body: { content: text.slice(0, 500) },
+          },
+        },
+        aba,
+      });
+      throw new AbaGatewayError('BAD_RESPONSE', reason);
     }
+    const status = (
+      json as { status?: { code?: string | number; message?: string } }
+    ).status;
+    const code = String(status?.code ?? '');
+    const ok = code === '0' || code === '00';
+    this.logger.debug({
+      message:
+        `ABA ${action.replace('aba.', '')} → ${code || res.status} ${status?.message ?? ''}`.trim(),
+      event: {
+        kind: 'event',
+        category: ['payment'],
+        action,
+        outcome: ok ? 'success' : 'unknown',
+        duration: duration(),
+      },
+      http: { response: { status_code: res.status } },
+      aba: { ...aba, code, message: status?.message },
+    });
+    return json;
   }
 }

@@ -76,7 +76,8 @@ export class PaymentConfigService {
     if (dto.sandbox !== undefined) c.sandbox = dto.sandbox;
     if (dto.merchantId !== undefined) c.merchantId = dto.merchantId.trim();
     if (dto.webhookUrl !== undefined) c.webhookUrl = dto.webhookUrl.trim();
-    if (dto.rsaPublicKey !== undefined) c.rsaPublicKey = dto.rsaPublicKey.trim();
+    if (dto.rsaPublicKey !== undefined)
+      c.rsaPublicKey = dto.rsaPublicKey.trim();
     // Secrets: only overwrite when a non-empty value is supplied, so leaving
     // the field blank in the form keeps the stored key.
     if (dto.apiKey && dto.apiKey.trim()) c.apiKey = dto.apiKey.trim();

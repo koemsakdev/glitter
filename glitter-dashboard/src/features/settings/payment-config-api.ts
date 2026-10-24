@@ -24,7 +24,24 @@ export interface PaymentConfigInput {
     webhookUrl?: string;
 }
 
+export interface AbaTestResult {
+    environment: 'sandbox' | 'production';
+    merchantId: string;
+    checks: {
+        id: 'credentials' | 'khqr_api' | 'hosted_checkout';
+        ok: boolean;
+        detail: string;
+    }[];
+}
+
 export const paymentConfigApi = {
+    /** Live check against ABA with the SAVED settings. */
+    async test(): Promise<AbaTestResult> {
+        const { data } = await apiClient.get<{ data: AbaTestResult }>(
+            '/api/payment-config/test',
+        );
+        return data.data;
+    },
     async get(): Promise<PaymentConfigView> {
         const { data } = await apiClient.get<PaymentConfigView>(
             '/api/payment-config',

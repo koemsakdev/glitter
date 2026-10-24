@@ -25,13 +25,17 @@ export class BranchesService {
   ) {}
 
   async create(dto: CreateBranchDto): Promise<BranchDetailResponse> {
+    const branchCode =
+      dto.branchCode?.trim().toUpperCase() ||
+      (await this.nextBranchCode(dto.city));
     const existing = await this.branchRepository.findOne({
-      where: { branchCode: dto.branchCode },
+      where: { branchCode },
+      withDeleted: true,
     });
 
     if (existing) {
       throw new ConflictException(
-        `Branch with code "${dto.branchCode}" already exists`,
+        `Branch with code "${branchCode}" already exists`,
       );
     }
 
@@ -43,13 +47,13 @@ export class BranchesService {
     }
 
     const entity = this.branchRepository.create({
-      branchCode: dto.branchCode,
+      branchCode,
       branchNameEn: dto.branchNameEn,
       branchNameKm: dto.branchNameKm,
       streetAddress: dto.streetAddress,
       city: dto.city,
       phoneNumber: dto.phoneNumber,
-      email: dto.email,
+      email: dto.email?.trim() || null,
       latitude: dto.latitude,
       longitude: dto.longitude,
       openingHours: dto.openingHours ?? null,
@@ -59,6 +63,39 @@ export class BranchesService {
     const saved = await this.branchRepository.save(entity);
     this.realtime.publish('branches');
     return { data: this.toResponse(saved) };
+  }
+
+  /**
+   * Next free code for a city: "GS-" + city initials + running number.
+   * Phnom Penh → GS-PP-001, GS-PP-002 … Siem Reap → GS-SR-001.
+   * Deleted branches keep their codes, so codes are never reused.
+   */
+  private async nextBranchCode(city: string): Promise<string> {
+    const words = (city || '')
+      .normalize('NFKD')
+      .replace(/[^A-Za-z\s]/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    const initials =
+      (words.length > 1
+        ? words.map((w) => w[0]).join('')
+        : (words[0] ?? 'BR').slice(0, 3)
+      )
+        .toUpperCase()
+        .slice(0, 4) || 'BR';
+    const prefix = `GS-${initials}-`;
+    const taken = await this.branchRepository
+      .createQueryBuilder('b')
+      .withDeleted()
+      .select('b.branchCode', 'code')
+      .where('b.branchCode LIKE :p', { p: `${prefix}%` })
+      .getRawMany<{ code: string }>();
+    const max = taken.reduce((n, r) => {
+      const num = Number(r.code.slice(prefix.length));
+      return Number.isFinite(num) ? Math.max(n, num) : n;
+    }, 0);
+    return `${prefix}${String(max + 1).padStart(3, '0')}`;
   }
 
   async findAll(

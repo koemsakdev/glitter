@@ -1,7 +1,17 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, EyeOff, Loader2, Plus, Save, ShieldCheck } from 'lucide-react';
+import {
+    CircleCheck,
+    CircleX,
+    Eye,
+    EyeOff,
+    Loader2,
+    PlugZap,
+    Plus,
+    Save,
+    ShieldCheck,
+} from 'lucide-react';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { ResponsiveModal } from '@/components/responsive-modal';
 import { Button } from '@/components/ui/button';
@@ -78,7 +88,8 @@ export function PaymentOptionFormDialog({
         v === 'cod' ? !codTaken : !abaTaken;
     const [type, setType] = useState<PaymentOptionType>(
         option?.type ??
-            (TYPES.find((ty) => typeAvailable(ty.value))?.value ?? 'aba_khqr'),
+            TYPES.find((ty) => typeAvailable(ty.value))?.value ??
+            'aba_khqr',
     );
     const [enabled, setEnabled] = useState(option?.enabled ?? true);
     // Confirmation that the merchant has ABA eCommerce enabled (required for
@@ -272,7 +283,10 @@ export function PaymentOptionFormDialog({
                                     setType(v as PaymentOptionType)
                                 }
                             >
-                                <SelectTrigger id="pay-type" className="h-11 w-full">
+                                <SelectTrigger
+                                    id="pay-type"
+                                    className="h-11 w-full"
+                                >
                                     <SelectValue>
                                         {(val: string) => typeLabel(val)}
                                     </SelectValue>
@@ -483,9 +497,7 @@ export function PaymentOptionFormDialog({
                                             <EyeButton
                                                 shown={showRsaPrivate}
                                                 onToggle={() =>
-                                                    setShowRsaPrivate(
-                                                        (s) => !s,
-                                                    )
+                                                    setShowRsaPrivate((s) => !s)
                                                 }
                                                 label={t(
                                                     'settings.aba.toggleSecret',
@@ -517,6 +529,7 @@ export function PaymentOptionFormDialog({
                                             {t('settings.aba.webhookHint')}
                                         </FieldDescription>
                                     </Field>
+                                    <AbaConnectionTest />
                                 </div>
                             </div>
                         </div>
@@ -575,11 +588,76 @@ function EyeButton({
                 className ?? 'top-1/2 -translate-y-1/2'
             }`}
         >
-            {shown ? (
-                <EyeOff className="size-4" />
-            ) : (
-                <Eye className="size-4" />
-            )}
+            {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
         </button>
+    );
+}
+
+/** Live check of the saved ABA settings: credentials + each PayWay service. */
+function AbaConnectionTest() {
+    const { t } = useI18n();
+    const test = useMutation({ mutationFn: paymentConfigApi.test });
+    const label: Record<string, TranslationKey> = {
+        credentials: 'settings.aba.test.credentials',
+        khqr_api: 'settings.aba.test.khqr',
+        hosted_checkout: 'settings.aba.test.hosted',
+    };
+    return (
+        <div className="space-y-3 rounded-xl border bg-muted/30 p-4 sm:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <p className="text-sm font-semibold">
+                        {t('settings.aba.test.title')}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                        {t('settings.aba.test.hint')}
+                    </p>
+                </div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                    disabled={test.isPending}
+                    onClick={() => test.mutate()}
+                >
+                    {test.isPending ? (
+                        <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                        <PlugZap className="size-4" />
+                    )}
+                    {t('settings.aba.test.run')}
+                </Button>
+            </div>
+            {test.isError && (
+                <p className="text-sm text-destructive">
+                    {getErrorMessage(test.error)}
+                </p>
+            )}
+            {test.data && (
+                <ul className="space-y-2">
+                    {test.data.checks.map((c) => (
+                        <li
+                            key={c.id}
+                            className="flex items-start gap-2.5 text-sm"
+                        >
+                            {c.ok ? (
+                                <CircleCheck className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                            ) : (
+                                <CircleX className="mt-0.5 size-4 shrink-0 text-destructive" />
+                            )}
+                            <span className="min-w-0">
+                                <span className="font-medium">
+                                    {t(label[c.id])}
+                                </span>
+                                <span className="block text-xs text-muted-foreground">
+                                    {c.detail}
+                                </span>
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
     );
 }

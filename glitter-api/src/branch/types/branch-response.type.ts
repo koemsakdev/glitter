@@ -8,7 +8,7 @@ export interface BranchResponse {
   streetAddress: string;
   city: string;
   phoneNumber: string;
-  email: string;
+  email: string | null;
   latitude: number;
   longitude: number;
   openingHours: string | null;

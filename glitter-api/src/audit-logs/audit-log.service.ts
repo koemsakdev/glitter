@@ -296,6 +296,75 @@ export class AuditLogService {
   }
 
   /** Current DB values of a record (for old/new comparison), if known. */
+  /** Number of audit entries (0 right after a data reset). */
+  count(): Promise<number> {
+    return this.repo.count();
+  }
+
+  /**
+   * Give every existing catalog record a "created" entry in the audit trail,
+   * attributed to `actor` and dated when the record was created. Used after a
+   * data reset, so records kept from before show who owns them. Records that
+   * already have a "create" entry are skipped, so this is safe to re-run.
+   */
+  async backfillCreates(actor: AuditActor): Promise<number> {
+    const types = [
+      'branches',
+      'categories',
+      'brands',
+      'colors',
+      'badges',
+      'products',
+      'product-variants',
+      'inventory',
+    ];
+    let added = 0;
+    for (const entity of types) {
+      const cfg = LABELS[entity];
+      if (!cfg) continue;
+      const logged = new Set(
+        (
+          await this.repo.find({
+            select: { entityId: true },
+            where: { entity, action: 'create' },
+          })
+        ).map((l) => l.entityId),
+      );
+      const rows = (await this.dataSource
+        .getRepository(cfg.target)
+        .find()) as Record<string, unknown>[];
+      const missing = rows.filter((r) => !logged.has(String(r.id)));
+      if (!missing.length) continue;
+      await this.repo.insert(
+        missing.map((r) => ({
+          actorId: actor.id,
+          actorName: actor.fullName.slice(0, 255),
+          actorUsername: actor.username ?? null,
+          actorRole: actor.role,
+          actorBranchId: actor.branchId ?? null,
+          action: 'create' as AuditAction,
+          entity,
+          entityId: String(r.id),
+          label:
+            entity === 'inventory'
+              ? null
+              : ((r[cfg.field] as string | null)?.slice(0, 255) ?? null),
+          details: { source: 'seed' } as never,
+          method: 'SEED',
+          path: 'seed',
+          ip: null,
+          module: moduleOf(entity),
+          status: 'success' as const,
+          responseStatus: null,
+          changes: { old_value: null, new_value: plain(r) } as never,
+          createdAt: (r.createdAt as Date | undefined) ?? new Date(),
+        })),
+      );
+      added += missing.length;
+    }
+    return added;
+  }
+
   async snapshot(
     entity: string,
     id: string | null | undefined,

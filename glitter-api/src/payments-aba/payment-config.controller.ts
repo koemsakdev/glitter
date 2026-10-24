@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { PaymentConfigService } from './payment-config.service';
+import { AbaPaywayService } from './aba-payway.service';
 import { UpdatePaymentConfigDto } from './dto/update-payment-config.dto';
 
 /**
@@ -16,12 +17,25 @@ import { UpdatePaymentConfigDto } from './dto/update-payment-config.dto';
 @UseGuards(RolesGuard)
 @Roles('admin')
 export class PaymentConfigController {
-  constructor(private readonly service: PaymentConfigService) {}
+  constructor(
+    private readonly service: PaymentConfigService,
+    private readonly aba: AbaPaywayService,
+  ) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get ABA PayWay config (admin-only, incl. secrets)' })
+  @ApiOperation({
+    summary: 'Get ABA PayWay config (admin-only, incl. secrets)',
+  })
   get() {
     return this.service.getAdminView();
+  }
+
+  @Get('test')
+  @ApiOperation({
+    summary: 'Test the ABA PayWay connection and which services are enabled',
+  })
+  async test() {
+    return { data: await this.aba.diagnose() };
   }
 
   @Put()

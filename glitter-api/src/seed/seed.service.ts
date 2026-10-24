@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { hashPassword } from '../auth/helpers/password.helper';
 import { AuthAccountEntity } from '../users/entities/auth-account.entity';
 import { UserEntity } from '../users/entities/user.entity';
+import { AuditLogService } from '../audit-logs/audit-log.service';
 
 /**
  * On module init: migrate legacy super_admin rows to admin, then make sure an
@@ -22,11 +23,51 @@ export class SeedService implements OnModuleInit {
     private readonly userRepository: Repository<UserEntity>,
     @InjectRepository(AuthAccountEntity)
     private readonly authAccountRepository: Repository<AuthAccountEntity>,
+    private readonly audit: AuditLogService,
   ) {}
 
   async onModuleInit(): Promise<void> {
     await this.mergeSuperAdmins();
     await this.seedAdmin();
+    await this.claimExistingData();
+  }
+
+  /**
+   * Right after a data reset the audit log is empty, but the kept catalog
+   * (branches, categories, brands, colors, badges, products, stock) is still
+   * there. Record those as created by the seed admin so every audit trail
+   * shows an owner. Runs only while the audit log is completely empty — on any
+   * later start it does nothing.
+   */
+  private async claimExistingData(): Promise<void> {
+    try {
+      if ((await this.audit.count()) > 0) return;
+      const username = (
+        this.configService.get<string>('SEED_ADMIN_USERNAME') || 'admin'
+      )
+        .trim()
+        .toLowerCase();
+      const admin =
+        (await this.userRepository.findOne({
+          where: { username, role: 'admin' },
+        })) ??
+        (await this.userRepository.findOne({
+          where: { role: 'admin' },
+          order: { createdAt: 'ASC' },
+        }));
+      if (!admin) return;
+      const added = await this.audit.backfillCreates(admin);
+      if (added > 0) {
+        this.logger.log(
+          `Recorded ${added} existing catalog records as created by ${admin.fullName} (@${admin.username})`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        'Failed to record existing data in the audit log',
+        error,
+      );
+    }
   }
 
   /**
@@ -114,13 +155,11 @@ export class SeedService implements OnModuleInit {
       });
       await this.authAccountRepository.save(authAccount);
 
-      this.logger.log('─────────────────────────────────────────────────');
-      this.logger.log('✅ Admin account seeded');
-      this.logger.log(
-        `   Username: ${username}  (password: SEED_ADMIN_PASSWORD)`,
-      );
-      this.logger.log('   ⚠️  Change this password after first login!');
-      this.logger.log('─────────────────────────────────────────────────');
+      this.logger.log({
+        message: `Admin account seeded — sign in as "${username}" with SEED_ADMIN_PASSWORD`,
+        event: { action: 'seed.admin', outcome: 'success' },
+        user: { name: username, roles: ['admin'] },
+      });
     } catch (error) {
       this.logger.error('Failed to seed admin', error);
     }

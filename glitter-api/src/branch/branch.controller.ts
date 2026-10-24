@@ -16,7 +16,6 @@ import { BranchesService } from './branch.service';
 import {
   BranchDetailResponse,
   BranchListResponse,
-  BranchResponse,
 } from './types/branch-response.type';
 import { UseGuards } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';

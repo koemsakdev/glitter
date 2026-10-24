@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Logger as NestLogger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { promises as fs } from 'fs';
@@ -24,6 +25,8 @@ import {
   UserListResponse,
   UserResponse,
 } from './types/user-response.type';
+
+const fileLogger = new NestLogger('UsersService');
 
 const AVATAR_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'avatars');
 
@@ -951,7 +954,11 @@ export class UsersService {
       const filename = imageUrl.replace('/upload/avatars/', '');
       await this.deleteFileByFilename(filename);
     } catch (error) {
-      console.error('Error deleting avatar file:', error);
+      fileLogger.warn({
+        message: 'Error deleting avatar file',
+        event: { action: 'file.delete', outcome: 'failure' },
+        error: error as unknown,
+      });
     }
   }
 
@@ -967,7 +974,11 @@ export class UsersService {
       ) {
         return;
       }
-      console.error('Error deleting file:', error);
+      fileLogger.warn({
+        message: 'Error deleting file',
+        event: { action: 'file.delete', outcome: 'failure' },
+        error: error as unknown,
+      });
     }
   }
 

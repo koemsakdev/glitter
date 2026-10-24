@@ -766,7 +766,8 @@ export function CheckoutForm({
       //   aba_ecommerce → ABA's hosted checkout modal (checkout2-0.js).
       //   aba_khqr      → our KHQR popup (QR image + ABA Mobile deeplink).
       if (useLiveKhqr && orderId) {
-        if (selectedPay?.payType === "aba_ecommerce") {
+        // ABA's hosted checkout popup (checkout2-0.js). Returns true if opened.
+        const startHostedCheckout = async (): Promise<boolean> => {
           const qr = await fetch(`${API_URL}/api/payments/aba/checkout`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -789,10 +790,15 @@ export function CheckoutForm({
                   tranId: qd.data.fields.tran_id,
                   orderNumber,
                 });
-                return;
+                return true;
               }
             }
           }
+          return false;
+        };
+
+        if (selectedPay?.payType === "aba_ecommerce") {
+          if (await startHostedCheckout()) return;
         } else {
           // aba_khqr — generate a dynamic KHQR (image + deeplink).
           const qr = await fetch(`${API_URL}/api/payments/aba/khqr`, {
@@ -841,6 +847,10 @@ export function CheckoutForm({
               return;
             }
           }
+          // The KHQR API can be switched off for a merchant at ABA (code 32 —
+          // "Service is not enable"). Fall back to ABA's hosted checkout,
+          // which also offers KHQR, so the customer can still pay.
+          if (await startHostedCheckout()) return;
         }
         // Payment couldn't be started — this is a pay-first order, so it
         // is NOT placed. Keep the cart, show an error, and let the unpaid

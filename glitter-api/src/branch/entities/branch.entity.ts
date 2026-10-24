@@ -37,8 +37,8 @@ export class BranchEntity {
   @Column({ type: 'varchar' })
   phoneNumber!: string;
 
-  @Column({ type: 'varchar' })
-  email!: string;
+  @Column({ type: 'varchar', nullable: true })
+  email!: string | null;
 
   @Column({ type: 'double precision' })
   latitude!: number;

@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Logger as NestLogger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -12,6 +13,8 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { ImageOptimizationService } from '../common/services/image-optimization.service';
 import { RealtimeService } from '../realtime/realtime.service';
+
+const fileLogger = new NestLogger('CategoriesService');
 
 const CATEGORY_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'categories');
 
@@ -241,7 +244,11 @@ export class CategoriesService {
         throw error;
       }
     } catch (error) {
-      console.error('Error deleting icon file:', error);
+      fileLogger.warn({
+        message: 'Error deleting icon file',
+        event: { action: 'file.delete', outcome: 'failure' },
+        error: error as unknown,
+      });
     }
   }
 

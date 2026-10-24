@@ -36,6 +36,7 @@ import {
     type ReadableValue,
 } from '@/features/audit/readable-changes';
 import { getFileUrl } from '@/lib/file-url';
+import { SafeImg } from '@/components/ui/safe-image';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { useAuditTrail } from '@/stores/use-audit-trail';
@@ -687,8 +688,11 @@ function ValueCell({
         >
             {src && (
                 <span className="size-9 shrink-0 overflow-hidden rounded-md border bg-muted">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} alt="" className="size-full object-cover" />
+                    <SafeImg
+                        src={src}
+                        alt=""
+                        className="size-full object-cover"
+                    />
                 </span>
             )}
             {value.swatch && (
