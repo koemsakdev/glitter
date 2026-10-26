@@ -76,6 +76,7 @@ export class InventoryBranchService {
           remaining: after,
         },
         '/dashboard/inventory',
+        branchId,
       );
     } catch {
       // best-effort: don't fail the order if the notification errors

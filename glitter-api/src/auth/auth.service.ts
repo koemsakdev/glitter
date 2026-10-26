@@ -344,34 +344,50 @@ export class AuthService {
     return { user, tokens };
   }
 
-  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+  /**
+   * Change your own password. Returns fresh tokens (the old ones are revoked).
+   * On the forced first-sign-in change the current password isn't asked
+   * again — the user has just signed in with the temporary one.
+   */
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+  ): Promise<AuthTokenResponse> {
     const user = await this.usersService.findActiveUserById(userId);
     if (user === null) {
       throw new UnauthorizedException('User not found or inactive');
     }
-    if (user.email === null) {
-      throw new BadRequestException(
-        'Cannot change password: user has no email auth account',
-      );
-    }
 
-    const result = await this.usersService.findEmailAuthAccount(user.email);
-    if (result === null || result.authAccount.passwordHash === null) {
+    const account = await this.usersService.findPasswordAuthByUserId(userId);
+    if (account === null || account.passwordHash === null) {
       throw new BadRequestException(
         'No password is set for this account. Use addEmailPassword instead.',
       );
     }
 
-    const currentValid = await verifyPassword(
-      dto.currentPassword,
-      result.authAccount.passwordHash,
-    );
-    if (!currentValid) {
-      throw new UnauthorizedException('Current password is incorrect');
+    if (!user.mustChangePassword) {
+      if (!dto.currentPassword) {
+        throw new BadRequestException('Current password is required');
+      }
+      const currentValid = await verifyPassword(
+        dto.currentPassword,
+        account.passwordHash,
+      );
+      if (!currentValid) {
+        throw new UnauthorizedException('Current password is incorrect');
+      }
     }
 
+    if (await verifyPassword(dto.newPassword, account.passwordHash)) {
+      throw new BadRequestException(
+        'New password must be different from the current one',
+      );
+    }
+
+    // Bumps tokenVersion (old JWTs revoked) and clears mustChangePassword.
     await this.usersService.changePassword(userId, dto.newPassword);
-    // tokenVersion is bumped by the service — existing JWTs for this user are now invalid
+    const fresh = await this.usersService.findActiveUserById(userId);
+    return this.issueTokens(fresh ?? user);
   }
 
   // ==========================================================================

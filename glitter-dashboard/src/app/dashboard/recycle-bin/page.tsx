@@ -2,8 +2,13 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { format, formatDistanceToNow } from 'date-fns';
-import { History, RotateCcw } from 'lucide-react';
+import {
+    addDays,
+    differenceInCalendarDays,
+    format,
+    formatDistanceToNow,
+} from 'date-fns';
+import { Clock, History, RotateCcw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     DataTable,
@@ -38,9 +43,11 @@ const TYPES: Record<string, TranslationKey> = {
     reviews: 'activity.entity.reviews',
     shipments: 'activity.entity.shipments',
     inventory: 'activity.entity.inventory',
+    users: 'recycle.entity.users',
 };
 
-/** Recycle bin: nothing is hard-deleted — restore it or see who removed it. */
+/** Recycle bin: restore deleted records. Anything left here is deleted
+ *  automatically after the retention period (default 90 days). */
 export default function RecycleBinPage() {
     const { t } = useI18n();
     const { toast } = useToast();
@@ -61,6 +68,9 @@ export default function RecycleBinPage() {
             }),
         placeholderData: (prev) => prev,
     });
+
+    // Days before the bin deletes a record automatically (from the API).
+    const retentionDays = query.data?.retentionDays ?? 90;
 
     const restore = useMutation({
         mutationFn: (r: DeletedRecord) => recordsApi.restore(r.entity, r.id),
@@ -157,6 +167,41 @@ export default function RecycleBinPage() {
                 },
             },
             {
+                id: 'autoDelete',
+                header: () => t('recycle.col.autoDelete'),
+                cell: ({ row }) => {
+                    const at = addDays(
+                        new Date(row.original.deletedAt),
+                        retentionDays,
+                    );
+                    const left = Math.max(
+                        0,
+                        differenceInCalendarDays(at, new Date()),
+                    );
+                    return (
+                        <div className="whitespace-nowrap leading-tight">
+                            <p
+                                className={
+                                    left <= 7
+                                        ? 'text-sm font-medium text-red-600 dark:text-red-400'
+                                        : 'text-sm'
+                                }
+                            >
+                                {left === 0
+                                    ? t('recycle.autoDeleteToday')
+                                    : t('recycle.autoDeleteIn').replace(
+                                          '{n}',
+                                          String(left),
+                                      )}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                {format(at, 'dd MMM yyyy')}
+                            </p>
+                        </div>
+                    );
+                },
+            },
+            {
                 id: 'actions',
                 header: () => (
                     <span className="sr-only">{t('common.actions')}</span>
@@ -192,7 +237,7 @@ export default function RecycleBinPage() {
                 ),
             },
         ],
-        [t, showTrail],
+        [t, showTrail, retentionDays],
     );
 
     const rows = query.data?.data ?? [];
@@ -205,6 +250,13 @@ export default function RecycleBinPage() {
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground sm:text-base">
                     {t('recycle.subtitle')}
+                </p>
+                <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+                    <Clock className="size-3.5 shrink-0" />
+                    {t('recycle.retentionNote').replace(
+                        '{n}',
+                        String(retentionDays),
+                    )}
                 </p>
             </div>
 

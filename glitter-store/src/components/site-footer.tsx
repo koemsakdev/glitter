@@ -115,9 +115,86 @@ export function SiteFooter({
 
     const year = new Date().getFullYear();
 
+    // Phones: the bottom tab bar already handles navigation, so instead of the
+    // long website footer we end the page with a short, app-style info strip.
+    const firstContact = contacts.find((c) => contactHref(c.id, c.value));
+    const mobileLinks: { href: string; label: string; external?: boolean }[] = [
+        { href: '/about', label: tr(lang, 'footerAbout') },
+        { href: '/stores', label: tr(lang, 'navLocation') },
+        ...(firstContact
+            ? [
+                  {
+                      href: contactHref(firstContact.id, firstContact.value)!,
+                      label: tr(lang, 'footerContact'),
+                      external: true,
+                  },
+              ]
+            : []),
+    ];
+
     return (
-        <footer className="mt-20 border-t border-zinc-200/80 bg-linear-to-b from-zinc-50 to-white pb-24 md:pb-0 dark:border-zinc-800 dark:from-zinc-950 dark:to-zinc-950">
-            <div className="mx-auto max-w-6xl px-4">
+        <footer className="border-t border-zinc-200/80 bg-zinc-50/60 md:bg-linear-to-b md:from-zinc-50 md:to-white dark:border-zinc-800 dark:bg-zinc-950 md:dark:from-zinc-950 md:dark:to-zinc-950">
+            {/* ── Phone: compact app-style strip ── */}
+            <div className="flex flex-col items-center gap-3 px-4 pb-[calc(env(safe-area-inset-bottom)+5.25rem)] pt-5 text-center md:hidden">
+                <Link href="/" className="inline-flex items-center gap-2">
+                    {logo ? (
+                        <SafeImg
+                            src={logo}
+                            alt={shopName}
+                            style={{ borderRadius: `${config.logoRadius}%` }}
+                            className="size-7 object-contain"
+                        />
+                    ) : (
+                        <span className="flex size-7 items-center justify-center rounded-lg bg-(--brand) text-xs font-bold text-white">
+                            {shopName.charAt(0).toUpperCase()}
+                        </span>
+                    )}
+                    <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                        {shopName}
+                    </span>
+                </Link>
+                {socials.length > 0 && (
+                    <SocialButtons
+                        socials={socials}
+                        className="justify-center [&_a]:size-8"
+                    />
+                )}
+                <nav className="flex items-center gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    {mobileLinks.map((l, i) => (
+                        <span key={l.href} className="flex items-center gap-1">
+                            {i > 0 && (
+                                <span
+                                    aria-hidden
+                                    className="text-zinc-300 dark:text-zinc-700"
+                                >
+                                    ·
+                                </span>
+                            )}
+                            {l.external ? (
+                                <a
+                                    href={l.href}
+                                    className="px-1.5 py-1 hover:text-(--brand)"
+                                >
+                                    {l.label}
+                                </a>
+                            ) : (
+                                <Link
+                                    href={l.href}
+                                    className="px-1.5 py-1 hover:text-(--brand)"
+                                >
+                                    {l.label}
+                                </Link>
+                            )}
+                        </span>
+                    ))}
+                </nav>
+                <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                    © {year} {shopName}. {tr(lang, 'footerRights')}
+                </p>
+            </div>
+
+            {/* ── Tablet / desktop: full footer ── */}
+            <div className="mx-auto hidden max-w-6xl px-4 md:block">
                 {/* ── Main ── */}
                 <div className="grid gap-10 py-12 md:grid-cols-12 md:gap-8 md:py-14">
                     {/* Brand */}

@@ -148,8 +148,8 @@ export default async function RootLayout({
                         <MainArea>
                             <PageTransition>{children}</PageTransition>
                         </MainArea>
-                        {/* Web footer is desktop-only (hidden below md on its own
-                            root); mobile uses the tab bar. */}
+                        {/* Full footer on desktop; a compact app-style strip on
+                            phones (which also clears the tab bar). */}
                         <SiteFooter
                             config={config}
                             lang={lang}
@@ -160,6 +160,7 @@ export default async function RootLayout({
                             lang={lang}
                             logoUrl={fileUrl(config.logoUrl)}
                             brandName={config.brandNameEn || 'Glitter'}
+                            assistant={config.assistant}
                         />
                         <CartToast lang={lang} />
                         </CartProvider>

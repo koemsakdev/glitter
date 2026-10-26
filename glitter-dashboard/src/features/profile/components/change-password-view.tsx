@@ -74,6 +74,7 @@ export function ChangePasswordView() {
                 title: t('changePassword.success'),
                 description: t('changePassword.successHelp'),
                 variant: 'success',
+                important: true,
             });
             // Backend invalidates all tokens — force re-login.
             await logout.mutateAsync();

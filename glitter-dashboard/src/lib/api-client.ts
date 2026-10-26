@@ -114,6 +114,18 @@ apiClient.interceptors.response.use(
         }
       }
 
+      // Temporary password still in use → the "set new password" screen.
+      const code = (error.response?.data as { code?: string } | undefined)
+          ?.code;
+      if (
+          status === 403 &&
+          code === 'PASSWORD_CHANGE_REQUIRED' &&
+          typeof window !== 'undefined' &&
+          window.location.pathname !== '/set-password'
+      ) {
+        window.location.replace('/set-password');
+      }
+
       // No refresh possible (no refresh token, or already retried) → kick out
       if (status === 401 && !originalRequest?.url?.includes('/auth/')) {
         forceLogout();

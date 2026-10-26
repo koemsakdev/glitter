@@ -35,6 +35,8 @@ export interface User {
   permissions?: string[];
   accountStatus: AccountStatus;
   isProfileComplete: boolean;
+  /** Signed in with a default/reset password — must set a new one first. */
+  mustChangePassword?: boolean;
   missingFields?: string[];
   linkedProviders?: string[];
   createdAt: string;

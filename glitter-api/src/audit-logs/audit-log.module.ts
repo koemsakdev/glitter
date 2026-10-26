@@ -10,6 +10,8 @@ import { IpBlockEntity } from './entities/ip-block.entity';
 import { LoginAttemptEntity } from './entities/login-attempt.entity';
 import { SecurityAlertEntity } from './entities/security-alert.entity';
 import { AuditIntegrityService } from './security/audit-integrity.service';
+import { AuditRetentionService } from './security/audit-retention.service';
+import { RecycleBinRetentionService } from './recycle-bin-retention.service';
 import { LoginSecurityService } from './security/login-security.service';
 import { ThreatMiddleware } from './security/threat.middleware';
 import { ThreatService } from './security/threat.service';
@@ -34,6 +36,8 @@ import { ThreatService } from './security/threat.service';
     LoginSecurityService,
     ThreatService,
     AuditIntegrityService,
+    AuditRetentionService,
+    RecycleBinRetentionService,
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
   exports: [AuditLogService, LoginSecurityService, ThreatService],

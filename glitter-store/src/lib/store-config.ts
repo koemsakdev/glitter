@@ -256,6 +256,22 @@ export const DEFAULT_PAYMENTS: PaymentOption[] = [
     },
 ];
 
+/** Icons the AI chat assistant can use (see assistant-icons.tsx). */
+export const ASSISTANT_ICONS = [
+    'buddy',
+    'bot',
+    'typing',
+    'orbit',
+    'headset',
+] as const;
+export type AssistantIconId = (typeof ASSISTANT_ICONS)[number];
+
+export interface StoreAssistant {
+    icon: AssistantIconId;
+    /** Hex colour for the assistant; empty = use the store's theme colour. */
+    color: string;
+}
+
 export interface StoreConfig {
     brandNameEn: string;
     brandNameKm: string;
@@ -270,6 +286,8 @@ export interface StoreConfig {
     themes: StoreTheme[];
     activeThemeId: string;
     appearance: StoreAppearance;
+    /** AI chat assistant look — admin-only (enforced by the API). */
+    assistant: StoreAssistant;
     announcementEnabled: boolean;
     announcementEn: string;
     announcementKm: string;
@@ -367,6 +385,7 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
     themeColor: '#ec4899',
     themes: [{ id: 'default', name: 'Pink', color: '#ec4899' }],
     activeThemeId: 'default',
+    assistant: { icon: 'buddy', color: '' },
     appearance: {
         fontScale: 'md',
         fontFamily: '',
@@ -691,6 +710,7 @@ export function mergeStoreConfig(partial: unknown): StoreConfig {
         contacts,
         socials,
         announcements,
+        assistant: mergeAssistant(p.assistant),
         appearance: {
             ...DEFAULT_STORE_CONFIG.appearance,
             ...(p.appearance ?? {}),
@@ -784,5 +804,18 @@ export function appearanceVars(
         '--ui-gap': compact ? '0.625rem' : '1rem',
         ...(fontStack ? { '--ui-font': fontStack } : {}),
         fontSize,
+    };
+}
+
+function mergeAssistant(raw: unknown): StoreAssistant {
+    const a = (raw ?? {}) as Partial<StoreAssistant>;
+    return {
+        icon: (ASSISTANT_ICONS as readonly string[]).includes(a.icon ?? '')
+            ? (a.icon as AssistantIconId)
+            : 'buddy',
+        color:
+            typeof a.color === 'string' && /^#[0-9a-f]{6}$/i.test(a.color)
+                ? a.color
+                : '',
     };
 }

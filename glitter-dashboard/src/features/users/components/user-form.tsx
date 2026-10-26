@@ -4,6 +4,7 @@ import {
     Camera,
     Check,
     ChevronDown,
+    Copy,
     CircleAlert,
     CircleCheck,
     Eye,
@@ -12,6 +13,7 @@ import {
     KeyRound,
     Mail,
     Phone,
+    RotateCcw,
     ShieldCheck,
     Store,
     Trash2,
@@ -44,6 +46,7 @@ import {
 } from '@/features/users/use-users';
 import { getErrorMessage } from '@/lib/api-client';
 import { getFileUrl } from '@/lib/file-url';
+import { DEFAULT_STAFF_PASSWORD } from '@/lib/default-password';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/auth-store';
 import {
@@ -118,12 +121,13 @@ export function UserForm({
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
-    // Staff get a dashboard login password. On create it's required; when an
+    // Staff get a dashboard login password. On create they get the default
+    // one (no typing needed) and must change it at first sign-in; when an
     // admin edits another staff member they can set/reset it (optional). Hidden
     // for your OWN account — use the Change Password page (needs your current
     // password) — and for customers (they sign in on the storefront).
     const canSetPassword = !isCustomerMode && !isSelf;
-    const passwordRequired = canSetPassword && !isEdit;
+    const [copied, setCopied] = useState(false);
 
     // Avatar — staged; applied after the user is saved.
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -192,8 +196,8 @@ export function UserForm({
         }
 
         // Staff sign in with username + password (no email needed). On
-        // create the password is required; on edit it's only validated when
-        // the admin actually types a new one (blank = keep current).
+        // create the API sets the default password; on edit a new one is only
+        // validated when the admin actually types it (blank = keep current).
         const cleanUsername = username.trim().toLowerCase();
         if (!isCustomerMode) {
             // The field already shows why inline; the toast is a nudge.
@@ -222,7 +226,7 @@ export function UserForm({
             return;
         }
         const wantsPassword =
-            canSetPassword && (passwordRequired || password.trim().length > 0);
+            canSetPassword && isEdit && password.trim().length > 0;
         if (wantsPassword) {
             if (!isStrongPassword(password.trim())) {
                 toast({
@@ -242,9 +246,9 @@ export function UserForm({
             role: isCustomerMode ? 'customer' : role,
             branchId: needsBranch ? branchId || undefined : undefined,
             accountStatus,
-            // On create, the password goes with the create call. On edit it's
-            // applied separately via the reset endpoint (see below).
-            password: passwordRequired ? password.trim() : undefined,
+            // On create the API applies the default password. On edit a typed
+            // one is applied separately via the reset endpoint (see below).
+            password: undefined,
         };
 
         try {
@@ -566,55 +570,151 @@ export function UserForm({
                         icon={KeyRound}
                         title={t('user.form.section.signIn')}
                     >
-                        <Field
-                            label={
-                                isEdit
-                                    ? t('user.field.setNewPassword')
-                                    : t('user.field.password')
-                            }
-                        >
-                            <IconInput icon={KeyRound}>
-                                <Input
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={password}
-                                    onChange={(e) =>
-                                        setPassword(e.target.value)
-                                    }
-                                    placeholder={
-                                        isEdit
-                                            ? t(
-                                                  'user.field.setNewPassword.placeholder',
-                                              )
-                                            : t(
-                                                  'user.field.password.placeholder',
-                                              )
-                                    }
-                                    autoComplete="new-password"
-                                    className={`${inputClass} pl-10 pr-11`}
-                                />
+                        {isEdit ? (
+                            <Field label={t('user.field.setNewPassword')}>
+                                <IconInput icon={KeyRound}>
+                                    <Input
+                                        type={
+                                            showPassword ? 'text' : 'password'
+                                        }
+                                        value={password}
+                                        onChange={(e) =>
+                                            setPassword(e.target.value)
+                                        }
+                                        placeholder={
+                                            isEdit
+                                                ? t(
+                                                      'user.field.setNewPassword.placeholder',
+                                                  )
+                                                : t(
+                                                      'user.field.password.placeholder',
+                                                  )
+                                        }
+                                        autoComplete="new-password"
+                                        className={`${inputClass} pl-10 pr-11`}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setShowPassword((v) => !v)
+                                        }
+                                        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground hover:text-foreground"
+                                        tabIndex={-1}
+                                        aria-label={
+                                            showPassword ? 'Hide' : 'Show'
+                                        }
+                                    >
+                                        {showPassword ? (
+                                            <EyeOff className="size-4" />
+                                        ) : (
+                                            <Eye className="size-4" />
+                                        )}
+                                    </button>
+                                </IconInput>
+                                {password && (
+                                    <PasswordStrength password={password} />
+                                )}
+                                <p className="text-xs text-muted-foreground">
+                                    {t('user.form.resetPasswordHint')}{' '}
+                                    {t('user.form.tempPasswordHint')}
+                                </p>
                                 <button
                                     type="button"
-                                    onClick={() => setShowPassword((v) => !v)}
-                                    className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground hover:text-foreground"
-                                    tabIndex={-1}
-                                    aria-label={showPassword ? 'Hide' : 'Show'}
+                                    disabled={setUserPassword.isPending}
+                                    onClick={() =>
+                                        user &&
+                                        setUserPassword.mutate(
+                                            { id: user.id },
+                                            {
+                                                onSuccess: () =>
+                                                    toast({
+                                                        title: t(
+                                                            'common.toast.success',
+                                                        ),
+                                                        description: t(
+                                                            'user.form.resetDone',
+                                                        ),
+                                                        variant: 'success',
+                                                        important: true,
+                                                    }),
+                                                onError: (error) =>
+                                                    toast({
+                                                        title: t(
+                                                            'common.toast.error',
+                                                        ),
+                                                        description:
+                                                            getErrorMessage(
+                                                                error,
+                                                            ),
+                                                        variant: 'destructive',
+                                                    }),
+                                            },
+                                        )
+                                    }
+                                    className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-pink-600 hover:underline disabled:opacity-50 dark:text-pink-400"
                                 >
-                                    {showPassword ? (
-                                        <EyeOff className="size-4" />
+                                    {setUserPassword.isPending ? (
+                                        <Loader2 className="size-3.5 animate-spin" />
                                     ) : (
-                                        <Eye className="size-4" />
+                                        <RotateCcw className="size-3.5" />
                                     )}
+                                    {t('user.form.resetToDefault')} (
+                                    <span className="font-mono">
+                                        {DEFAULT_STAFF_PASSWORD}
+                                    </span>
+                                    )
                                 </button>
-                            </IconInput>
-                            {password && (
-                                <PasswordStrength password={password} />
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                                {isEdit
-                                    ? t('user.form.resetPasswordHint')
-                                    : t('user.form.passwordHint')}
-                            </p>
-                        </Field>
+                            </Field>
+                        ) : (
+                            <div className="flex items-start gap-3 rounded-xl border border-dashed bg-muted/30 p-4">
+                                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pink-100 text-pink-600 dark:bg-pink-500/15 dark:text-pink-300">
+                                    <KeyRound className="size-4" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-medium text-muted-foreground">
+                                        {t('user.form.defaultPassword')}
+                                    </p>
+                                    <div className="mt-1 flex items-center gap-2">
+                                        <code className="rounded-md bg-background px-2 py-1 font-mono text-sm font-semibold ring-1 ring-border">
+                                            {DEFAULT_STAFF_PASSWORD}
+                                        </code>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                void navigator.clipboard
+                                                    ?.writeText(
+                                                        DEFAULT_STAFF_PASSWORD,
+                                                    )
+                                                    .then(() => {
+                                                        setCopied(true);
+                                                        setTimeout(
+                                                            () =>
+                                                                setCopied(
+                                                                    false,
+                                                                ),
+                                                            1500,
+                                                        );
+                                                    })
+                                                    .catch(() => {});
+                                            }}
+                                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                                        >
+                                            {copied ? (
+                                                <Check className="size-3.5 text-emerald-500" />
+                                            ) : (
+                                                <Copy className="size-3.5" />
+                                            )}
+                                            {copied
+                                                ? t('user.form.copied')
+                                                : t('user.form.copy')}
+                                        </button>
+                                    </div>
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                        {t('user.form.defaultPasswordHint')}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </FormSection>
                 )}
 

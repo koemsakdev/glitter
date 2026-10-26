@@ -5,37 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell, Check, Package } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { orderStatusLabel } from '@/lib/order-ui';
 import { tr, type Lang } from '@/lib/locale';
 import { onLiveChange } from '@/lib/realtime';
-
-
-interface AppNotification {
-    id: string;
-    type: string;
-    data: Record<string, unknown>;
-    link: string | null;
-    isRead: boolean;
-    createdAt: string;
-}
-
-const TITLE_KEY: Record<string, string> = {
-    order_status: 'notif_order_status',
-    payment_confirmed: 'notif_payment_confirmed',
-    order_new: 'notif_order_new',
-    review_new: 'notif_review_new',
-};
-
-function timeAgo(iso: string): string {
-    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-    if (s < 60) return 'now';
-    const m = Math.floor(s / 60);
-    if (m < 60) return `${m}m`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `${h}h`;
-    return `${Math.floor(h / 24)}d`;
-}
-
+import {
+    describeNotification,
+    NOTIF_TITLE_KEY,
+    timeAgo,
+    type AppNotification,
+    type NotificationPage,
+} from '@/lib/notifications';
 
 export function NotificationBell({ lang }: { lang: Lang }) {
     const { user, authFetch } = useAuth();
@@ -43,34 +21,54 @@ export function NotificationBell({ lang }: { lang: Lang }) {
     const [items, setItems] = useState<AppNotification[]>([]);
     const [unread, setUnread] = useState(0);
     const [open, setOpen] = useState(false);
+    // Opening the bell clears the badge (all marked read); what was new stays
+    // highlighted until it closes — same as the dashboard.
+    const [fresh, setFresh] = useState<Set<string>>(() => new Set());
     const boxRef = useRef<HTMLDivElement>(null);
 
-    const load = useCallback(async () => {
-        try {
-            const r = await authFetch('/api/notifications');
-            if (!r.ok) return;
-            const d = (await r.json()) as {
-                data: AppNotification[];
-                unread: number;
-            };
-            setItems(d.data ?? []);
-            setUnread(d.unread ?? 0);
-        } catch {
-            // ignore
-        }
-    }, [authFetch]);
+    const fetchList =
+        useCallback(async (): Promise<NotificationPage | null> => {
+            try {
+                const r = await authFetch('/api/notifications');
+                return r.ok ? ((await r.json()) as NotificationPage) : null;
+            } catch {
+                return null;
+            }
+        }, [authFetch]);
+
+    const load = useCallback(
+        () =>
+            fetchList().then((d) => {
+                if (!d) return;
+                setItems(d.data ?? []);
+                setUnread(d.unread ?? 0);
+            }),
+        [fetchList],
+    );
 
     useEffect(() => {
         if (!user) return;
-        void load();
-        return onLiveChange(['notifications'], () => void load());
-    }, [user, load]);
+        let active = true;
+        const refresh = () =>
+            void fetchList().then((d) => {
+                if (!active || !d) return;
+                setItems(d.data ?? []);
+                setUnread(d.unread ?? 0);
+            });
+        refresh();
+        const off = onLiveChange(['notifications'], refresh);
+        return () => {
+            active = false;
+            off();
+        };
+    }, [user, fetchList]);
 
     // Close on outside click.
     useEffect(() => {
         function onDown(e: MouseEvent) {
             if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
                 setOpen(false);
+                setFresh(new Set());
             }
         }
         document.addEventListener('mousedown', onDown);
@@ -91,16 +89,6 @@ export function NotificationBell({ lang }: { lang: Lang }) {
         );
     }
 
-    function describe(n: AppNotification): string {
-        const d = n.data ?? {};
-        const num = String(d.orderNumber ?? '');
-        if (n.type === 'order_status' && d.status) {
-            return `${num} · ${orderStatusLabel(lang, String(d.status))}`;
-        }
-        if (n.type === 'review_new') return String(d.productName ?? '');
-        return num;
-    }
-
     async function onItemClick(n: AppNotification) {
         if (!n.isRead) {
             try {
@@ -113,7 +101,28 @@ export function NotificationBell({ lang }: { lang: Lang }) {
             void load();
         }
         setOpen(false);
+        setFresh(new Set());
         if (n.link) router.push(n.link);
+    }
+
+    function toggle() {
+        // Phones: open the full Notifications screen, like a native app.
+        if (window.matchMedia('(max-width: 767px)').matches) {
+            router.push('/account/notifications');
+            return;
+        }
+        if (open) {
+            setOpen(false);
+            setFresh(new Set());
+            return;
+        }
+        setOpen(true);
+        if (unread > 0) {
+            setFresh(new Set(items.filter((n) => !n.isRead).map((n) => n.id)));
+            setItems((list) => list.map((n) => ({ ...n, isRead: true })));
+            setUnread(0);
+            void markAll();
+        }
     }
 
     async function markAll() {
@@ -129,7 +138,7 @@ export function NotificationBell({ lang }: { lang: Lang }) {
         <div ref={boxRef} className="relative">
             <button
                 type="button"
-                onClick={() => setOpen((v) => !v)}
+                onClick={toggle}
                 aria-label={tr(lang, 'notifications')}
                 className="relative flex size-9 items-center justify-center rounded-full text-zinc-600 transition-colors hover:text-(--brand) dark:text-zinc-300 h-9 w-9 border border-neutral-200 dark:border-neutral-800"
             >
@@ -174,7 +183,7 @@ export function NotificationBell({ lang }: { lang: Lang }) {
                                     type="button"
                                     onClick={() => onItemClick(n)}
                                     className={`flex w-full items-start gap-3 px-4 py-2.5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50 ${
-                                        n.isRead
+                                        n.isRead && !fresh.has(n.id)
                                             ? ''
                                             : 'bg-(--brand)/5'
                                     }`}
@@ -184,22 +193,36 @@ export function NotificationBell({ lang }: { lang: Lang }) {
                                     </span>
                                     <span className="min-w-0 flex-1">
                                         <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                            {tr(lang, TITLE_KEY[n.type] ?? 'notifications')}
+                                            {tr(
+                                                lang,
+                                                NOTIF_TITLE_KEY[n.type] ??
+                                                    'notifications',
+                                            )}
                                         </span>
                                         <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">
-                                            {describe(n)}
+                                            {describeNotification(n, lang)}
                                         </span>
                                     </span>
                                     <span className="shrink-0 text-[11px] text-zinc-400">
                                         {timeAgo(n.createdAt)}
                                     </span>
-                                    {!n.isRead && (
+                                    {(!n.isRead || fresh.has(n.id)) && (
                                         <span className="mt-1.5 size-2 shrink-0 rounded-full bg-(--brand)" />
                                     )}
                                 </button>
                             ))}
                         </div>
                     )}
+                    <Link
+                        href="/account/notifications"
+                        onClick={() => {
+                            setOpen(false);
+                            setFresh(new Set());
+                        }}
+                        className="block border-t border-zinc-100 px-4 py-2.5 text-center text-xs font-semibold text-(--brand) transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50"
+                    >
+                        {tr(lang, 'notifSeeAll')}
+                    </Link>
                 </div>
             )}
         </div>

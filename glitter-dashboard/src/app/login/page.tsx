@@ -12,7 +12,9 @@ export default function LoginPage() {
 
     useEffect(() => {
         if (isHydrated && user && user.role !== 'customer') {
-            router.replace('/dashboard');
+            router.replace(
+                user.mustChangePassword ? '/set-password' : '/dashboard',
+            );
         }
     }, [isHydrated, user, router]);
 

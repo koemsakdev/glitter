@@ -42,7 +42,7 @@ export function useChangePassword() {
             currentPassword,
             newPassword,
         }: {
-            currentPassword: string;
+            currentPassword?: string;
             newPassword: string;
         }) => authApi.changePassword(currentPassword, newPassword),
     });

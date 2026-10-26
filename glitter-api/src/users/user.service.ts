@@ -11,6 +11,7 @@ import { DataSource, Repository } from 'typeorm';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { hashPassword } from '../auth/helpers/password.helper';
+import { defaultStaffPassword } from '../common/validators/default-password';
 import { BranchEntity } from '../branch/entities/branch.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -101,7 +102,12 @@ export class UsersService {
     if (role !== 'customer' && !username) {
       throw new BadRequestException('A username is required for staff');
     }
-    if (dto.password && !username && !dto.email) {
+    // Staff created without a password get the default one, and must
+    // change it on first sign-in. (Any admin-given password is temporary.)
+    const password =
+      dto.password ??
+      (role !== 'customer' ? defaultStaffPassword() : undefined);
+    if (password && !username && !dto.email) {
       throw new BadRequestException(
         'A username or email is required when setting a login password',
       );
@@ -123,6 +129,7 @@ export class UsersService {
       emailVerifiedAt: null,
       phoneVerifiedAt: null,
       tokenVersion: 0,
+      mustChangePassword: Boolean(password),
     });
     entity.isProfileComplete = this.computeProfileComplete(entity);
 
@@ -131,8 +138,8 @@ export class UsersService {
     // Set up password sign-in so a created staff member can log in. The
     // password lives on the 'email' auth account, keyed by email when there
     // is one, else by username (usernames can't contain '@', so no clash).
-    if (dto.password) {
-      const passwordHash = await hashPassword(dto.password);
+    if (password) {
+      const passwordHash = await hashPassword(password);
       const authAccount = this.authAccountRepository.create({
         userId: saved.id,
         provider: 'email',
@@ -438,6 +445,11 @@ export class UsersService {
   // DELETE
   // ==========================================================================
 
+  /**
+   * Move a user to the recycle bin. Their email / username / phone are set
+   * aside (so they can be used again) and sign-in stops working, but nothing
+   * is lost: an admin can restore them, or delete them permanently.
+   */
   async softDelete(id: string): Promise<void> {
     const user = await this.userRepository.findOne({
       where: { id },
@@ -447,21 +459,109 @@ export class UsersService {
     if (user === null) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
-
-    // Release the unique identifiers so the same email/phone can be used to
-    // register again, and drop the sign-in methods so the account can no longer
-    // log in. The (anonymized) row is kept so past orders still reference it.
     if (user.role === 'admin') await this.assertNotLastAdmin(user.id);
+
+    const accounts = user.authAccounts ?? [];
+    user.deletedIdentity = {
+      email: user.email,
+      username: user.username,
+      phoneNumber: user.phoneNumber,
+      accounts: accounts.map((acc) => ({
+        id: acc.id,
+        providerAccountId: acc.providerAccountId,
+      })),
+    };
     user.email = null;
     user.username = null;
     user.phoneNumber = null;
     user.accountStatus = 'deleted';
+    user.deletedAt = new Date();
     user.tokenVersion += 1;
     await this.userRepository.save(user);
 
-    if (user.authAccounts && user.authAccounts.length > 0) {
-      await this.authAccountRepository.remove(user.authAccounts);
+    // Park the sign-ins under a unique placeholder: they can't be used, and
+    // the original address/name is free for someone else meanwhile.
+    for (const acc of accounts) {
+      await this.authAccountRepository.update(acc.id, {
+        providerAccountId: `deleted:${user.id}:${acc.id}`,
+      });
     }
+  }
+
+  /**
+   * Bring a user back from the recycle bin. Identifiers that someone else has
+   * taken in the meantime are left empty; returns which ones.
+   */
+  async restoreDeleted(id: string): Promise<{ conflicts: string[] }> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (user === null) throw new NotFoundException('User not found');
+    if (user.accountStatus !== 'deleted') return { conflicts: [] };
+
+    const saved = user.deletedIdentity;
+    const conflicts: string[] = [];
+    const freeUser = async (where: Record<string, string>) =>
+      (await this.userRepository.count({ where })) === 0;
+
+    if (saved?.email) {
+      if (await freeUser({ email: saved.email })) user.email = saved.email;
+      else conflicts.push('email');
+    }
+    if (saved?.username) {
+      if (await freeUser({ username: saved.username }))
+        user.username = saved.username;
+      else conflicts.push('username');
+    }
+    if (saved?.phoneNumber) {
+      if (await freeUser({ phoneNumber: saved.phoneNumber }))
+        user.phoneNumber = saved.phoneNumber;
+      else conflicts.push('phoneNumber');
+    }
+    if (user.role === 'admin') await this.assertNoOtherAdmin(user.id);
+
+    user.accountStatus = 'active';
+    user.deletedAt = null;
+    user.deletedIdentity = null;
+    await this.userRepository.save(user);
+
+    for (const acc of saved?.accounts ?? []) {
+      const row = await this.authAccountRepository.findOne({
+        where: { id: acc.id },
+      });
+      if (!row) continue;
+      const taken = await this.authAccountRepository.count({
+        where: {
+          provider: row.provider,
+          providerAccountId: acc.providerAccountId,
+        },
+      });
+      if (taken === 0) {
+        await this.authAccountRepository.update(acc.id, {
+          providerAccountId: acc.providerAccountId,
+        });
+      } else {
+        // Someone else signs in with it now — drop the parked one.
+        await this.authAccountRepository.delete(acc.id);
+        conflicts.push(row.provider);
+      }
+    }
+    return { conflicts: [...new Set(conflicts)] };
+  }
+
+  /**
+   * Permanently delete a user who is in the recycle bin. Their addresses,
+   * wishlist and sign-ins go with them; past orders and reviews stay (the
+   * name is kept on the order) but no longer link to an account.
+   */
+  async purge(id: string): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (user === null) throw new NotFoundException('User not found');
+    if (user.accountStatus !== 'deleted') {
+      throw new BadRequestException(
+        'Move the user to the recycle bin before deleting permanently',
+      );
+    }
+    if (user.profileImageUrl) await this.deleteAvatarFile(user.profileImageUrl);
+    await this.userRepository.delete(id);
   }
 
   async hardDelete(id: string): Promise<void> {
@@ -470,8 +570,8 @@ export class UsersService {
     if (user === null) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
-    // No permanent deletes: this now behaves like a normal (soft) delete —
-    // the row is kept with status "deleted" so its history stays traceable.
+    // Deleting from the user screens always goes to the recycle bin first;
+    // permanent deletion happens from the recycle bin (purge).
     await this.softDelete(user.id);
   }
 
@@ -673,6 +773,18 @@ export class UsersService {
     });
   }
 
+  /** The user's password sign-in (by user id — works for username-only staff). */
+  async findPasswordAuthByUserId(
+    userId: string,
+  ): Promise<AuthAccountEntity | null> {
+    return this.authAccountRepository
+      .createQueryBuilder('auth')
+      .addSelect('auth.passwordHash')
+      .where('auth.userId = :userId', { userId })
+      .andWhere('auth.provider = :provider', { provider: 'email' })
+      .getOne();
+  }
+
   async findEmailAuthAccount(
     email: string,
   ): Promise<{ user: UserEntity; authAccount: AuthAccountEntity } | null> {
@@ -701,7 +813,7 @@ export class UsersService {
    */
   async setUserPassword(
     userId: string,
-    password: string,
+    password: string | undefined,
     actor: UserEntity,
   ): Promise<void> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -718,7 +830,9 @@ export class UsersService {
       throw new ForbiddenException('Only an admin can reset passwords');
     }
 
-    const passwordHash = await hashPassword(password);
+    // No password given → reset to the default. Either way it's temporary:
+    // the user must choose their own on next sign-in.
+    const passwordHash = await hashPassword(password ?? defaultStaffPassword());
     const existing = await this.authAccountRepository.findOne({
       where: { userId, provider: 'email' },
     });
@@ -738,6 +852,7 @@ export class UsersService {
 
     await this.userRepository.update(userId, {
       lastPasswordChangedAt: new Date(),
+      mustChangePassword: true,
     });
 
     // Force re-login everywhere after a credential change.
@@ -791,7 +906,7 @@ export class UsersService {
       await authRepo.save(emailAuth);
       await userRepo.update(
         { id: userId },
-        { lastPasswordChangedAt: new Date() },
+        { lastPasswordChangedAt: new Date(), mustChangePassword: false },
       );
 
       await userRepo.increment({ id: userId }, 'tokenVersion', 1);
@@ -1056,6 +1171,7 @@ export class UsersService {
       permissions: effectivePermissions(entity),
       accountStatus: entity.accountStatus,
       isProfileComplete: entity.isProfileComplete,
+      mustChangePassword: entity.mustChangePassword ?? false,
       missingFields: this.computeMissingFields(entity),
       linkedProviders: providers,
       createdAt: entity.createdAt,

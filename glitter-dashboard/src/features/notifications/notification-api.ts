@@ -13,14 +13,15 @@ export interface AppNotification {
 export interface NotificationList {
     data: AppNotification[];
     unread: number;
+    /** Older notifications exist beyond this page. */
+    hasMore?: boolean;
 }
 
 const KEY = ['notifications'] as const;
 
 async function fetchNotifications(): Promise<NotificationList> {
-    const { data } = await apiClient.get<NotificationList>(
-        '/api/notifications',
-    );
+    const { data } =
+        await apiClient.get<NotificationList>('/api/notifications');
     return data;
 }
 
@@ -31,15 +32,38 @@ export function useNotifications() {
 
     const invalidate = () => qc.invalidateQueries({ queryKey: KEY });
 
+    // Update the bell straight away, then confirm with the server.
+    const patchCache = (update: (list: NotificationList) => NotificationList) =>
+        qc.setQueryData<NotificationList>(KEY, (old) =>
+            old ? update(old) : old,
+        );
+
     const markRead = useMutation({
         mutationFn: (id: string) =>
             apiClient.patch(`/api/notifications/${id}/read`),
-        onSuccess: invalidate,
+        onMutate: (id: string) =>
+            patchCache((list) => {
+                const hit = list.data.find((n) => n.id === id && !n.isRead);
+                return hit
+                    ? {
+                          data: list.data.map((n) =>
+                              n.id === id ? { ...n, isRead: true } : n,
+                          ),
+                          unread: Math.max(0, list.unread - 1),
+                      }
+                    : list;
+            }),
+        onSettled: invalidate,
     });
 
     const markAll = useMutation({
         mutationFn: () => apiClient.patch('/api/notifications/read-all'),
-        onSuccess: invalidate,
+        onMutate: () =>
+            patchCache((list) => ({
+                data: list.data.map((n) => ({ ...n, isRead: true })),
+                unread: 0,
+            })),
+        onSettled: invalidate,
     });
 
     return {

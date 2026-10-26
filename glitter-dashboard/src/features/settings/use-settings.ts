@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useToast } from '@/hooks/use-toast';
-import { useI18n } from '@/lib/i18n';
+import { create } from 'zustand';
 import { settingsApi } from './settings-api';
 import {
     DEFAULT_STORE_CONFIG,
@@ -11,9 +10,25 @@ import {
 } from './store-config';
 
 const SETTINGS_KEY = ['app-settings'] as const;
-// One toast slot for every settings save: "Saving…" is replaced in place by
-// "Saved" (or dismissed on error — callers show their own error toast).
-const SAVE_TOAST_ID = 'settings-save';
+
+/**
+ * Status of the latest settings save, shown quietly next to the App settings
+ * title ("Saving…" → "✓ Saved") instead of a toast on every change.
+ */
+export const useSettingsSaveStatus = create<{
+    status: 'idle' | 'saving' | 'saved';
+    set: (status: 'idle' | 'saving' | 'saved') => void;
+}>((set) => ({ status: 'idle', set: (status) => set({ status }) }));
+
+let savedTimer: ReturnType<typeof setTimeout> | undefined;
+function markSaved() {
+    useSettingsSaveStatus.getState().set('saved');
+    clearTimeout(savedTimer);
+    savedTimer = setTimeout(
+        () => useSettingsSaveStatus.getState().set('idle'),
+        2500,
+    );
+}
 
 /** Reads the single JSON storefront config (merged with defaults). */
 export function useStoreConfig() {
@@ -42,8 +57,6 @@ export function useStoreConfig() {
 /** Upserts the storefront config as one public JSON setting. */
 export function useSaveStoreConfig() {
     const queryClient = useQueryClient();
-    const { t } = useI18n();
-    const { toast, dismiss } = useToast();
     return useMutation({
         mutationFn: async (params: {
             config: StoreConfig;
@@ -65,20 +78,13 @@ export function useSaveStoreConfig() {
         // refetching — a refetch can race a rapid follow-up edit and briefly
         // revert it. Fall back to invalidation only if the row can't be parsed.
         onMutate: () => {
-            toast({
-                id: SAVE_TOAST_ID,
-                variant: 'loading',
-                title: t('common.saving'),
-            });
+            clearTimeout(savedTimer);
+            useSettingsSaveStatus.getState().set('saving');
         },
-        onError: () => dismiss(SAVE_TOAST_ID),
+        // Errors: callers show their own error toast.
+        onError: () => useSettingsSaveStatus.getState().set('idle'),
         onSuccess: (row) => {
-            toast({
-                id: SAVE_TOAST_ID,
-                variant: 'success',
-                title: t('settings.saved'),
-                duration: 2500,
-            });
+            markSaved();
             try {
                 queryClient.setQueryData([...SETTINGS_KEY, 'store-config'], {
                     config: mergeStoreConfig(JSON.parse(row.settingValue)),

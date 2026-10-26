@@ -60,6 +60,11 @@ const ACTION: Record<
         icon: Trash2,
         badge: 'bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-500/10 dark:text-red-300',
     },
+    purge: {
+        key: 'trail.action.purge',
+        icon: Trash2,
+        badge: 'bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-500/10 dark:text-red-300',
+    },
     restore: {
         key: 'trail.action.restore',
         icon: RotateCcw,

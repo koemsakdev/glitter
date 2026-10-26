@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ModuleRef } from '@nestjs/core';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, IsNull, Not } from 'typeorm';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -18,50 +19,18 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { RealtimeService } from '../realtime/realtime.service';
 import { UserEntity } from '../users/entities/user.entity';
+import { UsersService } from '../users/user.service';
 import { AuditLogService, LABELS } from './audit-log.service';
-
-/** Record types that soft-delete (and so can be listed / restored). */
-const SOFT_DELETABLE = [
-  'products',
-  'product-variants',
-  'product-images',
-  'categories',
-  'brands',
-  'colors',
-  'badges',
-  'branches',
-  'vouchers',
-  'banners',
-  'advertisements',
-  'pages',
-  'menu',
-  'reviews',
-  'shipments',
-  'inventory',
-];
-
-/** Storefront refresh event per record type (after a restore). */
-const REALTIME: Record<string, string> = {
-  products: 'products',
-  'product-variants': 'products',
-  'product-images': 'products',
-  categories: 'categories',
-  brands: 'brands',
-  colors: 'colors',
-  badges: 'products',
-  branches: 'branches',
-  banners: 'banners',
-  advertisements: 'advertisements',
-  pages: 'pages',
-  menu: 'menu',
-  reviews: 'reviews',
-  vouchers: 'products',
-  inventory: 'products',
-};
+import {
+  REALTIME,
+  recycleBinRetentionDays,
+  SOFT_DELETABLE,
+} from './recycle-bin';
 
 /**
  * Per-record audit tools (admin): a record's full trail, the recycle bin of
- * soft-deleted records, and restore.
+ * soft-deleted records, and restore. The bin empties itself after the
+ * retention period (RecycleBinRetentionService) — no manual hard delete.
  */
 @ApiTags('Audit logs')
 @ApiBearerAuth()
@@ -73,7 +42,13 @@ export class RecordsController {
     private readonly audit: AuditLogService,
     @InjectDataSource() private readonly db: DataSource,
     private readonly realtime: RealtimeService,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  /** Users have their own delete/restore rules (identifiers, sign-ins). */
+  private get users(): UsersService {
+    return this.moduleRef.get(UsersService, { strict: false });
+  }
 
   @Get(':entity/:id/trail')
   @HttpCode(HttpStatus.OK)
@@ -136,6 +111,8 @@ export class RecordsController {
       total: rows.length,
       page: p,
       limit: l,
+      /** Days a record stays here before it is deleted automatically. */
+      retentionDays: recycleBinRetentionDays(),
     };
   }
 
@@ -149,6 +126,27 @@ export class RecordsController {
   ) {
     if (!SOFT_DELETABLE.includes(entity)) {
       throw new BadRequestException('This record type cannot be restored');
+    }
+    if (entity === 'users') {
+      const user = await this.db
+        .getRepository(UserEntity)
+        .findOne({ where: { id } });
+      if (!user) throw new NotFoundException('Record not found');
+      const { conflicts } = await this.users.restoreDeleted(id);
+      void this.audit.record({
+        actor: admin,
+        action: 'restore',
+        entity,
+        entityId: id,
+        label: user.fullName,
+        changes: {
+          old_value: { accountStatus: 'deleted' },
+          new_value: { accountStatus: 'active' },
+        },
+        method: 'PATCH',
+        path: `/api/records/${entity}/:id/restore`,
+      });
+      return { ok: true, conflicts };
     }
     const repo = this.db.getRepository(LABELS[entity].target);
     const row = (await repo.findOne({

@@ -48,9 +48,9 @@ export default function RootLayout({
                 <TooltipProvider>
                   {children}
                   <Toaster
-                    position="top-right"
-                    visibleToasts={4}
-                    gap={10}
+                    position="bottom-right"
+                    visibleToasts={3}
+                    gap={8}
                     offset={16}
                     mobileOffset={12}
                     toastOptions={{ unstyled: true }}

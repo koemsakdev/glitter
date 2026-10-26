@@ -5,6 +5,7 @@ import { BranchModule } from '../branch/branch.module';
 import { BrandsModule } from '../brands/brands.module';
 import { CategoriesModule } from '../category/category.module';
 import { OrdersModule } from '../orders/orders.module';
+import { PagesModule } from '../pages/pages.module';
 import { ProductsModule } from '../products/product.module';
 import { VouchersModule } from '../vouchers/vouchers.module';
 import { AiChatController } from './ai-chat.controller';
@@ -22,6 +23,7 @@ import { AiService } from './ai.service';
     BrandsModule,
     CategoriesModule,
     VouchersModule,
+    PagesModule,
   ],
   controllers: [AiController, AiChatController],
   providers: [AiService, AiChatService],

@@ -133,24 +133,6 @@ button:disabled,
   .page-slide-back { animation-name: fade-in-up; }
 }
 
-/* Chat launcher robot — a lively little bot: it gently bobs, blinks its eyes,
-   and its antenna light pulses. */
-@keyframes robot-bob {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-2px) rotate(-4deg); }
-}
-@keyframes robot-blink {
-  0%, 88%, 100% { transform: scaleY(1); }
-  93% { transform: scaleY(0.1); }
-}
-@keyframes robot-antenna {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-.animate-robot-bob { animation: robot-bob 2.8s ease-in-out infinite; }
-.robot-eyes { transform-origin: center; animation: robot-blink 4.5s ease-in-out infinite; }
-.robot-antenna { animation: robot-antenna 1.6s ease-in-out infinite; }
-
 /* Navigation loading bar — a sliding highlight across the top of the page,
    shown by app/loading.tsx while a route is server‑rendering so a click gives
    instant feedback. */

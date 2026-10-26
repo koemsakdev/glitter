@@ -30,6 +30,7 @@ import {
   RefreshResponseDto,
 } from './dto/auth-response.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import type { AuthTokenResponse } from './types/jwt-payload.type';
 import {
   ConfirmEmailDto,
   ResendEmailCodeDto,
@@ -244,9 +245,9 @@ export class AuthController {
   async changePassword(
     @CurrentUser('id') userId: string,
     @Body() dto: ChangePasswordDto,
-  ): Promise<{ ok: true }> {
-    await this.authService.changePassword(userId, dto);
-    return { ok: true };
+  ): Promise<{ ok: true; tokens: AuthTokenResponse }> {
+    const tokens = await this.authService.changePassword(userId, dto);
+    return { ok: true, tokens };
   }
 
   @Post('email/send-code')

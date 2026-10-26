@@ -5,8 +5,14 @@ import {
   HttpStatus,
   Param,
   Patch,
+  Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { NotificationsService } from './notification.service';
 import { NotificationListResponse } from './types/notification-response.type';
@@ -19,8 +25,28 @@ export class NotificationsController {
 
   @Get()
   @ApiOperation({ summary: "List the current user's notifications" })
-  list(@CurrentUser('id') userId: string): Promise<NotificationListResponse> {
-    return this.service.list(userId);
+  @ApiQuery({ name: 'limit', required: false, example: 30 })
+  @ApiQuery({
+    name: 'before',
+    required: false,
+    description: 'ISO date — load notifications older than this (paging)',
+  })
+  @ApiQuery({ name: 'unread', required: false, example: 'true' })
+  list(
+    @CurrentUser('id') userId: string,
+    @Query('limit') limit?: string,
+    @Query('before') before?: string,
+    @Query('unread') unread?: string,
+  ): Promise<NotificationListResponse> {
+    const beforeDate = before ? new Date(before) : undefined;
+    return this.service.list(userId, {
+      limit: limit ? Number.parseInt(limit, 10) || undefined : undefined,
+      before:
+        beforeDate && !Number.isNaN(beforeDate.getTime())
+          ? beforeDate
+          : undefined,
+      unreadOnly: unread === 'true' || unread === '1',
+    });
   }
 
   @Patch(':id/read')

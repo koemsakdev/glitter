@@ -1,12 +1,18 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { IsStrongPassword } from '../../common/validators/strong-password';
 
 export class ChangePasswordDto {
-  @ApiProperty({ example: 'OldP@ssw0rd' })
+  @ApiPropertyOptional({
+    example: 'OldP@ssw0rd',
+    description:
+      'Required, except on the forced first-sign-in change (the user just ' +
+      'signed in with the temporary password).',
+  })
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  currentPassword!: string;
+  currentPassword?: string;
 
   @ApiProperty({
     example: 'NewP@ssw0rd123',

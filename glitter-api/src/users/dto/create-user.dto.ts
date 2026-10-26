@@ -97,8 +97,9 @@ export class CreateUserDto {
 
   @ApiPropertyOptional({
     description:
-      'Initial login password for a staff member. Requires an email — ' +
-      'creates the email/password sign-in so the staff can log into the dashboard.',
+      'Initial login password for a staff member. Leave it out to use the ' +
+      'default password (DEFAULT_STAFF_PASSWORD, "Glitter@123"). Either way ' +
+      'the staff member must change it on first sign-in.',
     minLength: 8,
     maxLength: 128,
   })

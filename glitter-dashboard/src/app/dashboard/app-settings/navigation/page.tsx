@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { GripVertical, Loader, Pencil } from 'lucide-react';
+import { GripVertical, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import { Switch } from '@/components/ui/switch';
@@ -131,12 +131,6 @@ export default function NavigationSettingsPage() {
                     <h2 className="text-lg font-semibold">
                         {t('settings.nav.title')}
                     </h2>
-                    {save.isPending && (
-                        <span className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                            <Loader className="size-4 animate-spin" />
-                            {t('common.saving')}
-                        </span>
-                    )}
                 </div>
                 <p className="text-sm text-muted-foreground">
                     {t('settings.nav.reorderHint')}

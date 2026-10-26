@@ -16,6 +16,7 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('App Settings')
 @ApiBearerAuth()
@@ -29,8 +30,11 @@ export class AppSettingsController {
   @Post()
   @ApiOperation({ summary: 'Create application setting' })
   @ApiResponse({ status: 201, description: 'Application setting created' })
-  async create(@Body() dto: CreateAppSettingDto): Promise<AppSettingResponse> {
-    return this.appSettingsService.create(dto);
+  async create(
+    @Body() dto: CreateAppSettingDto,
+    @CurrentUser('role') role: string,
+  ): Promise<AppSettingResponse> {
+    return this.appSettingsService.create(dto, role);
   }
 
   @UseGuards(RolesGuard)
@@ -71,8 +75,9 @@ export class AppSettingsController {
   async update(
     @Param('id') id: string,
     @Body() dto: CreateAppSettingDto,
+    @CurrentUser('role') role: string,
   ): Promise<AppSettingResponse> {
-    return this.appSettingsService.update(id, dto);
+    return this.appSettingsService.update(id, dto, role);
   }
 
   @UseGuards(RolesGuard)

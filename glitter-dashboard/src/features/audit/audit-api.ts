@@ -167,22 +167,32 @@ export interface IpBlock {
 }
 
 export const securityApi = {
-    async alerts(q: { resolved?: 'true' | 'false'; severity?: string; page?: number; limit?: number }) {
-        const { data } = await apiClient.get<{ data: SecurityAlert[]; total: number; open: number }>(
-            '/api/audit-logs/alerts',
-            { params: q },
-        );
+    async alerts(q: {
+        resolved?: 'true' | 'false';
+        severity?: string;
+        page?: number;
+        limit?: number;
+    }) {
+        const { data } = await apiClient.get<{
+            data: SecurityAlert[];
+            total: number;
+            open: number;
+        }>('/api/audit-logs/alerts', { params: q });
         return data;
     },
     async resolve(id: string) {
         await apiClient.patch(`/api/audit-logs/alerts/${id}/resolve`);
     },
     async blocks() {
-        const { data } = await apiClient.get<{ data: IpBlock[] }>('/api/audit-logs/blocks');
+        const { data } = await apiClient.get<{ data: IpBlock[] }>(
+            '/api/audit-logs/blocks',
+        );
         return data.data;
     },
     async lift(ip: string) {
-        await apiClient.patch(`/api/audit-logs/blocks/${encodeURIComponent(ip)}/lift`);
+        await apiClient.patch(
+            `/api/audit-logs/blocks/${encodeURIComponent(ip)}/lift`,
+        );
     },
 };
 
@@ -197,7 +207,11 @@ export interface TrailEntry extends AuditLog {
         isp: string | null;
         isVpnOrProxy: boolean | null;
     } | null;
-    device: { browser: string | null; os: string | null; deviceType: string | null } | null;
+    device: {
+        browser: string | null;
+        os: string | null;
+        deviceType: string | null;
+    } | null;
 }
 
 interface TrailActor {
@@ -242,12 +256,15 @@ export const recordsApi = {
         return data.data;
     },
     async deleted(q: { entity?: string; page?: number; limit?: number }) {
-        const { data } = await apiClient.get<{ data: DeletedRecord[]; total: number }>(
-            '/api/records/deleted',
-            { params: q },
-        );
+        const { data } = await apiClient.get<{
+            data: DeletedRecord[];
+            total: number;
+            /** Days before the bin deletes a record automatically. */
+            retentionDays?: number;
+        }>('/api/records/deleted', { params: q });
         return data;
     },
+
     async restore(entity: string, id: string) {
         await apiClient.patch(`/api/records/${entity}/${id}/restore`);
     },

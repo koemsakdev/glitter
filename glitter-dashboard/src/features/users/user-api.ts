@@ -102,7 +102,9 @@ export const userApi = {
         );
         return data.data;
     },
-    async setPassword(id: string, password: string): Promise<void> {
+    /** Omit `password` to reset to the default one. Either way the user
+     * must change it on next sign-in. */
+    async setPassword(id: string, password?: string): Promise<void> {
         await apiClient.patch(`/api/users/${id}/password`, { password });
     },
 

@@ -8,5 +8,6 @@ import { PageEntity } from './entities/page.entity';
   imports: [TypeOrmModule.forFeature([PageEntity])],
   controllers: [PagesController],
   providers: [PagesService],
+  exports: [PagesService],
 })
 export class PagesModule {}

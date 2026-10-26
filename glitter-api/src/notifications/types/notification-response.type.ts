@@ -12,4 +12,6 @@ export interface NotificationResponse {
 export interface NotificationListResponse {
   data: NotificationResponse[];
   unread: number;
+  /** More (older) notifications exist beyond this page. */
+  hasMore?: boolean;
 }

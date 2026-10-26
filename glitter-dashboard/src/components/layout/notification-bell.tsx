@@ -35,16 +35,33 @@ export function NotificationBell() {
     const { t } = useI18n();
     const { notifications, unread, markRead, markAll } = useNotifications();
     const [open, setOpen] = useState(false);
+    // Like Facebook: opening the bell clears the badge (all marked read), but
+    // what was new stays highlighted until the panel closes.
+    const [fresh, setFresh] = useState<Set<string>>(() => new Set());
+
+    function onOpenChange(next: boolean) {
+        setOpen(next);
+        if (next && unread > 0) {
+            setFresh(
+                new Set(
+                    notifications.filter((n) => !n.isRead).map((n) => n.id),
+                ),
+            );
+            markAll.mutate();
+        } else if (!next) {
+            setFresh(new Set());
+        }
+    }
 
     function onItemClick(n: AppNotification) {
         if (!n.isRead) markRead.mutate(n.id);
-        setOpen(false);
+        onOpenChange(false);
         const href = notificationHref(n);
         if (href) router.push(href);
     }
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open} onOpenChange={onOpenChange}>
             <PopoverTrigger
                 render={
                     <Button
@@ -92,6 +109,7 @@ export function NotificationBell() {
                     <div className="max-h-96 overflow-y-auto py-1">
                         {notifications.map((n) => {
                             const meta = TYPE_META[n.type];
+                            const isNew = !n.isRead || fresh.has(n.id);
                             const Icon = meta?.icon ?? Bell;
                             return (
                                 <button
@@ -99,7 +117,7 @@ export function NotificationBell() {
                                     type="button"
                                     onClick={() => onItemClick(n)}
                                     className={`flex w-full items-start gap-3 px-4 py-2.5 text-left transition-colors hover:bg-accent ${
-                                        n.isRead
+                                        !isNew
                                             ? ''
                                             : 'bg-pink-50/60 dark:bg-pink-500/5'
                                     }`}
@@ -118,7 +136,7 @@ export function NotificationBell() {
                                     <span className="shrink-0 text-[11px] text-muted-foreground">
                                         {timeAgo(n.createdAt)}
                                     </span>
-                                    {!n.isRead && (
+                                    {isNew && (
                                         <span className="mt-1.5 size-2 shrink-0 rounded-full bg-pink-500" />
                                     )}
                                 </button>
@@ -126,6 +144,16 @@ export function NotificationBell() {
                         })}
                     </div>
                 )}
+                <button
+                    type="button"
+                    onClick={() => {
+                        onOpenChange(false);
+                        router.push('/dashboard/notifications');
+                    }}
+                    className="block w-full border-t px-4 py-2.5 text-center text-xs font-semibold text-pink-600 transition-colors hover:bg-accent dark:text-pink-400"
+                >
+                    {t('notifications.seeAll')}
+                </button>
             </PopoverContent>
         </Popover>
     );

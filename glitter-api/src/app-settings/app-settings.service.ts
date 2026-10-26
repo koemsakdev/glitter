@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -18,7 +19,43 @@ export class AppSettingsService {
     private readonly realtime: RealtimeService,
   ) {}
 
-  async create(dto: CreateAppSettingDto): Promise<AppSettingResponse> {
+  /**
+   * The AI assistant's look (`assistant` in the storefront config) is
+   * admin-only, even though other staff with "storefront" permission may save
+   * the rest of the config. Throws if a non-admin tries to change it.
+   */
+  private assertAssistantUnchanged(
+    actorRole: string | undefined,
+    group: string,
+    key: string,
+    before: string | null,
+    after: string,
+  ): void {
+    if (actorRole === 'admin' || actorRole === undefined) return;
+    if (group !== 'storefront' || key !== 'home_config') return;
+    const pick = (raw: string | null): string => {
+      try {
+        const a = (JSON.parse(raw ?? '{}') as { assistant?: unknown })
+          .assistant as { icon?: string; color?: string } | undefined;
+        return JSON.stringify({
+          icon: a?.icon ?? 'buddy',
+          color: a?.color ?? '',
+        });
+      } catch {
+        return JSON.stringify({ icon: 'buddy', color: '' });
+      }
+    };
+    if (pick(before) !== pick(after)) {
+      throw new ForbiddenException(
+        'Only an admin can change the AI assistant settings',
+      );
+    }
+  }
+
+  async create(
+    dto: CreateAppSettingDto,
+    actorRole?: string,
+  ): Promise<AppSettingResponse> {
     const existing = await this.appSettingRepository.findOne({
       where: {
         settingGroup: dto.settingGroup,
@@ -31,6 +68,13 @@ export class AppSettingsService {
         `Setting already exists: ${dto.settingGroup}.${dto.settingKey}`,
       );
     }
+    this.assertAssistantUnchanged(
+      actorRole,
+      dto.settingGroup,
+      dto.settingKey,
+      null,
+      dto.settingValue,
+    );
 
     const entity = this.appSettingRepository.create({
       settingGroup: dto.settingGroup,
@@ -61,12 +105,20 @@ export class AppSettingsService {
   async update(
     id: string,
     dto: CreateAppSettingDto,
+    actorRole?: string,
   ): Promise<AppSettingResponse> {
     const setting = await this.appSettingRepository.findOne({ where: { id } });
 
     if (!setting) {
       throw new NotFoundException(`Setting with ID ${id} not found`);
     }
+    this.assertAssistantUnchanged(
+      actorRole,
+      setting.settingGroup,
+      setting.settingKey,
+      setting.settingValue,
+      dto.settingValue,
+    );
 
     setting.settingGroup = dto.settingGroup;
     setting.settingKey = dto.settingKey;

@@ -29,6 +29,8 @@ export interface UserResponse {
   };
   accountStatus: AccountStatus;
   isProfileComplete: boolean;
+  /** Must set a new password before using the dashboard. */
+  mustChangePassword: boolean;
   missingFields: Array<'phoneNumber' | 'email' | 'fullName'>;
   linkedProviders: AuthProvider[];
   createdAt: Date;

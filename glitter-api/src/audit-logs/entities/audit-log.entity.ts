@@ -18,6 +18,7 @@ export type AuditAction =
   | 'password'
   | 'blocked_request'
   | 'restore'
+  | 'purge'
   | 'other';
 
 /**

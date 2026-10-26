@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import { SafeImg } from '@/components/ui/safe-img';
+import { SafeImg } from "@/components/ui/safe-img";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -22,6 +22,11 @@ import {
   Sparkles,
   Trash2,
   Loader2,
+  Headphones,
+  Lock,
+  ShieldCheck,
+  Tag,
+  Truck,
 } from "lucide-react";
 import {
   fileUrl,
@@ -79,7 +84,6 @@ function cleanVariantLabel(label: string): string {
     .filter((t) => t && !/^#?[0-9a-fA-F]{3,8}$/.test(t))
     .join(" · ");
 }
-
 
 /** A checkout failure whose message is safe to show the shopper. */
 class OrderError extends Error {}
@@ -528,7 +532,7 @@ export function CheckoutForm({
 
   // Payment options UI — reused inline on desktop and inside the mobile sheet.
   const payMethodsUI = payOnDeliveryOnly ? (
-    <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+    <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-500/20 dark:bg-emerald-500/10">
       <Banknote className="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
       <p className="text-sm text-zinc-700 dark:text-zinc-200">
         {isPickup ? tr(lang, "payAtStoreHelp") : tr(lang, "payOnDeliveryHelp")}
@@ -539,7 +543,7 @@ export function CheckoutForm({
       {tr(lang, "noPayMethod")}
     </p>
   ) : (
-    <div className="space-y-2.5">
+    <div className="grid gap-2.5 md:grid-cols-2">
       {payMethods.map((pm) => {
         const active = selectedPay?.id === pm.id;
         return (
@@ -552,23 +556,31 @@ export function CheckoutForm({
               backgroundColor: active ? `${pm.color}12` : undefined,
               boxShadow: active ? `0 0 0 1px ${pm.color}` : undefined,
             }}
-            className="relative flex w-full items-center gap-4 rounded-2xl border-2 p-4 text-left transition-all hover:opacity-95"
+            className="relative flex w-full items-center gap-3 rounded-2xl border-2 p-3 text-left transition-all hover:opacity-95"
           >
             <span
               style={pm.iconUrl ? undefined : { backgroundColor: pm.color }}
-              className={`flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${
+              className={`flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl ${
                 pm.iconUrl ? "" : "text-white"
               }`}
             >
               <PayIcon iconUrl={pm.iconUrl} Icon={pm.Icon} />
             </span>
-            <span className="flex flex-1 flex-col">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span
+                title={pm.title}
+                className="truncate text-sm font-semibold leading-tight text-zinc-900 dark:text-zinc-100"
+              >
                 {pm.title}
               </span>
-              <span className="mt-0.5 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                {pm.desc}
-              </span>
+              {pm.desc && (
+                <span
+                  title={pm.desc}
+                  className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400"
+                >
+                  {pm.desc}
+                </span>
+              )}
             </span>
             <span
               style={
@@ -872,7 +884,157 @@ export function CheckoutForm({
   }
 
   const inputClass =
-    "h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors focus:border-(--brand) dark:border-zinc-700 dark:bg-zinc-900";
+    "h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50/60 px-3.5 text-sm outline-none transition-all placeholder:text-zinc-400 focus:border-(--brand) focus:bg-white focus:ring-4 focus:ring-(--brand)/10 dark:border-zinc-700 dark:bg-zinc-800/40 dark:focus:bg-zinc-900";
+  const labelClass =
+    "mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300";
+
+  // Clear-all control + editable bag list, shown in the left column on
+  // phones/tablets and inside the order summary on desktop.
+  const clearAction = clearConfirm ? (
+    <span className="flex items-center gap-2 text-xs">
+      <span className="hidden font-medium text-zinc-500 sm:inline dark:text-zinc-400">
+        {tr(lang, "clearAllConfirm")}
+      </span>
+      <button
+        type="button"
+        onClick={() => {
+          clear();
+          setClearConfirm(false);
+        }}
+        className="font-semibold text-red-600 hover:underline dark:text-red-400"
+      >
+        {tr(lang, "remove")}
+      </button>
+      <button
+        type="button"
+        onClick={() => setClearConfirm(false)}
+        className="font-medium text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+      >
+        {tr(lang, "cancel")}
+      </button>
+    </span>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setClearConfirm(true)}
+      className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-400 transition-colors hover:text-red-600 dark:hover:text-red-400"
+    >
+      <Trash2 className="size-3.5" />
+      {tr(lang, "clearAll")}
+    </button>
+  );
+  const bagList = (
+    <>
+      <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {items.map((item) => {
+          const img = fileUrl(item.image);
+          const name = pick(lang, item.nameEn, item.nameKm);
+          return (
+            <li
+              key={item.variantId}
+              className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+            >
+              <Link
+                href={`/products/${item.slug}`}
+                className="size-16 shrink-0 overflow-hidden rounded-xl bg-zinc-100 ring-1 ring-zinc-100 dark:bg-zinc-800 dark:ring-zinc-700"
+              >
+                {img && (
+                  <SafeImg
+                    src={img}
+                    alt={name}
+                    className="size-full object-cover transition-transform hover:scale-105"
+                  />
+                )}
+              </Link>
+              <div className="min-w-0 flex-1">
+                <Link
+                  href={`/products/${item.slug}`}
+                  className="line-clamp-1 text-sm font-semibold text-zinc-900 transition-colors hover:text-(--brand) dark:text-zinc-100"
+                >
+                  {name}
+                </Link>
+                {item.variantLabel && (
+                  <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                    {item.colorHex && (
+                      <span
+                        className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10"
+                        style={{ backgroundColor: item.colorHex }}
+                      />
+                    )}
+                    {cleanVariantLabel(item.variantLabel)}
+                  </p>
+                )}
+                <p className="mt-1 flex items-baseline gap-1.5">
+                  <span className="text-sm font-extrabold text-zinc-900 dark:text-zinc-100">
+                    {formatPrice(item.unitPrice * item.quantity)}
+                  </span>
+                  {item.quantity > 1 && (
+                    <span className="text-[11px] text-zinc-400">
+                      {formatPrice(item.unitPrice)} × {item.quantity}
+                    </span>
+                  )}
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => removeItem(item.variantId)}
+                  aria-label={tr(lang, "remove")}
+                  className="rounded-lg p-1 text-zinc-300 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+                <div className="flex items-center rounded-full border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+                  <button
+                    type="button"
+                    aria-label="-"
+                    onClick={() => updateQty(item.variantId, item.quantity - 1)}
+                    className="flex size-7 items-center justify-center text-zinc-500 hover:text-(--brand) dark:text-zinc-300"
+                  >
+                    <Minus className="size-3.5" />
+                  </button>
+                  <span className="w-6 text-center text-sm font-semibold tabular-nums">
+                    {item.quantity}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="+"
+                    onClick={() => updateQty(item.variantId, item.quantity + 1)}
+                    className="flex size-7 items-center justify-center text-zinc-500 hover:text-(--brand) dark:text-zinc-300"
+                  >
+                    <Plus className="size-3.5" />
+                  </button>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <Link
+        href="/products"
+        className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-500 transition-colors hover:text-(--brand) dark:text-zinc-400"
+      >
+        <Plus className="size-3.5" />
+        {tr(lang, "continueShopping")}
+      </Link>
+    </>
+  );
+
+  // Progress for the step badges + the desktop stepper.
+  const itemCount = items.reduce((n, i) => n + i.quantity, 0);
+  const regionDone = Boolean(region);
+  const methodDone = Boolean(methodId) && (!isPickup || Boolean(branchId));
+  const infoDone =
+    Boolean(name.trim()) &&
+    Boolean(phone.trim()) &&
+    (!needsAddress || Boolean(address.trim()));
+  const payDone = payOnDeliveryOnly || Boolean(selectedPay);
+  const steps = [
+    { label: tr(lang, "coStepDelivery"), done: regionDone && methodDone },
+    { label: tr(lang, "coStepDetails"), done: infoDone },
+    { label: tr(lang, "coStepPay"), done: payDone },
+  ];
+  const currentStep = steps.findIndex((st) => !st.done);
 
   return (
     <div className="min-h-screen">
@@ -892,165 +1054,135 @@ export function CheckoutForm({
           </div>
         </div>
 
+        {/* Desktop heading + progress stepper */}
+        <div className="mb-2 hidden items-end justify-between gap-6 md:flex">
+          <div>
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+              <Lock className="size-3" />
+              {tr(lang, "coSecure")}
+            </p>
+            <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
+              {tr(lang, "checkout")}
+            </h1>
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              {tr(lang, "coSubtitle")}
+            </p>
+          </div>
+          <ol className="hidden shrink-0 items-center gap-1.5 lg:flex">
+            {steps.map((st, i) => {
+              const active = i === currentStep;
+              return (
+                <li key={st.label} className="flex items-center gap-1.5">
+                  <span
+                    className={cn(
+                      "flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                      st.done
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                        : active
+                          ? "bg-(--brand) text-white shadow-md shadow-(--brand)/25"
+                          : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex size-4 items-center justify-center rounded-full text-[10px]",
+                        st.done
+                          ? "bg-emerald-500 text-white"
+                          : active
+                            ? "bg-white/25"
+                            : "bg-zinc-300/60 dark:bg-zinc-700",
+                      )}
+                    >
+                      {st.done ? (
+                        <Check className="size-2.5" strokeWidth={3.5} />
+                      ) : (
+                        i + 1
+                      )}
+                    </span>
+                    {st.label}
+                  </span>
+                  {i < steps.length - 1 && (
+                    <span
+                      className={cn(
+                        "h-px w-5",
+                        st.done
+                          ? "bg-emerald-300 dark:bg-emerald-500/40"
+                          : "bg-zinc-200 dark:bg-zinc-700",
+                      )}
+                    />
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+
         <form
           id="checkoutForm"
           onSubmit={(e) => e.preventDefault()}
-          className="mt-6 grid gap-6 md:grid-cols-[minmax(0,1fr)_300px] lg:grid-cols-[minmax(0,1fr)_340px]"
+          className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]"
         >
           <div className="min-w-0 space-y-6">
-            {/* 1 — Your order (editable cart) */}
+            {/* Bag — phones/tablets only; on desktop it lives in the summary */}
+            <div className="lg:hidden">
+              <Section
+                icon={<ShoppingBag className="size-4" />}
+                title={tr(lang, "yourOrder")}
+                description={`${itemCount} ${tr(lang, "coItems")}`}
+                action={clearAction}
+              >
+                {bagList}
+              </Section>
+            </div>
+
+            {/* 1 — Delivery: region (where) + method (how) */}
             <Section
               step={1}
-              title={tr(lang, "yourOrder")}
-              action={
-                clearConfirm ? (
-                  <span className="flex items-center gap-2 text-xs">
-                    <span className="hidden font-medium text-zinc-500 sm:inline dark:text-zinc-400">
-                      {tr(lang, "clearAllConfirm")}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        clear();
-                        setClearConfirm(false);
-                      }}
-                      className="font-semibold text-red-600 hover:underline dark:text-red-400"
-                    >
-                      {tr(lang, "remove")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setClearConfirm(false)}
-                      className="font-medium text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-                    >
-                      {tr(lang, "cancel")}
-                    </button>
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setClearConfirm(true)}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-400 transition-colors hover:text-red-600 dark:hover:text-red-400"
-                  >
-                    <Trash2 className="size-3.5" />
-                    {tr(lang, "clearAll")}
-                  </button>
-                )
-              }
+              title={tr(lang, "coDelivery")}
+              description={tr(lang, "coDeliveryHint")}
+              done={regionDone && methodDone}
             >
-              <ul className="space-y-2.5">
-                {items.map((item) => {
-                  const img = fileUrl(item.image);
-                  const name = pick(lang, item.nameEn, item.nameKm);
-                  return (
-                    <li
-                      key={item.variantId}
-                      className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-white p-2.5 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
-                    >
-                      <Link
-                        href={`/products/${item.slug}`}
-                        className="size-16 shrink-0 overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-800"
-                      >
-                        {img && (
-                          <SafeImg
-                            src={img}
-                            alt={name}
-                            className="size-full object-cover transition-transform hover:scale-105"
-                          />
-                        )}
-                      </Link>
-                      <div className="min-w-0 flex-1">
-                        <Link
-                          href={`/products/${item.slug}`}
-                          className="line-clamp-1 text-sm font-semibold text-zinc-900 transition-colors hover:text-(--brand) dark:text-zinc-100"
-                        >
-                          {name}
-                        </Link>
-                        {item.variantLabel && (
-                          <p className="truncate text-xs text-zinc-400">
-                            {item.variantLabel}
-                          </p>
-                        )}
-                        <p className="mt-1 text-sm font-extrabold text-zinc-900 dark:text-zinc-100">
-                          {formatPrice(item.unitPrice * item.quantity)}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => removeItem(item.variantId)}
-                          aria-label={tr(lang, "remove")}
-                          className="rounded-lg p-1.5 text-zinc-300 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                        <div className="flex items-center rounded-full border border-zinc-200 dark:border-zinc-700">
-                          <button
-                            type="button"
-                            aria-label="-"
-                            onClick={() =>
-                              updateQty(item.variantId, item.quantity - 1)
-                            }
-                            className="flex size-7 items-center justify-center text-zinc-500 hover:text-(--brand) dark:text-zinc-300"
-                          >
-                            <Minus className="size-3.5" />
-                          </button>
-                          <span className="w-6 text-center text-sm font-semibold tabular-nums">
-                            {item.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            aria-label="+"
-                            onClick={() =>
-                              updateQty(item.variantId, item.quantity + 1)
-                            }
-                            className="flex size-7 items-center justify-center text-zinc-500 hover:text-(--brand) dark:text-zinc-300"
-                          >
-                            <Plus className="size-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-              <Link
-                href="/products"
-                className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-500 transition-colors hover:text-(--brand) dark:text-zinc-400"
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                {tr(lang, "coShipTo")}
+              </p>
+              <div
+                role="radiogroup"
+                aria-label={tr(lang, "shippingRegion")}
+                className={cn(
+                  "grid gap-2 rounded-2xl bg-zinc-100/80 p-1.5 dark:bg-zinc-800/60",
+                  regions.length >= 3 ? "sm:grid-cols-3" : "grid-cols-2",
+                )}
               >
-                <Plus className="size-3.5" />
-                {tr(lang, "continueShopping")}
-              </Link>
-            </Section>
-
-            {/* 2 — Region */}
-            <Section step={2} title={tr(lang, "shippingRegion")}>
-              <div className="grid grid-cols-2 gap-3">
                 {regions.map((r) => {
                   const icon = fileUrl(r.iconUrl);
                   const active = region === r.id;
+                  const opts = methods.filter(
+                    (m) => m.enabled && m.regionId === r.id,
+                  );
+                  const minFee = opts.length
+                    ? Math.min(...opts.map((m) => m.fee))
+                    : null;
                   return (
                     <button
                       key={r.id}
                       type="button"
+                      role="radio"
+                      aria-checked={active}
                       onClick={() => setRegion(r.id)}
-                      className={`group relative flex flex-col items-center gap-2.5 overflow-hidden rounded-2xl border-2 p-4 text-center transition-all active:scale-[0.98] ${
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all",
                         active
-                          ? "border-(--brand) bg-(--brand)/5 shadow-md shadow-(--brand)/10"
-                          : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600"
-                      }`}
-                    >
-                      {active && (
-                        <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-(--brand) text-white shadow-sm">
-                          <Check className="size-3" strokeWidth={3} />
-                        </span>
+                          ? "bg-white shadow-sm ring-1 ring-(--brand)/40 dark:bg-zinc-900"
+                          : "hover:bg-white/60 dark:hover:bg-zinc-900/40",
                       )}
+                    >
                       <span
-                        className={`flex size-14 items-center justify-center overflow-hidden rounded-full transition-colors ${
+                        className={cn(
+                          "flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg transition-colors",
                           active
-                            ? "bg-(--brand)/10"
-                            : "bg-zinc-100 dark:bg-zinc-800"
-                        }`}
+                            ? "bg-(--brand)/10 text-(--brand)"
+                            : "bg-white text-zinc-400 dark:bg-zinc-800",
+                        )}
                       >
                         {icon ? (
                           <SafeImg
@@ -1059,29 +1191,50 @@ export function CheckoutForm({
                             className="size-full object-cover"
                           />
                         ) : (
-                          <MapPin
-                            className={`size-6 ${active ? "text-(--brand)" : "text-zinc-400"}`}
-                          />
+                          <MapPin className="size-4" />
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={cn(
+                            "block truncate text-sm font-semibold",
+                            active
+                              ? "text-zinc-900 dark:text-zinc-100"
+                              : "text-zinc-600 dark:text-zinc-300",
+                          )}
+                        >
+                          {pick(lang, r.nameEn, r.nameKm)}
+                        </span>
+                        {minFee !== null && (
+                          <span className="block truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                            {minFee <= 0
+                              ? tr(lang, "coFreeDelivery")
+                              : `${tr(lang, "coFrom")} ${formatPrice(minFee)}`}
+                            {` · ${opts.length} ${tr(lang, "coOptions")}`}
+                          </span>
                         )}
                       </span>
                       <span
-                        className={`text-sm font-bold ${
+                        className={cn(
+                          "flex size-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
                           active
-                            ? "text-(--brand)"
-                            : "text-zinc-700 dark:text-zinc-200"
-                        }`}
+                            ? "border-(--brand)"
+                            : "border-zinc-300 dark:border-zinc-600",
+                        )}
                       >
-                        {pick(lang, r.nameEn, r.nameKm)}
+                        {active && (
+                          <span className="size-1.5 rounded-full bg-(--brand)" />
+                        )}
                       </span>
                     </button>
                   );
                 })}
               </div>
-            </Section>
 
-            {/* 3 — Delivery method */}
-            <Section step={3} title={tr(lang, "deliveryMethod")}>
-              <div className="space-y-2.5">
+              <p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                {tr(lang, "coHowReceive")}
+              </p>
+              <div className="grid gap-2.5 sm:grid-cols-2">
                 {available.map((m) => (
                   <MethodCard
                     key={m.id}
@@ -1092,7 +1245,7 @@ export function CheckoutForm({
                   />
                 ))}
                 {available.length === 0 && (
-                  <p className="rounded-xl bg-zinc-50 px-4 py-3 text-sm text-zinc-500 dark:bg-zinc-900/60">
+                  <p className="rounded-xl bg-zinc-50 px-4 py-3 text-sm text-zinc-500 sm:col-span-2 dark:bg-zinc-900/60">
                     {tr(lang, "noMethodsForRegion")}
                   </p>
                 )}
@@ -1100,7 +1253,7 @@ export function CheckoutForm({
 
               {isPickup && (
                 <div className="mt-4">
-                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
                     {tr(lang, "pickupBranch")}
                   </label>
                   <Popover open={branchOpen} onOpenChange={setBranchOpen}>
@@ -1137,9 +1290,7 @@ export function CheckoutForm({
                       className="w-(--radix-popover-trigger-width) p-0"
                     >
                       <Command>
-                        <CommandInput
-                          placeholder={tr(lang, "searchBranch")}
-                        />
+                        <CommandInput placeholder={tr(lang, "searchBranch")} />
                         <CommandList>
                           <CommandEmpty>
                             {tr(lang, "noBranchFound")}
@@ -1190,7 +1341,12 @@ export function CheckoutForm({
             </Section>
 
             {/* 4 — Customer info / address */}
-            <Section step={4} title={tr(lang, "yourInfo")}>
+            <Section
+              step={2}
+              title={tr(lang, "yourInfo")}
+              description={tr(lang, "coInfoHint")}
+              done={infoDone}
+            >
               {user && needsAddress ? (
                 <div className="space-y-2">
                   {addresses.map((a) => (
@@ -1262,7 +1418,7 @@ export function CheckoutForm({
                 <div className="space-y-3">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      <label className={labelClass}>
                         {tr(lang, "fullName")}
                       </label>
                       <input
@@ -1272,9 +1428,7 @@ export function CheckoutForm({
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                        {tr(lang, "phone")}
-                      </label>
+                      <label className={labelClass}>{tr(lang, "phone")}</label>
                       <input
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
@@ -1285,7 +1439,7 @@ export function CheckoutForm({
 
                   {needsAddress && (
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      <label className={labelClass}>
                         {tr(lang, "deliveryAddress")}
                       </label>
                       <textarea
@@ -1293,7 +1447,7 @@ export function CheckoutForm({
                         onChange={(e) => setAddress(e.target.value)}
                         rows={2}
                         placeholder={tr(lang, "addressPlaceholder")}
-                        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-(--brand) dark:border-zinc-700 dark:bg-zinc-900"
+                        className={cn(inputClass, "h-auto py-2.5")}
                       />
                       <button
                         type="button"
@@ -1325,10 +1479,8 @@ export function CheckoutForm({
                 </div>
               )}
 
-              <div className="mt-3">
-                <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                  {tr(lang, "orderNote")}
-                </label>
+              <div className="mt-4 border-t border-dashed border-zinc-200 pt-4 dark:border-zinc-800">
+                <label className={labelClass}>{tr(lang, "orderNote")}</label>
                 <input
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
@@ -1337,136 +1489,199 @@ export function CheckoutForm({
                 />
               </div>
             </Section>
+
+            {/* 3 — Payment. Desktop/tablet only: on phones it's chosen in the
+                bottom sheet opened by the Checkout button. */}
+            <div className="hidden md:block">
+              <Section
+                step={3}
+                title={tr(lang, "payment")}
+                description={tr(lang, "coPayHint")}
+                done={payDone}
+              >
+                {payMethodsUI}
+              </Section>
+            </div>
           </div>
 
           {/* Summary */}
-          <div className="min-w-0 md:sticky md:top-24 md:h-fit">
-            <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-xl backdrop-blur-xl dark:border-zinc-700/50 dark:bg-zinc-900/70">
-              <h2 className="flex items-center justify-between text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                {tr(lang, "orderSummary")}
-                <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                  {items.reduce((n, i) => n + i.quantity, 0)}
-                </span>
-              </h2>
-              {/* Payment — inline on desktop (mobile chooses it in the sheet) */}
-              <div className="mt-4 hidden md:block">
-                <p className="mb-2.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                  {tr(lang, "payment")}
-                </p>
-                {payMethodsUI}
-              </div>
-              {/* Voucher / promo code */}
-              <div className="mt-4">
-                {appliedCode ? (
-                  <div className="flex items-center justify-between gap-2 rounded-lg bg-emerald-50 px-3 py-2 dark:bg-emerald-500/10">
-                    <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                      <Check className="size-4 shrink-0" />
-                      <span className="font-mono">{appliedCode}</span>
-                      {voucherName && (
-                        <span className="truncate text-emerald-600/80 dark:text-emerald-300/70">
-                          · {voucherName}
+          <div className="min-w-0 lg:sticky lg:top-24 lg:h-fit">
+            <div className="overflow-hidden rounded-3xl border border-zinc-200/70 bg-white shadow-xl shadow-zinc-900/5 dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
+              <div className="h-1 bg-gradient-to-r from-(--brand)/60 via-(--brand) to-(--brand)/60" />
+              <div className="p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                    {tr(lang, "orderSummary")}
+                    <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 align-middle text-[11px] font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                      {itemCount} {tr(lang, "coItems")}
+                    </span>
+                  </h2>
+                  <div className="hidden lg:block">{clearAction}</div>
+                </div>
+                {/* Editable bag — desktop only (phones see it at the top) */}
+                <div className="mt-4 hidden max-h-[19rem] overflow-y-auto pr-1 lg:block">
+                  {bagList}
+                </div>
+                {/* Voucher / promo code */}
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                    {tr(lang, "coPromo")}
+                  </p>
+                  {appliedCode ? (
+                    <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+                      <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                        <Check className="size-4 shrink-0" />
+                        <span className="font-mono">{appliedCode}</span>
+                        {voucherName && (
+                          <span className="truncate text-emerald-600/80 dark:text-emerald-300/70">
+                            · {voucherName}
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={removeVoucher}
+                        className="shrink-0 text-xs font-medium text-emerald-700 underline dark:text-emerald-300"
+                      >
+                        {tr(lang, "remove")}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <div className="relative min-w-0 flex-1">
+                        <Tag className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+                        <input
+                          value={voucherInput}
+                          onChange={(e) => setVoucherInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (voucherInput.trim()) applyVoucher();
+                            }
+                          }}
+                          placeholder={tr(lang, "promoCode")}
+                          className="h-11 w-full rounded-xl border border-dashed border-zinc-300 bg-zinc-50/60 pl-9 pr-3 font-mono text-sm uppercase tracking-wide outline-none transition-all placeholder:font-sans placeholder:normal-case placeholder:tracking-normal focus:border-solid focus:border-(--brand) focus:bg-white focus:ring-4 focus:ring-(--brand)/10 dark:border-zinc-700 dark:bg-zinc-800/40 dark:focus:bg-zinc-900"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={applyVoucher}
+                        disabled={voucherLoading || !voucherInput.trim()}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
+                      >
+                        {voucherLoading && (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        )}
+                        {tr(lang, "apply")}
+                      </button>
+                    </div>
+                  )}
+                  {voucherAuto && discount > 0 && !appliedCode && (
+                    <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                      <Sparkles className="size-3" />
+                      {voucherName ?? tr(lang, "promoAuto")}
+                    </p>
+                  )}
+                  {voucherMsg && (
+                    <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                      {voucherMsg}
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-5 space-y-2.5 border-t border-zinc-100 pt-4 text-sm dark:border-zinc-800">
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500 dark:text-zinc-400">
+                      {tr(lang, "subtotal")}
+                    </span>
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                      {formatPrice(subtotal)}
+                    </span>
+                  </div>
+                  {discount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-emerald-600 dark:text-emerald-400">
+                        {voucherAppliesTo === "delivery"
+                          ? tr(lang, "deliveryDiscount")
+                          : tr(lang, "discount")}
+                      </span>
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                        −{formatPrice(discount)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500 dark:text-zinc-400">
+                      {tr(lang, "deliveryFee")}
+                    </span>
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                      {fee > 0 ? (
+                        formatPrice(fee)
+                      ) : (
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          {tr(lang, "free")}
                         </span>
                       )}
                     </span>
-                    <button
-                      type="button"
-                      onClick={removeVoucher}
-                      className="shrink-0 text-xs font-medium text-emerald-700 underline dark:text-emerald-300"
-                    >
-                      {tr(lang, "remove")}
-                    </button>
                   </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <input
-                      value={voucherInput}
-                      onChange={(e) => setVoucherInput(e.target.value)}
-                      placeholder={tr(lang, "promoCode")}
-                      className="h-10 w-full min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-3 text-sm uppercase outline-none transition-colors focus:border-(--brand) dark:border-zinc-700 dark:bg-zinc-900"
-                    />
-                    <button
-                      type="button"
-                      onClick={applyVoucher}
-                      disabled={voucherLoading || !voucherInput.trim()}
-                      className="rounded-lg bg-zinc-900 px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
-                    >
-                      {tr(lang, "apply")}
-                    </button>
-                  </div>
-                )}
-                {voucherAuto && discount > 0 && !appliedCode && (
-                  <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                    <Sparkles className="size-3" />
-                    {voucherName ?? tr(lang, "promoAuto")}
-                  </p>
-                )}
-                {voucherMsg && (
-                  <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">
-                    {voucherMsg}
-                  </p>
-                )}
-              </div>
-
-              <div className="mt-4 space-y-2 border-t border-zinc-100 pt-4 text-sm dark:border-zinc-800">
-                <div className="flex justify-between">
-                  <span className="text-zinc-500 dark:text-zinc-400">
-                    {tr(lang, "subtotal")}
+                </div>
+                <div className="mt-4 flex items-end justify-between rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-zinc-800/50">
+                  <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+                    {tr(lang, "total")}
                   </span>
-                  <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                    {formatPrice(subtotal)}
+                  <span className="text-2xl font-extrabold tracking-tight text-(--brand)">
+                    {formatPrice(grandTotal)}
                   </span>
                 </div>
-                {discount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-emerald-600 dark:text-emerald-400">
-                      {voucherAppliesTo === "delivery"
-                        ? tr(lang, "deliveryDiscount")
-                        : tr(lang, "discount")}
-                    </span>
-                    <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                      −{formatPrice(discount)}
-                    </span>
-                  </div>
+
+                {error && (
+                  <p className="mt-3 flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 dark:bg-red-500/10 dark:text-red-400">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                    {error}
+                  </p>
                 )}
-                <div className="flex justify-between">
-                  <span className="text-zinc-500 dark:text-zinc-400">
-                    {tr(lang, "deliveryFee")}
-                  </span>
-                  <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                    {fee > 0 ? formatPrice(fee) : tr(lang, "free")}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-3 dark:border-zinc-800">
-                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                  {tr(lang, "total")}
-                </span>
-                <span className="text-lg font-extrabold text-(--brand)">
-                  {formatPrice(grandTotal)}
-                </span>
-              </div>
 
-              {error && (
-                <p className="mt-3 text-sm font-medium text-red-600 dark:text-red-400">
-                  {error}
-                </p>
-              )}
-
-              {/* Desktop CTA — payment is inline above, so place the
+                {/* Desktop CTA — payment is inline above, so place the
                             order directly (mobile uses the sheet via the dock). */}
-              <button
-                type="button"
-                onClick={handleDesktopPay}
-                disabled={submitting}
-                className="mt-5 hidden w-full items-center justify-center gap-2 rounded-full bg-(--brand) px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-60 md:flex"
-              >
-                {submitting ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <ShoppingBag className="size-4" />
-                )}
-                {submitting ? tr(lang, "placingOrder") : tr(lang, "placeOrder")}
-              </button>
+                <button
+                  type="button"
+                  onClick={handleDesktopPay}
+                  disabled={submitting}
+                  className="group mt-5 hidden w-full items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-(--brand) px-5 py-4 text-sm font-bold text-white shadow-lg shadow-(--brand)/30 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-(--brand)/35 active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:opacity-60 md:flex"
+                >
+                  {submitting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Lock className="size-4" />
+                  )}
+                  {submitting ? (
+                    tr(lang, "placingOrder")
+                  ) : (
+                    <>
+                      {tr(lang, "placeOrder")}
+                      <span className="opacity-60">·</span>
+                      {formatPrice(grandTotal)}
+                      <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                    </>
+                  )}
+                </button>
+              </div>
+              {/* Trust row */}
+              <div className="grid grid-cols-3 border-t border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/30">
+                {[
+                  { icon: ShieldCheck, key: "coTrustSecure" },
+                  { icon: Truck, key: "coTrustFast" },
+                  { icon: Headphones, key: "coTrustSupport" },
+                ].map(({ icon: Icon, key }) => (
+                  <span
+                    key={key}
+                    className="flex flex-col items-center gap-1 px-2 py-3 text-center text-[11px] font-medium text-zinc-500 dark:text-zinc-400"
+                  >
+                    <Icon className="size-4 text-(--brand)" />
+                    {tr(lang, key)}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </form>

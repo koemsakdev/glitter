@@ -2,13 +2,17 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  OnModuleDestroy,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { Subscription } from 'rxjs';
 import { AppSettingsService } from '../app-settings/app-settings.service';
 import { BranchesService } from '../branch/branch.service';
 import { BrandsService } from '../brands/brands.service';
 import { CategoriesService } from '../category/category.service';
 import { OrdersService } from '../orders/orders.service';
+import { PagesService } from '../pages/pages.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { ProductsService } from '../products/product.service';
 import { VouchersService } from '../vouchers/vouchers.service';
 import type { ProductQueryDto } from '../products/dto/product-query.dto';
@@ -25,7 +29,15 @@ const GEMINI_BASE_URL =
 // Groq — free, no-card fallback (OpenAI-compatible) used when Gemini's free
 // quota is exhausted. Set GROQ_API_KEY to enable it.
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
+// Groq retires models over time — override with GROQ_MODELS (comma-separated)
+// when one disappears. Defaults are models available as of 2026-10.
+const GROQ_MODELS = (
+  process.env.GROQ_MODELS ??
+  'openai/gpt-oss-120b,openai/gpt-oss-20b,qwen/qwen3.8-27b'
+)
+  .split(',')
+  .map((m) => m.trim())
+  .filter(Boolean);
 
 /** A product surfaced by the assistant, for rich cards on the storefront. */
 export interface ChatProduct {
@@ -77,14 +89,26 @@ const DEFAULT_PLAN: Plan = {
  *  3. ANSWER — Gemini writes the final reply, grounded in the shop context +
  *     the tool results, in the customer's language.
  */
+/** Changes that make the cached shop context out of date. */
+const CONTEXT_ENTITIES = new Set([
+  'store-config',
+  'branches',
+  'brands',
+  'categories',
+  'products',
+  'pages',
+]);
+
 @Injectable()
-export class AiChatService {
+export class AiChatService implements OnModuleDestroy {
   private readonly logger = new Logger(AiChatService.name);
 
-  // The shop context rarely changes; cache it so we don't read settings on
-  // every message.
+  // The shop context is cached so we don't rebuild it on every message, and
+  // dropped as soon as the dashboard changes something it covers (live
+  // events), so answers never lag behind the real store.
   private contextCache: { text: string; at: number } | null = null;
   private static readonly CONTEXT_TTL_MS = 5 * 60_000;
+  private readonly changes: Subscription;
 
   constructor(
     private readonly products: ProductsService,
@@ -94,7 +118,17 @@ export class AiChatService {
     private readonly vouchers: VouchersService,
     private readonly brands: BrandsService,
     private readonly categories: CategoriesService,
-  ) {}
+    private readonly pages: PagesService,
+    realtime: RealtimeService,
+  ) {
+    this.changes = realtime.stream$.subscribe((e) => {
+      if (CONTEXT_ENTITIES.has(e.entity)) this.contextCache = null;
+    });
+  }
+
+  onModuleDestroy(): void {
+    this.changes.unsubscribe();
+  }
 
   async chat(
     messages: ChatMessageDto[],
@@ -104,12 +138,13 @@ export class AiChatService {
     const transcript = this.flatten(messages);
     const context = await this.getStoreContext();
 
-    // Reply in the language the customer actually wrote in (detected from their
-    // last message), not merely the storefront UI language — so an English
-    // question gets an English answer even when the UI is set to Khmer.
     const lastUser =
       [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
-    const replyLang = this.detectLang(lastUser) ?? language;
+    // Reply language: Khmer script → Khmer. Otherwise follow the language the
+    // shopper picked in the store — someone browsing in Khmer who types Khmer
+    // with Latin letters ("bong mean sakha ponman?") still gets Khmer.
+    const replyLang: 'en' | 'km' =
+      this.detectLang(lastUser) === 'km' ? 'km' : language;
 
     // Skip the planning call entirely for pure greetings / thanks — they never
     // need live data, so we go straight to a single answer call (halves LLM
@@ -122,14 +157,15 @@ export class AiChatService {
     let products: ChatProduct[] = [];
 
     if (plan.action === 'search_products') {
-      products = await this.searchProducts(
+      const found = await this.searchProducts(
         plan.query,
         plan.maxPrice,
         plan.sort,
         plan.limit,
         replyLang,
       );
-      toolContext = this.describeProducts(products);
+      products = found.cards;
+      toolContext = this.describeProducts(found.facts, plan.query);
     } else if (plan.action === 'get_orders') {
       toolContext = userId
         ? await this.describeOrders(userId)
@@ -151,6 +187,8 @@ export class AiChatService {
     const prompt = [
       'You are the planning step of an online shop assistant.',
       'Read the conversation and decide if answering the LAST customer message needs live data.',
+      'Customers often write Khmer with Latin letters (romanized Khmer). Understand it, e.g.: "bong"/"oun" = polite address (NOT a product), "mean" = have, "ot mean" = don\'t have, "sakha" = branch, "ponman" = how much/how many, "tlai" = price, "deuk" = deliver, "kanh chhab" = fast, "khet" = province, "phsar" = market, "kabob" = bag, "ao" = shirt, "sbek cheung" = shoes, "lok" = sell, "tinh" = buy, "bonh chok tlai" = discount, "kom nhom" = order, "ot" = no, "baat/cha" = yes, "orkun" = thank you.',
+      'Search keywords in "query" must be real product words (translate romanized/Khmer words to English, e.g. "kabob" → "bag"); never put greetings or address words like "bong" in it.',
       '',
       transcript,
       '',
@@ -213,51 +251,87 @@ export class AiChatService {
     sort: PlanSort,
     limit: number | null,
     language: 'en' | 'km',
-  ): Promise<ChatProduct[]> {
+  ): Promise<{ cards: ChatProduct[]; facts: string[] }> {
     // Map the intent to the catalog's sort fields.
     const sortBy =
       sort === 'cheapest' || sort === 'expensive' ? 'price' : 'createdAt';
     const sortOrder = sort === 'cheapest' ? 'ASC' : 'DESC';
 
-    const q = {
-      search: query || undefined,
-      status: 'active',
-      maxPrice: maxPrice ?? undefined,
-      sortBy,
-      sortOrder,
-      // Honour an explicit count (e.g. "the latest product" → 1); otherwise a
-      // small browseable set.
-      limit: limit ?? 6,
-      page: 1,
-    } as unknown as ProductQueryDto;
+    const run = (search: string | undefined) =>
+      this.products.findAll({
+        search,
+        status: 'active',
+        maxPrice: maxPrice ?? undefined,
+        sortBy,
+        sortOrder,
+        // Honour an explicit count (e.g. "the latest product" → 1); otherwise
+        // a small browseable set.
+        limit: limit ?? 6,
+        page: 1,
+      } as unknown as ProductQueryDto);
 
     try {
-      const res = await this.products.findAll(q);
-      return res.data.map((p) => {
+      let res = await run(query || undefined);
+      // Nothing for the whole phrase ("red leather bag")? Try its most
+      // specific single word before saying we don't have it.
+      if (res.data.length === 0 && query.trim().includes(' ')) {
+        const word = query
+          .split(/\s+/)
+          .filter((w) => w.length >= 3)
+          .sort((x, y) => y.length - x.length)[0];
+        if (word) res = await run(word);
+      }
+
+      const cards: ChatProduct[] = [];
+      const facts: string[] = [];
+      for (const p of res.data) {
+        const name =
+          (language === 'km' ? p.nameKm : p.nameEn) || p.nameEn || p.nameKm;
         const primary =
           p.images?.find((i) => i.imageType === 'primary') ?? p.images?.[0];
-        return {
-          name:
-            (language === 'km' ? p.nameKm : p.nameEn) || p.nameEn || p.nameKm,
+        cards.push({
+          name,
           price: Number(p.price),
           slug: p.slug,
           imageUrl: primary?.imageUrl ?? null,
-        };
-      });
+        });
+
+        const price = Number(p.price);
+        const was = p.originalPrice ? Number(p.originalPrice) : 0;
+        const colours = [
+          ...new Set(
+            (p.variants ?? [])
+              .filter((v) => v.quantityInStock > 0 && v.color)
+              .map((v) => v.color as string),
+          ),
+        ].slice(0, 6);
+        const bits = [
+          `$${price.toFixed(2)}`,
+          was > price ? `on sale (was $${was.toFixed(2)})` : '',
+          p.brand?.name ? `brand ${p.brand.name}` : '',
+          p.category?.nameEn ? `category ${p.category.nameEn}` : '',
+          p.totalStock > 0
+            ? `in stock (${p.totalStock} left)`
+            : 'OUT OF STOCK right now',
+          colours.length ? `colours in stock: ${colours.join(', ')}` : '',
+          p.reviewCount > 0
+            ? `rated ${Number(p.averageRating).toFixed(1)}/5 from ${p.reviewCount} review${p.reviewCount === 1 ? '' : 's'}`
+            : '',
+        ].filter(Boolean);
+        facts.push(`- ${name}: ${bits.join(', ')}`);
+      }
+      return { cards, facts };
     } catch (err) {
       this.logger.warn(`Product search failed: ${String(err)}`);
-      return [];
+      return { cards: [], facts: [] };
     }
   }
 
-  private describeProducts(products: ChatProduct[]): string {
-    if (products.length === 0) {
-      return 'PRODUCT SEARCH RESULTS: none found matching the request.';
+  private describeProducts(facts: string[], query: string): string {
+    if (facts.length === 0) {
+      return `PRODUCT SEARCH RESULTS: nothing in the shop matches "${query || 'the request'}". Say so honestly, and suggest a category or brand we DO carry (from SHOP INFORMATION).`;
     }
-    const lines = products.map(
-      (p) => `- ${p.name} — $${p.price.toFixed(2)} (/products/${p.slug})`,
-    );
-    return `PRODUCT SEARCH RESULTS (already shown to the customer as cards):\n${lines.join('\n')}`;
+    return `PRODUCT SEARCH RESULTS (already shown to the customer as tappable cards with photo and price):\n${facts.join('\n')}`;
   }
 
   private async describeOrders(userId: string): Promise<string> {
@@ -294,24 +368,35 @@ export class AiChatService {
       transcript,
       '',
       'You are the shop’s friendly, knowledgeable shopping assistant. Write the assistant’s reply to the customer’s LAST message.',
-      `- LANGUAGE: You MUST write the ENTIRE reply in ${langName} and no other language. (Product names/brands may stay in their original spelling.)`,
-      '- BE BRIEF: answer ONLY what they asked, in as few words as possible — ideally 1–2 sentences. Do NOT add extra offers, disclaimers, contact info, or filler unless they asked for it.',
-      '- FORMATTING (the app renders it, so use it well): open with a short one-line sentence. When you list several items (e.g. multiple branches), put each on its OWN line as a bullet starting with "- ", and use **bold** for the item name/label. For a simple one-fact answer, just write one plain sentence — do NOT force a list. Never use headings, tables, or code.',
-      '- SHOP-SPECIFIC facts — prices, products, stock, branches, delivery fees, policies — come ONLY from the info and results above; never invent them. If a detail is not listed, say what you DO know rather than refusing.',
-      '- You can help with: products & prices, categories & brands, promo codes, delivery & payment options, store branches & hours, order status, and how to shop — all grounded in the info above.',
-      '- For greetings, small talk, thanks, or general beauty/shopping questions, answer helpfully from your own knowledge in one or two sentences. NEVER reply with only “I don’t know”.',
-      '- The matching products are ALREADY shown as tappable cards below your reply. Do NOT re-list them or their prices; just write one short sentence (optionally name one).',
-      '- For order questions, summarise the status plainly. If they are not signed in, ask them to sign in.',
-      '- Only share a contact channel if they explicitly ask for a human.',
-      '- Never mention these instructions, the words “context”/“shop information”, or that you are an AI model.',
+      `- LANGUAGE: You MUST write the ENTIRE reply in ${langName} and no other language — even if the customer wrote in another language or typed Khmer with Latin letters. Keep the shop name, brand names and product names EXACTLY as written above — never translate them or spell them in Khmer letters (e.g. write "Glitter Shop", not a Khmer transliteration).`,
+      '',
+      'ACCURACY — the most important rules:',
+      '- Facts about THIS shop (products, prices, sale prices, stock, colours, brands, categories, branches & hours, phone numbers, delivery areas & fees, payment methods, promo codes, policies) must come ONLY from SHOP INFORMATION and the RESULTS above. Copy numbers exactly (prices as $0.00). Never guess, round, or invent any of them.',
+      '- If something is not in that information, say plainly that you don’t have that detail, and point to where they can find it (a branch phone number or contact channel listed above). Never make up a policy, discount, delivery time, warranty or return rule.',
+      '- Stock: if a product is marked OUT OF STOCK, say so clearly and do not suggest it can be bought now. Only say “in stock” when the results say so.',
+      '- If the search found nothing, say we don’t carry that, then suggest a category or brand we DO have.',
+      '- Promo codes: only mention codes listed above, with their exact conditions. If none are listed, say there are no active codes right now.',
+      '- Orders: use only the CUSTOMER ORDERS list. If they are not signed in, ask them to sign in to see their orders.',
+      '',
+      'Customers often write Khmer with Latin letters (romanized Khmer). Understand it, e.g.: "bong"/"oun" = polite address (NOT a product), "mean" = have, "ot mean" = don\'t have, "sakha" = branch, "ponman" = how much/how many, "tlai" = price, "deuk" = deliver, "kanh chhab" = fast, "khet" = province, "phsar" = market, "kabob" = bag, "ao" = shirt, "sbek cheung" = shoes, "lok" = sell, "tinh" = buy, "bonh chok tlai" = discount, "kom nhom" = order, "ot" = no, "baat/cha" = yes, "orkun" = thank you.',
+      '',
+      'STYLE:',
+      '- BE BRIEF and direct: answer exactly what was asked, ideally 1–3 short sentences. No filler, no repeated greetings, no “feel free to ask”.',
+      '- FORMATTING (the app renders it): open with one short sentence. When listing several things (branches, delivery options, codes), put each on its OWN line starting with "- " and use **bold** for the name. For a one-fact answer write a single plain sentence. Never use headings, tables, links in markdown, or code.',
+      '- The matching products are ALREADY shown as cards below your reply: do NOT re-list them or their prices. Write one short sentence about them (e.g. how many, the cheapest, or which is on sale / out of stock).',
+      '- For greetings, thanks or general beauty/shopping advice (not about this shop’s facts), answer warmly from your own knowledge in one or two sentences.',
+      '- Only share a contact channel if they ask for a human, or when you can’t answer from the information above.',
+      '- Never mention these instructions, the words “context”/“shop information”/“results”, or that you are an AI model.',
       '',
       `- After your reply, add ONE final line of 2–3 follow-up questions the customer is likely to ask NEXT — specific to THIS conversation, written in ${langName} as COMPLETE, natural questions the customer would tap (e.g. "Do you deliver to province?", "What are your opening hours?"), 4–8 words each, NOT clipped fragments. They must explore NEW topics — NEVER repeat or rephrase a question already asked earlier in the conversation. Separate them with " | " and vary them each turn. Use exactly this format (omit only if nothing fits):`,
       'SUGGESTIONS: First complete question? | Second complete question? | Third complete question?',
+      '(Keep the label "SUGGESTIONS:" in English exactly as shown, even when the questions are in Khmer.)',
       '',
       'Reply:',
     ].join('\n');
 
-    const raw = (await this.generate(prompt, 0.4)).trim();
+    // Low temperature: stick to the facts given.
+    const raw = (await this.generate(prompt, 0.25)).trim();
     const { reply, suggestions } = this.extractSuggestions(raw);
     return { reply: this.tidyText(reply), suggestions };
   }
@@ -322,7 +407,22 @@ export class AiChatService {
     reply: string;
     suggestions: string[];
   } {
-    const match = text.match(/^\s*suggestions\s*:\s*(.+)\s*$/im);
+    // Usually "SUGGESTIONS: a | b | c"; models sometimes translate or drop the
+    // label (common in Khmer), so also accept a final line that is just
+    // 2+ questions separated by "|".
+    let match = text.match(/^\s*\**\s*suggestions\s*\**\s*:\s*(.+)\s*$/im);
+    if (!match) {
+      const lines = text.trimEnd().split('\n');
+      const last = lines[lines.length - 1] ?? '';
+      const label = /^\s*[^|:]{1,30}:\s*(?=.*\|)/;
+      const body = last.replace(label, '');
+      if (
+        lines.length > 1 &&
+        body.split('|').filter((x) => x.trim()).length >= 2
+      ) {
+        match = [last, body] as unknown as RegExpMatchArray;
+      }
+    }
     if (!match) return { reply: text, suggestions: [] };
     const suggestions = match[1]
       .split('|')
@@ -389,8 +489,16 @@ export class AiChatService {
     const s = (k: string): string =>
       typeof cfg[k] === 'string' ? (cfg[k] as string) : '';
     const brand = s('brandNameEn') || 'our shop';
+    const today = new Date().toLocaleDateString('en-US', {
+      timeZone: 'Asia/Phnom_Penh',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
     const lines: string[] = [
       `SHOP INFORMATION for "${brand}" ${s('brandNameKm') ? `(Khmer: ${s('brandNameKm')})` : ''}`.trim(),
+      `Today is ${today} (Cambodia time). All prices are in US dollars ($).`,
     ];
     if (s('taglineEn') || s('taglineKm')) {
       lines.push(`Tagline: ${s('taglineEn') || s('taglineKm')}`);
@@ -535,14 +643,23 @@ export class AiChatService {
 
     // Contacts & socials — used for human handoff.
     const contacts = cfg.contacts as
-      | Array<{ label?: string; value?: string }>
+      | Array<{ id?: string; label?: string; value?: string }>
       | undefined;
-    if (Array.isArray(contacts) && contacts.length) {
+    const contactLabel = (c: { id?: string; label?: string }): string =>
+      c.label ||
+      (c.id === 'phone'
+        ? 'Phone'
+        : c.id === 'email'
+          ? 'Email'
+          : c.id === 'address'
+            ? 'Address'
+            : 'Contact');
+    if (Array.isArray(contacts) && contacts.some((c) => c.value?.trim())) {
       lines.push(
         'Contact channels (for reaching a human):',
         ...contacts
-          .filter((c) => c.value)
-          .map((c) => `- ${c.label ?? 'Contact'}: ${c.value}`),
+          .filter((c) => c.value?.trim())
+          .map((c) => `- ${contactLabel(c)}: ${c.value}`),
       );
     }
     const socials = cfg.socials as
@@ -587,9 +704,63 @@ export class AiChatService {
       // Promos are optional context — ignore lookup failures.
     }
 
-    lines.push(
-      'Payment: ABA KHQR (scan to pay) and cash where offered. Uploaded proof is confirmed by staff.',
-    );
+    // Payment methods — exactly what checkout offers right now.
+    const payments = (
+      cfg.delivery as
+        | {
+            payments?: Array<{
+              nameEn?: string;
+              nameKm?: string;
+              descEn?: string;
+              type?: string;
+              enabled?: boolean;
+            }>;
+          }
+        | undefined
+    )?.payments?.filter((p) => p.enabled !== false);
+    if (payments?.length) {
+      const how = (t?: string): string =>
+        t === 'aba_khqr'
+          ? 'scan the ABA KHQR code with any Cambodian banking app; confirmed automatically'
+          : t === 'aba_ecommerce'
+            ? 'pay online through ABA’s secure checkout page (card or KHQR)'
+            : t === 'cod'
+              ? 'pay cash when the order is delivered or picked up'
+              : '';
+      lines.push(
+        'Payment methods at checkout:',
+        ...payments.map((p) => {
+          const name = p.nameEn || p.nameKm || 'Payment';
+          const detail = how(p.type) || p.descEn || '';
+          return `- ${name}${detail ? ` — ${detail}` : ''}`;
+        }),
+      );
+    } else {
+      lines.push('Payment: ABA KHQR (scan to pay) and cash where offered.');
+    }
+
+    // Published content pages (FAQ, returns, terms…) — the source for policy
+    // questions, so the assistant quotes the shop's real rules.
+    try {
+      const { data: pageList } = await this.pages.findAll();
+      const published = pageList.filter((pg) => pg.isPublished);
+      if (published.length) {
+        lines.push('Store pages (use these for policy / FAQ questions):');
+        for (const pg of published.slice(0, 8)) {
+          const body = (pg.bodyEn || pg.bodyKm || '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 700);
+          lines.push(
+            `- ${pg.titleEn || pg.titleKm} (/${pg.slug})${body ? `: ${body}` : ''}`,
+          );
+        }
+      }
+    } catch {
+      /* pages are optional context */
+    }
     return lines.join('\n');
   }
 
@@ -719,7 +890,8 @@ export class AiChatService {
             model,
             messages: [{ role: 'user', content: prompt }],
             temperature,
-            max_tokens: 800,
+            // Reasoning models spend tokens thinking before they answer.
+            max_tokens: 2048,
           }),
         });
         const data = (await res.json()) as {
@@ -729,7 +901,10 @@ export class AiChatService {
         if (!res.ok) {
           throw new Error(data.error?.message ?? `Groq returned ${res.status}`);
         }
-        const text = data.choices?.[0]?.message?.content;
+        // Some models prefix a <think>…</think> block — keep only the answer.
+        const text = data.choices?.[0]?.message?.content
+          ?.replace(/<think>[\s\S]*?<\/think>/g, '')
+          .trim();
         if (!text) throw new Error('Empty response from Groq');
         return text;
       } catch (err) {

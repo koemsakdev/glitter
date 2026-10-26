@@ -1,28 +1,28 @@
 'use client';
 
-import {zodResolver} from '@hookform/resolvers/zod';
-import {Eye, EyeOff, Loader2} from 'lucide-react';
-import {useRouter} from 'next/navigation';
-import {useState} from 'react';
-import {Controller, useForm} from 'react-hook-form';
-import {z} from 'zod';
-import {LanguageToggle} from '@/components/language-toggle';
-import {ThemeToggle} from '@/components/theme-toggle';
-import {Button} from '@/components/ui/button';
-import {Card, CardContent} from '@/components/ui/card';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { LanguageToggle } from '@/components/language-toggle';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
     Field,
     FieldError,
     FieldGroup,
     FieldLabel,
 } from '@/components/ui/field';
-import {Input} from '@/components/ui/input';
-import {useLogin} from '@/features/auth/use-auth';
+import { Input } from '@/components/ui/input';
+import { useLogin } from '@/features/auth/use-auth';
 import { collectClientInfo } from '@/lib/client-info';
-import {getErrorMessage} from '@/lib/api-client';
-import {useI18n} from '@/lib/i18n';
+import { getErrorMessage } from '@/lib/api-client';
+import { useI18n } from '@/lib/i18n';
 import Image from 'next/image';
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from '@/hooks/use-toast';
 
 const loginSchema = z.object({
     username: z.string().trim().min(1, 'login.username.required'),
@@ -34,13 +34,13 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export function LoginForm() {
     const router = useRouter();
     const login = useLogin();
-    const {t} = useI18n();
+    const { t } = useI18n();
     const [showPassword, setShowPassword] = useState(false);
     const { toast } = useToast();
 
     const form = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
-        defaultValues: {username: '', password: ''},
+        defaultValues: { username: '', password: '' },
     });
 
     async function onSubmit(values: LoginFormValues) {
@@ -55,6 +55,7 @@ export function LoginForm() {
                     title: t('common.toast.success'),
                     description: t('login.staffOnly'),
                     variant: 'success',
+                    important: true,
                 });
                 return;
             }
@@ -64,7 +65,9 @@ export function LoginForm() {
                 description: `${t('login.welcome')}, ${result.user.fullName}`,
                 variant: 'success',
             });
-            router.push('/dashboard');
+            router.push(
+                result.user.mustChangePassword ? '/set-password' : '/dashboard',
+            );
         } catch (error) {
             toast({
                 title: t('common.toast.error'),
@@ -77,11 +80,11 @@ export function LoginForm() {
     return (
         <Card className="relative w-full max-w-md overflow-hidden border-border/50 shadow-2xl">
             <div className="absolute right-3 top-3 z-10 flex items-center gap-1">
-                <ThemeToggle/>
-                <LanguageToggle/>
+                <ThemeToggle />
+                <LanguageToggle />
             </div>
 
-            <div className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-pink-300 via-accent to-pink-300 dark:from-pink-800 dark:via-accent dark:to-pink-800"/>
+            <div className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-pink-300 via-accent to-pink-300 dark:from-pink-800 dark:via-accent dark:to-pink-800" />
 
             <CardContent className="px-8 pb-8 pt-12">
                 <div className="mb-8 flex flex-col items-center gap-3 text-center">
@@ -100,9 +103,7 @@ export function LoginForm() {
                         >
                             {t('login.title')}
                         </h1>
-                        <p
-                            className={`mt-1 text-sm text-muted-foreground`}
-                        >
+                        <p className={`mt-1 text-sm text-muted-foreground`}>
                             {t('login.subtitle')}
                         </p>
                     </div>
@@ -114,7 +115,7 @@ export function LoginForm() {
                         <Controller
                             name="username"
                             control={form.control}
-                            render={({field, fieldState}) => (
+                            render={({ field, fieldState }) => (
                                 <Field data-invalid={fieldState.invalid}>
                                     <FieldLabel htmlFor="login-username">
                                         {t('login.username')}
@@ -123,7 +124,9 @@ export function LoginForm() {
                                         {...field}
                                         id="login-username"
                                         type="text"
-                                        placeholder={t('login.username.placeholder')}
+                                        placeholder={t(
+                                            'login.username.placeholder',
+                                        )}
                                         autoComplete="username"
                                         autoCapitalize="none"
                                         spellCheck={false}
@@ -136,7 +139,8 @@ export function LoginForm() {
                                                 {
                                                     ...fieldState.error,
                                                     message: t(
-                                                        (fieldState.error.message ??
+                                                        (fieldState.error
+                                                            .message ??
                                                             'login.username.required') as never,
                                                     ),
                                                 },
@@ -150,7 +154,7 @@ export function LoginForm() {
                         <Controller
                             name="password"
                             control={form.control}
-                            render={({field, fieldState}) => (
+                            render={({ field, fieldState }) => (
                                 <Field data-invalid={fieldState.invalid}>
                                     <FieldLabel htmlFor="login-password">
                                         {t('login.password')}
@@ -159,15 +163,23 @@ export function LoginForm() {
                                         <Input
                                             {...field}
                                             id="login-password"
-                                            type={showPassword ? 'text' : 'password'}
+                                            type={
+                                                showPassword
+                                                    ? 'text'
+                                                    : 'password'
+                                            }
                                             autoComplete="current-password"
-                                            placeholder={t('login.password.placeholder')}
+                                            placeholder={t(
+                                                'login.password.placeholder',
+                                            )}
                                             aria-invalid={fieldState.invalid}
                                             className="h-11 pr-10 w-full shadow-none focus:shadow-none focus-visible:shadow-none focus:outline-0 focus-visible:outline-none focus:ring-0 focus-visible:ring-0 rounded-lg focus-visible:border-pink-500 dark:focus-visible:border-pink-800"
                                         />
                                         <button
                                             type="button"
-                                            onClick={() => setShowPassword((s) => !s)}
+                                            onClick={() =>
+                                                setShowPassword((s) => !s)
+                                            }
                                             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                                             aria-label={
                                                 showPassword
@@ -177,9 +189,9 @@ export function LoginForm() {
                                             tabIndex={-1}
                                         >
                                             {showPassword ? (
-                                                <EyeOff className="h-4 w-4"/>
+                                                <EyeOff className="h-4 w-4" />
                                             ) : (
-                                                <Eye className="h-4 w-4"/>
+                                                <Eye className="h-4 w-4" />
                                             )}
                                         </button>
                                     </div>
@@ -189,7 +201,8 @@ export function LoginForm() {
                                                 {
                                                     ...fieldState.error,
                                                     message: t(
-                                                        (fieldState.error.message ??
+                                                        (fieldState.error
+                                                            .message ??
                                                             'login.password.required') as never,
                                                     ),
                                                 },
@@ -206,7 +219,7 @@ export function LoginForm() {
                             disabled={login.isPending}
                         >
                             {login.isPending && (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             )}
                             {t('login.submit')}
                         </Button>

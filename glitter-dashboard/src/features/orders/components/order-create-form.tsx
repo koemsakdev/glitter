@@ -139,7 +139,9 @@ export function OrderCreateForm() {
     }
 
     function removeLine(variantId: string) {
-        setItems((prev) => prev.filter((l) => l.productVariantId !== variantId));
+        setItems((prev) =>
+            prev.filter((l) => l.productVariantId !== variantId),
+        );
     }
 
     const canSubmit =
@@ -185,7 +187,11 @@ export function OrderCreateForm() {
 
         try {
             const order = await createOrder.mutateAsync(payload);
-            toast({ title: t('order.create.success'), variant: 'success' });
+            toast({
+                title: t('order.create.success'),
+                variant: 'success',
+                important: true,
+            });
             router.push(`/dashboard/orders/${order.id}`);
         } catch (error) {
             toast({
@@ -260,10 +266,18 @@ export function OrderCreateForm() {
                                                             <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/60 bg-muted/40">
                                                                 {line.imageUrl ? (
                                                                     <Image
-                                                                        src={line.imageUrl}
-                                                                        alt={line.productName}
-                                                                        width={44}
-                                                                        height={44}
+                                                                        src={
+                                                                            line.imageUrl
+                                                                        }
+                                                                        alt={
+                                                                            line.productName
+                                                                        }
+                                                                        width={
+                                                                            44
+                                                                        }
+                                                                        height={
+                                                                            44
+                                                                        }
                                                                         className="size-full object-cover"
                                                                         unoptimized
                                                                     />
@@ -273,7 +287,9 @@ export function OrderCreateForm() {
                                                             </div>
                                                             <div className="min-w-0">
                                                                 <div className="truncate font-medium">
-                                                                    {line.productName}
+                                                                    {
+                                                                        line.productName
+                                                                    }
                                                                 </div>
                                                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                                                     {line.color &&
@@ -287,9 +303,16 @@ export function OrderCreateForm() {
                                                                             />
                                                                         )}
                                                                     <span>
-                                                                        {[line.size, line.color]
-                                                                            .filter(Boolean)
-                                                                            .join(' · ') ||
+                                                                        {[
+                                                                            line.size,
+                                                                            line.color,
+                                                                        ]
+                                                                            .filter(
+                                                                                Boolean,
+                                                                            )
+                                                                            .join(
+                                                                                ' · ',
+                                                                            ) ||
                                                                             line.variantSku}
                                                                     </span>
                                                                 </div>
@@ -297,19 +320,29 @@ export function OrderCreateForm() {
                                                         </div>
                                                     </td>
                                                     <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                                                        {formatPrice(line.unitPrice)}
+                                                        {formatPrice(
+                                                            line.unitPrice,
+                                                        )}
                                                     </td>
                                                     <td className="px-3 py-2.5">
                                                         <Input
                                                             type="number"
                                                             min={1}
-                                                            value={line.quantity}
+                                                            value={
+                                                                line.quantity
+                                                            }
                                                             onChange={(e) =>
                                                                 updateQty(
                                                                     line.productVariantId,
-                                                                    e.target.value === ''
+                                                                    e.target
+                                                                        .value ===
+                                                                        ''
                                                                         ? 1
-                                                                        : Number(e.target.value),
+                                                                        : Number(
+                                                                              e
+                                                                                  .target
+                                                                                  .value,
+                                                                          ),
                                                                 )
                                                             }
                                                             className="h-9 w-20"
@@ -317,7 +350,8 @@ export function OrderCreateForm() {
                                                     </td>
                                                     <td className="px-3 py-2.5 text-right font-medium tabular-nums">
                                                         {formatPrice(
-                                                            line.unitPrice * line.quantity,
+                                                            line.unitPrice *
+                                                                line.quantity,
                                                         )}
                                                     </td>
                                                     <td className="px-3 py-2.5">
@@ -326,7 +360,9 @@ export function OrderCreateForm() {
                                                             variant="ghost"
                                                             size="icon"
                                                             onClick={() =>
-                                                                removeLine(line.productVariantId)
+                                                                removeLine(
+                                                                    line.productVariantId,
+                                                                )
                                                             }
                                                             className="size-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                                         >
@@ -365,7 +401,10 @@ export function OrderCreateForm() {
                                                     setDiscount(
                                                         e.target.value === ''
                                                             ? 0
-                                                            : Number(e.target.value),
+                                                            : Number(
+                                                                  e.target
+                                                                      .value,
+                                                              ),
                                                     )
                                                 }
                                                 className="h-9 pl-6 text-right"
@@ -389,7 +428,10 @@ export function OrderCreateForm() {
                                                     setShipping(
                                                         e.target.value === ''
                                                             ? 0
-                                                            : Number(e.target.value),
+                                                            : Number(
+                                                                  e.target
+                                                                      .value,
+                                                              ),
                                                     )
                                                 }
                                                 className="h-9 pl-6 text-right"
@@ -413,7 +455,10 @@ export function OrderCreateForm() {
                                                     setTax(
                                                         e.target.value === ''
                                                             ? 0
-                                                            : Number(e.target.value),
+                                                            : Number(
+                                                                  e.target
+                                                                      .value,
+                                                              ),
                                                     )
                                                 }
                                                 className="h-9 pl-6 text-right"
@@ -439,11 +484,19 @@ export function OrderCreateForm() {
                             <Field label={t('order.col.source')}>
                                 <Select
                                     value={source}
-                                    onValueChange={(v) => v && setSource(v as OrderSource)}
+                                    onValueChange={(v) =>
+                                        v && setSource(v as OrderSource)
+                                    }
                                 >
                                     <SelectTrigger className="h-11 w-full">
                                         <SelectValue>
-                                            {(v: string) => t(SOURCE_LABELS[v as OrderSource])}
+                                            {(v: string) =>
+                                                t(
+                                                    SOURCE_LABELS[
+                                                        v as OrderSource
+                                                    ],
+                                                )
+                                            }
                                         </SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
@@ -472,13 +525,18 @@ export function OrderCreateForm() {
                                     <Select
                                         value={paymentMethod}
                                         onValueChange={(v) =>
-                                            v && setPaymentMethod(v as PaymentMethod)
+                                            v &&
+                                            setPaymentMethod(v as PaymentMethod)
                                         }
                                     >
                                         <SelectTrigger className="h-11 w-full">
                                             <SelectValue>
                                                 {(v: string) =>
-                                                    t(PAYMENT_LABELS[v as PaymentMethod])
+                                                    t(
+                                                        PAYMENT_LABELS[
+                                                            v as PaymentMethod
+                                                        ],
+                                                    )
                                                 }
                                             </SelectValue>
                                         </SelectTrigger>
@@ -506,14 +564,20 @@ export function OrderCreateForm() {
                                     options={customerOptions}
                                     value={customerId}
                                     onChange={handleCustomerChange}
-                                    placeholder={t('order.create.customerWalkInOption')}
-                                    searchPlaceholder={t('order.field.customer')}
+                                    placeholder={t(
+                                        'order.create.customerWalkInOption',
+                                    )}
+                                    searchPlaceholder={t(
+                                        'order.field.customer',
+                                    )}
                                 />
                             </Field>
                             <Field label={t('order.field.customerName')}>
                                 <Input
                                     value={customerName}
-                                    onChange={(e) => setCustomerName(e.target.value)}
+                                    onChange={(e) =>
+                                        setCustomerName(e.target.value)
+                                    }
                                     placeholder={t('order.customer.walkIn')}
                                     className="h-11"
                                 />
@@ -521,7 +585,9 @@ export function OrderCreateForm() {
                             <Field label={t('order.field.customerPhone')}>
                                 <Input
                                     value={customerPhone}
-                                    onChange={(e) => setCustomerPhone(e.target.value)}
+                                    onChange={(e) =>
+                                        setCustomerPhone(e.target.value)
+                                    }
                                     placeholder="+855..."
                                     className="h-11"
                                 />

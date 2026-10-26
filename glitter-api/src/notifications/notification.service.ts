@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Brackets, LessThan, Repository } from 'typeorm';
 import { UserEntity } from '../users/entities/user.entity';
 import { RealtimeService } from '../realtime/realtime.service';
 import {
@@ -38,16 +38,34 @@ export class NotificationsService {
     this.realtime.sendTo([userId], { ...this.toResponse(row), isRead: false });
   }
 
-  /** Fan out a notification to every active staff member. */
+  /**
+   * Fan out a notification to active staff — one row each, so read state is
+   * per person. With a `branchId` (an order / stock alert for one branch) it
+   * goes to admins and that branch's staff only; staff locked to another
+   * branch never see it. Without one it goes to every staff member.
+   */
   async notifyStaff(
     type: NotificationType,
     data: Record<string, unknown>,
     link: string | null = null,
+    branchId: string | null = null,
   ): Promise<void> {
-    const staff = await this.userRepo.find({
-      where: { role: In(STAFF_ROLES), accountStatus: 'active' },
-      select: ['id'],
-    });
+    const qb = this.userRepo
+      .createQueryBuilder('u')
+      .select(['u.id'])
+      .where('u.role IN (:...roles)', { roles: STAFF_ROLES })
+      .andWhere("u.accountStatus = 'active'");
+    if (branchId) {
+      qb.andWhere(
+        new Brackets((w) =>
+          w
+            .where("u.role = 'admin'")
+            .orWhere('u.branchId IS NULL')
+            .orWhere('u.branchId = :branchId', { branchId }),
+        ),
+      );
+    }
+    const staff = await qb.getMany();
     if (staff.length === 0) return;
     const rows = await this.repo.save(
       staff.map((s) => this.repo.create({ userId: s.id, type, data, link })),
@@ -62,16 +80,31 @@ export class NotificationsService {
     }
   }
 
-  async list(userId: string, limit = 30): Promise<NotificationListResponse> {
+  /**
+   * The user's notifications, newest first. Page back through older ones
+   * with `before` (the `createdAt` of the last item already loaded);
+   * `unreadOnly` limits the list to unread ones.
+   */
+  async list(
+    userId: string,
+    opts: { limit?: number; before?: Date; unreadOnly?: boolean } = {},
+  ): Promise<NotificationListResponse> {
+    const limit = Math.min(Math.max(opts.limit ?? 30, 1), 100);
+    const where = {
+      userId,
+      ...(opts.unreadOnly ? { isRead: false } : {}),
+      ...(opts.before ? { createdAt: LessThan(opts.before) } : {}),
+    };
     const [rows, unread] = await Promise.all([
-      this.repo.find({
-        where: { userId },
-        order: { createdAt: 'DESC' },
-        take: limit,
-      }),
+      // One extra row tells us whether there is another page.
+      this.repo.find({ where, order: { createdAt: 'DESC' }, take: limit + 1 }),
       this.repo.count({ where: { userId, isRead: false } }),
     ]);
-    return { data: rows.map((n) => this.toResponse(n)), unread };
+    return {
+      data: rows.slice(0, limit).map((n) => this.toResponse(n)),
+      unread,
+      hasMore: rows.length > limit,
+    };
   }
 
   async unreadCount(userId: string): Promise<number> {

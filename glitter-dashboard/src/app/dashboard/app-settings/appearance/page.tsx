@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Loader } from 'lucide-react';
+
 import {
     ChoiceField,
     SettingsCard,
@@ -61,12 +61,6 @@ export default function AppearanceSettingsPage() {
                 <h2 className="text-lg font-semibold">
                     {t('settings.appearance.title')}
                 </h2>
-                {save.isPending && (
-                    <span className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                        <Loader className="size-4 animate-spin" />
-                        <span className="mt-0.5">{t('common.saving')}</span>
-                    </span>
-                )}
             </div>
 
             <SettingsCard title={t('settings.appearance.title')}>

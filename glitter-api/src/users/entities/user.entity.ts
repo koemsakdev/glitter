@@ -167,8 +167,29 @@ export class UserEntity {
   })
   lastPasswordChangedAt!: Date | null;
 
+  /** Signed in with an admin-given (default/reset) password — must pick a
+   * new one before using anything else. */
+  @Column({ type: 'boolean', default: false, name: 'must_change_password' })
+  mustChangePassword!: boolean;
+
   @Column({ type: 'int', default: 0, name: 'token_version' })
   tokenVersion!: number;
+
+  /** When the account was moved to the recycle bin (null = live). A plain
+   * column on purpose — not TypeORM's soft-delete — so past orders and
+   * reviews keep showing who they belong to. */
+  @Column({ type: 'timestamp', nullable: true, name: 'deleted_at' })
+  deletedAt!: Date | null;
+
+  /** Sign-in identifiers set aside while in the recycle bin (freed so they
+   * can be reused), put back on restore. */
+  @Column({ type: 'jsonb', nullable: true, name: 'deleted_identity' })
+  deletedIdentity!: {
+    email: string | null;
+    username: string | null;
+    phoneNumber: string | null;
+    accounts: { id: string; providerAccountId: string }[];
+  } | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

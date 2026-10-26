@@ -549,6 +549,7 @@ export class OrdersService {
           hasProof: Boolean(o.paymentProofUrl),
         },
         `/dashboard/orders/${o.id}`,
+        o.branchId ?? null,
       );
     }
 
@@ -670,6 +671,7 @@ export class OrdersService {
           summary,
         },
         `/dashboard/orders/${order.id}`,
+        order.branchId ?? null,
       );
 
       if (order.customerId) {

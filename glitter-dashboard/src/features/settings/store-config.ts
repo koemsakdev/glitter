@@ -402,6 +402,22 @@ export function mergeDelivery(partial: unknown): StoreDelivery {
 }
 
 
+/** Icons the AI chat assistant can use (see assistant-icons.tsx). */
+export const ASSISTANT_ICONS = [
+    'buddy',
+    'bot',
+    'typing',
+    'orbit',
+    'headset',
+] as const;
+export type AssistantIconId = (typeof ASSISTANT_ICONS)[number];
+
+export interface StoreAssistant {
+    icon: AssistantIconId;
+    /** Hex colour for the assistant; empty = use the store's theme colour. */
+    color: string;
+}
+
 export interface StoreConfig {
     brandNameEn: string;
     brandNameKm: string;
@@ -421,6 +437,8 @@ export interface StoreConfig {
     activeThemeId: string;
 
     appearance: StoreAppearance;
+    /** AI chat assistant look — admin-only (enforced by the API). */
+    assistant: StoreAssistant;
 
     announcementEnabled: boolean;
     announcementEn: string;
@@ -527,6 +545,7 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
     themes: [{ id: 'default', name: 'Pink', color: '#ec4899' }],
     activeThemeId: 'default',
 
+    assistant: { icon: 'buddy', color: '' },
     appearance: {
         fontScale: 'md',
         fontFamily: '',
@@ -784,6 +803,7 @@ export function mergeStoreConfig(partial: unknown): StoreConfig {
         contacts,
         socials,
         announcements,
+        assistant: mergeAssistant(p.assistant),
         appearance: {
             ...DEFAULT_STORE_CONFIG.appearance,
             ...(p.appearance ?? {}),
@@ -807,5 +827,18 @@ export function mergeStoreConfig(partial: unknown): StoreConfig {
                       >
                   ).map((s) => ({ ...s, page: s.page ?? 'home' }))
                 : DEFAULT_STORE_CONFIG.sections,
+    };
+}
+
+function mergeAssistant(raw: unknown): StoreAssistant {
+    const a = (raw ?? {}) as Partial<StoreAssistant>;
+    return {
+        icon: (ASSISTANT_ICONS as readonly string[]).includes(a.icon ?? '')
+            ? (a.icon as AssistantIconId)
+            : 'buddy',
+        color:
+            typeof a.color === 'string' && /^#[0-9a-f]{6}$/i.test(a.color)
+                ? a.color
+                : '',
     };
 }

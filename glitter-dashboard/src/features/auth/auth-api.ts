@@ -6,7 +6,7 @@
  * consistent User shape.
  */
 import { apiClient } from '@/lib/api-client';
-import type { LoginResponse, User } from '@/types/api';
+import type { AuthTokens, LoginResponse, User } from '@/types/api';
 
 export interface LoginDto {
   /** Staff username (an email also works for older accounts). */
@@ -56,13 +56,16 @@ export const authApi = {
     await apiClient.post('/api/auth/logout');
   },
 
+  /** Returns fresh tokens — the old ones are revoked by the change.
+   * `currentPassword` is skipped on the forced first-sign-in change. */
   async changePassword(
-      currentPassword: string,
+      currentPassword: string | undefined,
       newPassword: string,
-  ): Promise<void> {
-    await apiClient.post('/api/auth/change-password', {
-      currentPassword,
-      newPassword,
-    });
+  ): Promise<AuthTokens> {
+    const { data } = await apiClient.post<{ ok: true; tokens: AuthTokens }>(
+        '/api/auth/change-password',
+        { currentPassword, newPassword },
+    );
+    return data.tokens;
   },
 };

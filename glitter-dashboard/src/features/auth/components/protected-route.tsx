@@ -29,6 +29,11 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
       router.replace('/login');
       return;
     }
+    // First sign-in with a default/reset password → set a new one first.
+    if (user.mustChangePassword) {
+      router.replace('/set-password');
+      return;
+    }
     if (!canAccessPath(user, pathname)) {
       router.replace(homePathForRole(user));
     }
@@ -47,6 +52,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   if (
     !user ||
     user.role === 'customer' ||
+    user.mustChangePassword ||
     !canAccessPath(user, pathname)
   ) {
     return null;

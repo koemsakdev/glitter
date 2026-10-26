@@ -2,7 +2,7 @@
 
 import { SafeImg } from '@/components/ui/safe-image';
 import { useQueryClient } from "@tanstack/react-query";
-import { ImageOff, Loader, Pencil, Plus, Trash2 } from "lucide-react";
+import { ImageOff, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { ResponsiveModal } from "@/components/responsive-modal";
@@ -133,12 +133,6 @@ export default function GeneralSettingsPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <h2 className="text-lg font-semibold">{t("settings.general.title")}</h2>
-        {save.isPending && (
-          <span className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-            <Loader className="size-4 animate-spin" />
-            <span className="mt-0.5">{t("common.saving")}</span>
-          </span>
-        )}
       </div>
 
       {/* Logo list */}

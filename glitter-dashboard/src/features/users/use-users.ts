@@ -75,7 +75,7 @@ export function useSetUserPermissions() {
 
 export function useSetUserPassword() {
     return useMutation({
-        mutationFn: ({ id, password }: { id: string; password: string }) =>
+        mutationFn: ({ id, password }: { id: string; password?: string }) =>
             userApi.setPassword(id, password),
     });
 }

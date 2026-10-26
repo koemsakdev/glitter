@@ -52,12 +52,14 @@ export function MobileHeader({
     if (
         pathname === '/checkout' ||
         pathname.startsWith('/products/') ||
-        pathname.startsWith('/account/orders')
+        pathname.startsWith('/account/orders') ||
+        pathname === '/account/notifications'
     ) {
         return null;
     }
 
-    const brand = pick(lang, config.brandNameEn, config.brandNameKm) || 'Glitter';
+    const brand =
+        pick(lang, config.brandNameEn, config.brandNameKm) || 'Glitter';
     const logo = fileUrl(config.logoUrl);
     const isRoot = ROOTS.includes(pathname);
     const showSearch = pathname === '/';
