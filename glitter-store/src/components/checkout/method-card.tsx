@@ -35,14 +35,14 @@ export function MethodCard({
       <span
         className={`flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl transition-colors ${
           icon
-            ? "bg-white ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-700"
+            ? "bg-white"
             : active
               ? "bg-(--brand) text-white"
               : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
         }`}
       >
         {icon ? (
-          <SafeImg src={icon} alt="" className="size-full object-contain p-1" />
+          <SafeImg src={icon} alt="" className="size-full object-cover" />
         ) : (
           <TypeIcon className="size-5" />
         )}

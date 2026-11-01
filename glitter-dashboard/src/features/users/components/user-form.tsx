@@ -57,6 +57,7 @@ import {
     type UserFormValues,
     type UserRole,
 } from '@/types/user';
+import { ImageCropDialog } from '@/components/ui/image-crop-dialog';
 
 const STATUS_LABELS: Record<AccountStatus, TranslationKey> = {
     active: 'user.status.active',
@@ -158,10 +159,15 @@ export function UserForm({
             .join('')
             .toUpperCase() || '?';
 
+    // Picking a photo opens the crop step; the cropped image is what's used.
+    const [cropFile, setCropFile] = useState<File | null>(null);
     function pickAvatar(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
+        const picked = e.target.files?.[0];
         e.target.value = '';
-        if (!file) return;
+        if (picked) setCropFile(picked);
+    }
+    function pickAvatarCropped(file: File) {
+        setCropFile(null);
         if (avatarPreview) URL.revokeObjectURL(avatarPreview);
         setAvatarFile(file);
         setAvatarPreview(URL.createObjectURL(file));
@@ -376,6 +382,12 @@ export function UserForm({
                     accept="image/png,image/jpeg,image/webp"
                     className="hidden"
                     onChange={pickAvatar}
+                />
+                <ImageCropDialog
+                    file={cropFile}
+                    maxSize={512}
+                    onCancel={() => setCropFile(null)}
+                    onDone={pickAvatarCropped}
                 />
                 <button
                     type="button"

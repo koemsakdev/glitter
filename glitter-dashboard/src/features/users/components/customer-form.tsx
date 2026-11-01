@@ -32,11 +32,8 @@ import { getFileUrl } from '@/lib/file-url';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
 import type { Address } from '@/types/address';
-import {
-    ACCOUNT_STATUSES,
-    type AccountStatus,
-    type User,
-} from '@/types/user';
+import { ACCOUNT_STATUSES, type AccountStatus, type User } from '@/types/user';
+import { ImageCropDialog } from '@/components/ui/image-crop-dialog';
 
 const STATUS_LABELS: Record<AccountStatus, TranslationKey> = {
     active: 'user.status.active',
@@ -119,10 +116,15 @@ export function CustomerForm({
         .join('')
         .toUpperCase();
 
+    // Picking a photo opens the crop step; the cropped image is what's used.
+    const [cropFile, setCropFile] = useState<File | null>(null);
     function pickAvatar(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
+        const picked = e.target.files?.[0];
         e.target.value = '';
-        if (!file) return;
+        if (picked) setCropFile(picked);
+    }
+    function pickAvatarCropped(file: File) {
+        setCropFile(null);
         if (avatarPreview) URL.revokeObjectURL(avatarPreview);
         setAvatarFile(file);
         setAvatarPreview(URL.createObjectURL(file));
@@ -326,6 +328,12 @@ export function CustomerForm({
                             className="hidden"
                             onChange={pickAvatar}
                         />
+                        <ImageCropDialog
+                            file={cropFile}
+                            maxSize={512}
+                            onCancel={() => setCropFile(null)}
+                            onDone={pickAvatarCropped}
+                        />
                         <div className="flex flex-col items-center gap-3 py-2">
                             <button
                                 type="button"
@@ -383,7 +391,9 @@ export function CustomerForm({
                     <Section title={t('user.detail.information')}>
                         <div className="space-y-4">
                             <Field label={t('user.field.fullName')}>
-                                <IconInput icon={<UserRound className="size-4" />}>
+                                <IconInput
+                                    icon={<UserRound className="size-4" />}
+                                >
                                     <Input
                                         value={fullName}
                                         onChange={(e) =>
@@ -423,7 +433,8 @@ export function CustomerForm({
                                 <Select
                                     value={accountStatus}
                                     onValueChange={(v) =>
-                                        v && setAccountStatus(v as AccountStatus)
+                                        v &&
+                                        setAccountStatus(v as AccountStatus)
                                     }
                                 >
                                     <SelectTrigger className="h-11 w-full">

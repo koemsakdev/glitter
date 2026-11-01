@@ -28,6 +28,8 @@ export type OrderInfo = {
     deliveryName: string;
     payNow: boolean;
     paid: boolean;
+    /** Paid by bank QR with an uploaded receipt — staff still have to check it. */
+    reviewing?: boolean;
     items: {
         name: string;
         variant: string;
@@ -123,6 +125,10 @@ export const ReceiptCard = forwardRef<
                     {orderInfo.paid ? (
                         <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
                             {tr(lang, 'statusPaid')}
+                        </span>
+                    ) : orderInfo.reviewing ? (
+                        <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                            {tr(lang, 'statusReviewing')}
                         </span>
                     ) : orderInfo.payNow ? (
                         <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">

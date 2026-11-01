@@ -97,33 +97,33 @@ export function SiteHeader({
                         </nav>
 
                         {/* Control Actions & Global Utilities Wrapper */}
-                        <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+                        <div className="ml-auto flex h-6 items-center gap-1">
                             <HeaderSearch
                                 lang={lang}
                                 hotkey
                                 initialPopular={popular}
                             />
                             
-                            <Separator orientation="vertical" className="h-4 hidden sm:block" />
+                            <Separator orientation="vertical" className="hidden sm:block" />
                             <NotificationBell lang={lang} />
                             
-                            <Separator orientation="vertical" className="h-4" />
+                            <Separator orientation="vertical" />
                             <LanguageToggle lang={lang} />
                             
-                            <Separator orientation="vertical" className="h-4" />
+                            <Separator orientation="vertical" />
                             <ThemeToggle />
                             
                             {/* Desktop Commerce Core: visible exclusively on tablet views and up */}
-                            <div className="hidden md:flex items-center gap-1 sm:gap-1.5">
-                                <Separator orientation="vertical" className="h-4" />
+                            <div className="hidden self-stretch md:flex items-center gap-1">
+                                <Separator orientation="vertical" />
                                 <CartButton label={tr(lang, 'cart')} />
-                                <Separator orientation="vertical" className="h-4" />
+                                <Separator orientation="vertical" />
                                 <AccountButton lang={lang} />
                             </div>
 
                             {/* Mobile Hamburger Side-Drawer Button: Strictly hidden above mobile widths */}
-                            <div className="md:hidden flex items-center gap-1">
-                                <Separator orientation="vertical" className="h-4" />
+                            <div className="md:hidden flex self-stretch items-center gap-1">
+                                <Separator orientation="vertical" />
                                 <MobileMenu
                                     lang={lang}
                                     navItems={config.navItems ?? DEFAULT_NAV_ITEMS}

@@ -125,6 +125,10 @@ export function DeliveryMethodFormDialog({
                     setFile(f);
                     if (!f) setIconUrl('');
                 }}
+                onChooseUrl={(url) => {
+                    setFile(null);
+                    setIconUrl(url);
+                }}
                 label={t('settings.delivery.icon')}
                 hint={t('settings.delivery.iconHint')}
             />

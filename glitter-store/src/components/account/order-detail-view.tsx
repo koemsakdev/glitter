@@ -20,6 +20,7 @@ import {
 import type { OrderInfo } from '@/components/checkout/receipt-card';
 import type { OrderDetail } from '@/lib/types';
 import { onLiveChange } from '@/lib/realtime';
+import { ImageLightbox } from '@/components/image-lightbox';
 
 
 /** A clean, consistent payment label. ABA/KHQR always reads "ABA KHQR"
@@ -58,6 +59,10 @@ function toOrderInfo(order: OrderDetail): OrderInfo {
         deliveryName: order.deliveryMethodName ?? '',
         payNow: order.paymentStatus !== 'paid' && online,
         paid: order.paymentStatus === 'paid',
+        // Bank QR with an uploaded receipt: staff still have to check it.
+        reviewing:
+            order.paymentStatus !== 'paid' &&
+            order.paymentMethod === 'manual_qr',
         items: order.items.map((it) => {
             const colorName =
                 it.color && !it.color.startsWith('#') ? it.color : null;
@@ -90,6 +95,8 @@ export function OrderDetailView({
     const router = useRouter();
     const { user, loading, authFetch } = useAuth();
     const [order, setOrder] = useState<OrderDetail | null>(null);
+    // Tap the payment receipt to view it full-screen (same viewer as products).
+    const [proofOpen, setProofOpen] = useState(false);
     const [state, setState] = useState<'loading' | 'ready' | 'notfound'>(
         'loading',
     );
@@ -364,10 +371,26 @@ export function OrderDetailView({
                             <p className="mb-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
                                 {tr(lang, 'paymentProof')}
                             </p>
-                            <SafeImg
-                                src={proof}
-                                alt="proof"
-                                className="max-h-56 rounded-xl border border-zinc-200 object-contain dark:border-zinc-700"
+                            <button
+                                type="button"
+                                onClick={() => setProofOpen(true)}
+                                className="block cursor-zoom-in"
+                            >
+                                <SafeImg
+                                    src={proof}
+                                    alt="proof"
+                                    className="max-h-56 rounded-xl border border-zinc-200 object-contain transition-opacity hover:opacity-90 dark:border-zinc-700"
+                                />
+                            </button>
+                            <ImageLightbox
+                                images={[
+                                    {
+                                        src: proof,
+                                        alt: tr(lang, 'paymentProof'),
+                                    },
+                                ]}
+                                initialIndex={proofOpen ? 0 : null}
+                                onClose={() => setProofOpen(false)}
                             />
                         </div>
                     )}

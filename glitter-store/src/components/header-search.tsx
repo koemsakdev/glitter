@@ -130,6 +130,10 @@ export function HeaderSearch({
 
     return (
         <>
+            {/* Outside the dialog on purpose: Radix unmounts every portal
+                child when closing, and removing these keyframes mid-animation
+                would leave the dialog stuck open. */}
+            <style>{SEARCH_ANIM}</style>
             <button
                 type="button"
                 onClick={() => setOpen(true)}
@@ -151,9 +155,9 @@ export function HeaderSearch({
                 }}
             >
                 <Dialog.Portal>
-                    <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]" />
+                    <Dialog.Overlay className="hs-overlay fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]" />
                     <Dialog.Content
-                        className="fixed left-1/2 top-[10vh] z-50 w-[95vw] max-w-3xl -translate-x-1/2 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                        className="hs-panel fixed left-1/2 top-[10vh] z-50 w-[95vw] max-w-3xl -translate-x-1/2 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl outline-none dark:border-zinc-800 dark:bg-zinc-900"
                         aria-describedby={undefined}
                     >
                         <Dialog.Title className="sr-only">
@@ -318,3 +322,16 @@ export function HeaderSearch({
         </>
     );
 }
+
+// Open / close animation for the search dialog (kept with the component so
+// it always ships). Radix waits for the closing animation, then unmounts.
+const SEARCH_ANIM = `
+@keyframes hs-fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes hs-fade-out { from { opacity: 1 } to { opacity: 0 } }
+@keyframes hs-in { from { opacity: 0; transform: translateY(-8px) scale(0.97) } to { opacity: 1; transform: none } }
+.hs-overlay[data-state='open'] { animation: hs-fade-in .2s ease both }
+.hs-overlay[data-state='closed'] { animation: hs-fade-out .12s ease both }
+.hs-panel[data-state='open'] { animation: hs-in .22s cubic-bezier(.16,1,.3,1) both }
+.hs-panel[data-state='closed'] { animation: hs-fade-out .12s ease both }
+@media (prefers-reduced-motion: reduce) { .hs-overlay, .hs-panel { animation: none !important } }
+`;

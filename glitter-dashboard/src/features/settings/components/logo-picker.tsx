@@ -1,7 +1,8 @@
 'use client';
 
 import { ImageUp } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ImageLibraryDialog } from '@/features/settings/components/image-library-dialog';
 import { getFileUrl } from '@/lib/file-url';
 import { useI18n } from '@/lib/i18n';
 
@@ -14,6 +15,7 @@ export function LogoPicker({
     value,
     file,
     onPick,
+    onChooseUrl,
     label,
     hint,
 }: {
@@ -22,11 +24,14 @@ export function LogoPicker({
     /** Newly picked file (previewed before it's uploaded on save). */
     file: File | null;
     onPick: (file: File | null) => void;
+    /** Reuse an image uploaded before (shows "Choose from uploads"). */
+    onChooseUrl?: (url: string) => void;
     label?: string;
     hint?: string;
 }) {
     const { t } = useI18n();
     const inputRef = useRef<HTMLInputElement>(null);
+    const [libraryOpen, setLibraryOpen] = useState(false);
     const objectUrl = useMemo(
         () => (file ? URL.createObjectURL(file) : null),
         [file],
@@ -75,6 +80,15 @@ export function LogoPicker({
                                 ? t('settings.banner.replace')
                                 : t('settings.delivery.upload')}
                         </button>
+                        {onChooseUrl && (
+                            <button
+                                type="button"
+                                onClick={() => setLibraryOpen(true)}
+                                className="font-medium text-muted-foreground hover:text-foreground hover:underline"
+                            >
+                                {t('library.choose')}
+                            </button>
+                        )}
                         {src && (
                             <button
                                 type="button"
@@ -103,6 +117,14 @@ export function LogoPicker({
                     if (f) onPick(f);
                 }}
             />
+            {onChooseUrl && (
+                <ImageLibraryDialog
+                    open={libraryOpen}
+                    current={file ? undefined : value}
+                    onOpenChange={setLibraryOpen}
+                    onChoose={onChooseUrl}
+                />
+            )}
         </div>
     );
 }

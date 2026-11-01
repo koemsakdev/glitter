@@ -316,15 +316,11 @@ export class OrdersService {
     // orders are confirmed against ABA PayWay (real API), so no manual proof is
     // required here.
     // Manual QR (shop's own bank KHQR): the customer must attach the receipt
-    // and its transaction id so staff can check it before confirming.
+    // (the transaction id is optional). The order stays pending / unpaid
+    // until staff review the receipt and mark it paid.
     if (isOnline && dto.paymentMethod === 'manual_qr') {
       if (!dto.paymentProofUrl) {
         throw new BadRequestException('Please upload your payment receipt');
-      }
-      if (!dto.paymentReference?.trim()) {
-        throw new BadRequestException(
-          'Please enter the transaction ID from your receipt',
-        );
       }
     }
 

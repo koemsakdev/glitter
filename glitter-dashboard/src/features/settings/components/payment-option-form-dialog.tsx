@@ -47,6 +47,7 @@ import { useI18n, type TranslationKey } from '@/lib/i18n';
 import { uploadImage } from '@/lib/uploads';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { ImageCropDialog } from '@/components/ui/image-crop-dialog';
 
 const PAY_CONFIG_KEY = ['payment-config'] as const;
 
@@ -362,6 +363,10 @@ export function PaymentOptionFormDialog({
                                 onPick={(f) => {
                                     setFile(f);
                                     if (!f) setIconUrl('');
+                                }}
+                                onChooseUrl={(url) => {
+                                    setFile(null);
+                                    setIconUrl(url);
                                 }}
                                 label={t('settings.delivery.paymentLogo')}
                                 hint={t('settings.pay.logoHint')}
@@ -975,6 +980,7 @@ function QrPicker({
 }) {
     const { t } = useI18n();
     const inputRef = useRef<HTMLInputElement>(null);
+    const [cropFile, setCropFile] = useState<File | null>(null);
     const objectUrl = useMemo(
         () => (file ? URL.createObjectURL(file) : null),
         [file],
@@ -1034,7 +1040,19 @@ function QrPicker({
                 onChange={(e) => {
                     const f = e.target.files?.[0];
                     e.target.value = '';
-                    if (f) onPick(f);
+                    if (f) setCropFile(f);
+                }}
+            />
+            {/* PNG keeps the QR crisp enough to scan */}
+            <ImageCropDialog
+                file={cropFile}
+                output="image/png"
+                maxSize={1200}
+                title={t('crop.qrTitle')}
+                onCancel={() => setCropFile(null)}
+                onDone={(cropped) => {
+                    setCropFile(null);
+                    onPick(cropped);
                 }}
             />
         </div>

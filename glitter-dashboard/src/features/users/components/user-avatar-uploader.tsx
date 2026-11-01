@@ -18,6 +18,7 @@ import { getErrorMessage } from '@/lib/api-client';
 import { getFileUrl } from '@/lib/file-url';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/lib/i18n';
+import { ImageCropDialog } from '@/components/ui/image-crop-dialog';
 
 interface UserAvatarUploaderProps {
     userId: string;
@@ -89,10 +90,15 @@ export function UserAvatarUploader({
             .toUpperCase() || '?';
     const busy = uploadAvatar.isPending || removeAvatar.isPending;
 
+    // Picking a photo opens the crop step; the cropped image is what's used.
+    const [cropFile, setCropFile] = useState<File | null>(null);
     function pick(e: React.ChangeEvent<HTMLInputElement>) {
-        const f = e.target.files?.[0];
+        const picked = e.target.files?.[0];
         e.target.value = '';
-        if (!f) return;
+        if (picked) setCropFile(picked);
+    }
+    function pickCropped(f: File) {
+        setCropFile(null);
         if (preview) URL.revokeObjectURL(preview);
         setFile(f);
         setPreview(URL.createObjectURL(f));
@@ -161,6 +167,12 @@ export function UserAvatarUploader({
                                 accept="image/png,image/jpeg,image/webp"
                                 className="hidden"
                                 onChange={pick}
+                            />
+                            <ImageCropDialog
+                                file={cropFile}
+                                maxSize={512}
+                                onCancel={() => setCropFile(null)}
+                                onDone={pickCropped}
                             />
                             <DropdownMenu>
                                 <DropdownMenuTrigger
@@ -260,6 +272,12 @@ export function UserAvatarUploader({
                     accept="image/*"
                     className="hidden"
                     onChange={pick}
+                />
+                <ImageCropDialog
+                    file={cropFile}
+                    maxSize={512}
+                    onCancel={() => setCropFile(null)}
+                    onDone={pickCropped}
                 />
                 {file ? (
                     <>

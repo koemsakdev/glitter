@@ -84,6 +84,10 @@ export function RegionFormDialog({
                     setFile(f);
                     if (!f) setIconUrl('');
                 }}
+                onChooseUrl={(url) => {
+                    setFile(null);
+                    setIconUrl(url);
+                }}
                 label={t('settings.delivery.icon')}
                 hint={t('settings.delivery.iconHint')}
             />

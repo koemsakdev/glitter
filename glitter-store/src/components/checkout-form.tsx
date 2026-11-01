@@ -736,7 +736,6 @@ export function CheckoutForm({
       return tr(lang, "noPayMethod");
     if (!payOnDeliveryOnly && isManual) {
       if (!proofUrl) return tr(lang, "mqProofRequired");
-      if (!txRef.trim()) return tr(lang, "mqTxRequired");
     }
     return null;
   }
@@ -844,6 +843,7 @@ export function CheckoutForm({
           pick(lang, method?.nameEn ?? "", method?.nameKm ?? "") || methodId,
         payNow: usesKhqr,
         paid: false,
+        reviewing: isManual,
         items: items.map((i) => ({
           name: pick(lang, i.nameEn, i.nameKm),
           variant: cleanVariantLabel(i.variantLabel ?? ""),

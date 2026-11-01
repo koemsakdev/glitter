@@ -40,6 +40,7 @@ import { getFileUrl } from '@/lib/file-url';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/auth-store';
+import { ImageCropDialog } from '@/components/ui/image-crop-dialog';
 
 const inputClass =
     'h-11 rounded-xl shadow-none focus-visible:outline-none focus-visible:ring-0 focus-visible:border-pink-500 dark:focus-visible:border-pink-700';
@@ -55,6 +56,8 @@ export function ProfileView() {
     const uploadAvatar = useUploadAvatar();
     const removeAvatar = useRemoveAvatar();
 
+    // Picking a photo opens the crop step; the cropped image is what's used.
+    const [cropFile, setCropFile] = useState<File | null>(null);
     const [fullName, setFullName] = useState(user?.fullName ?? '');
     const [email, setEmail] = useState(user?.email ?? '');
     const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber ?? '');
@@ -91,9 +94,12 @@ export function ProfileView() {
         removeAvatar.isPending;
 
     function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
+        const picked = e.target.files?.[0];
         e.target.value = '';
-        if (!file) return;
+        if (picked) setCropFile(picked);
+    }
+    function handleAvatarPickCropped(file: File) {
+        setCropFile(null);
         if (avatarPreview) URL.revokeObjectURL(avatarPreview);
         setAvatarFile(file);
         setAvatarPreview(URL.createObjectURL(file));
@@ -183,6 +189,12 @@ export function ProfileView() {
                 accept="image/png,image/jpeg,image/webp"
                 className="hidden"
                 onChange={handleAvatarPick}
+            />
+            <ImageCropDialog
+                file={cropFile}
+                maxSize={512}
+                onCancel={() => setCropFile(null)}
+                onDone={handleAvatarPickCropped}
             />
 
             {/* Header — same pattern as other pages: title left, action right */}

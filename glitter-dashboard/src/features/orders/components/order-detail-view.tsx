@@ -14,7 +14,8 @@ import {
     User,
     X,
 } from 'lucide-react';
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getFileUrl } from '@/lib/file-url';
@@ -96,6 +97,8 @@ export function OrderDetailView({ id }: { id: string }) {
     const updateStatus = useUpdateOrderStatus();
     const updatePayment = useUpdatePaymentStatus();
     const canCancelRefund = usePermission('orders.refund');
+    // Payment receipt opens in the same image viewer as product photos.
+    const [proofOpen, setProofOpen] = useState(false);
 
     if (isLoading) return <LoadingScreen variant="page" />;
 
@@ -500,15 +503,10 @@ export function OrderDetailView({ id }: { id: string }) {
                                     <DetailField
                                         label={t('order.delivery.proof')}
                                     >
-                                        <a
-                                            href={
-                                                getFileUrl(
-                                                    order.paymentProofUrl,
-                                                ) ?? '#'
-                                            }
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="mt-1 block"
+                                        <button
+                                            type="button"
+                                            onClick={() => setProofOpen(true)}
+                                            className="mt-1 block cursor-zoom-in"
                                         >
                                             <SafeImg
                                                 src={
@@ -519,7 +517,22 @@ export function OrderDetailView({ id }: { id: string }) {
                                                 alt="payment proof"
                                                 className="h-40 w-auto rounded-lg border object-contain transition-opacity hover:opacity-90"
                                             />
-                                        </a>
+                                        </button>
+                                        <ImageLightbox
+                                            images={[
+                                                {
+                                                    src:
+                                                        getFileUrl(
+                                                            order.paymentProofUrl,
+                                                        ) ?? '',
+                                                    alt: t(
+                                                        'order.delivery.proof',
+                                                    ),
+                                                },
+                                            ]}
+                                            initialIndex={proofOpen ? 0 : null}
+                                            onClose={() => setProofOpen(false)}
+                                        />
                                     </DetailField>
                                 )}
                                 {order.paymentReference && (

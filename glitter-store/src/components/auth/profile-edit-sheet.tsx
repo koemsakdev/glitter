@@ -9,6 +9,7 @@ import { UserAvatar } from '@/components/user-avatar';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { isValidPhone } from '@/lib/phone';
 import { tr, type Lang } from '@/lib/locale';
+import { ImageCropDialog } from '@/components/ui/image-crop-dialog';
 
 export function ProfileEditSheet({
     lang,
@@ -35,6 +36,8 @@ export function ProfileEditSheet({
     const [phone, setPhone] = useState(initialPhone);
     // Avatar changes are staged and only applied when the user hits Save.
     const [pendingFile, setPendingFile] = useState<File | null>(null);
+    // Picked photo waiting in the crop step.
+    const [cropFile, setCropFile] = useState<File | null>(null);
     const [pendingRemove, setPendingRemove] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -182,11 +185,17 @@ export function ProfileEditSheet({
                             hidden
                             onChange={(e) => {
                                 const f = e.target.files?.[0];
-                                if (f) {
-                                    setPendingFile(f);
-                                    setPendingRemove(false);
-                                }
+                                if (f) setCropFile(f);
                                 e.target.value = '';
+                            }}
+                        />
+                        <ImageCropDialog
+                            file={cropFile}
+                            onCancel={() => setCropFile(null)}
+                            onDone={(cropped) => {
+                                setCropFile(null);
+                                setPendingFile(cropped);
+                                setPendingRemove(false);
                             }}
                         />
                     </div>
