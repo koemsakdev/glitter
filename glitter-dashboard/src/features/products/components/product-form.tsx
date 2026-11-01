@@ -80,6 +80,15 @@ const formSchema = z.object({
         .enum(['draft', 'active', 'out_of_stock', 'discontinued', 'archived'])
         .optional(),
     hasBox: z.boolean().optional(),
+}).superRefine((v, ctx) => {
+    // The selling price can never be above the "before discount" price.
+    if (v.originalPrice && v.originalPrice > 0 && v.price > v.originalPrice) {
+        ctx.addIssue({
+            code: 'custom',
+            path: ['originalPrice'],
+            message: 'product.validation.beforeBelowPrice',
+        });
+    }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -292,6 +301,10 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
 
         const seenSkus = new Set<string>();
         const seenCombos = new Set<string>();
+        // A colour's own price must sit between the selling price and the
+        // "before discount" price.
+        const price = Number(form.getValues('price') ?? 0);
+        const before = Number(form.getValues('originalPrice') ?? 0);
 
         for (const row of variantState.rows) {
             const hasSizeOrColor = row.size.trim() !== '' || row.color.trim() !== '';
@@ -315,6 +328,22 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                 return t('product.variant.duplicateCombo');
             }
             seenCombos.add(comboKey);
+
+            if (row.priceOverride !== null) {
+                const label =
+                    [row.size, row.color].filter(Boolean).join(' · ') ||
+                    row.variantSku;
+                if (row.priceOverride < price) {
+                    return t('product.variant.priceTooLow')
+                        .replace('{variant}', label)
+                        .replace('{price}', price.toFixed(2));
+                }
+                if (before > 0 && row.priceOverride > before) {
+                    return t('product.variant.priceTooHigh')
+                        .replace('{variant}', label)
+                        .replace('{price}', before.toFixed(2));
+                }
+            }
         }
         return null;
     }
@@ -516,6 +545,25 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
             return;
         }
 
+        // Every variant has the same own price (e.g. all colours set to $2)?
+        // Then that IS the product's price: use it as the selling price and
+        // drop the per-variant copies, so lists, the store and search all
+        // show the real price.
+        const overrides = hasVariants
+            ? variantState.rows.map((r) => r.priceOverride)
+            : [];
+        const uniformPrice =
+            overrides.length > 0 &&
+            overrides.every((p) => p !== null && p === overrides[0])
+                ? (overrides[0] as number)
+                : null;
+        if (uniformPrice !== null) {
+            for (const r of variantState.rows) r.priceOverride = null;
+            setVariantState({ ...variantState, rows: [...variantState.rows] });
+            values = { ...values, price: uniformPrice };
+            form.setValue('price', uniformPrice, { shouldDirty: true });
+        }
+
         const payload: ProductFormValues = {
             categoryId: values.categoryId,
             brandId: values.brandId,
@@ -536,9 +584,32 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
 
         try {
             // STEP 1 — product. Only PATCH when a product field actually
-            // changed (a badge/related-only edit leaves the form pristine), so
-            // we don't re-save the whole product for nothing.
-            const productDirty = form.formState.isDirty;
+            // changed (a badge/related-only edit changes none), so we don't
+            // re-save the whole product for nothing. Compared field by field:
+            // react-hook-form's `isDirty` stays false unless the page renders
+            // it, which silently skipped price edits before.
+            const same = (a: unknown, b: unknown) => {
+                const norm = (v: unknown) =>
+                    v === undefined || v === null || v === ''
+                        ? null
+                        : typeof v === 'number' ||
+                            (typeof v === 'string' &&
+                                v.trim() !== '' &&
+                                !Number.isNaN(Number(v)) &&
+                                /^-?\d+(\.\d+)?$/.test(v.trim()))
+                          ? Number(v)
+                          : v;
+                return norm(a) === norm(b);
+            };
+            const productDirty =
+                !product ||
+                (Object.keys(payload) as (keyof ProductFormValues)[]).some(
+                    (k) =>
+                        !same(
+                            payload[k],
+                            (product as unknown as Record<string, unknown>)[k],
+                        ),
+                );
             let saved: { id: string };
             if (!product) {
                 setStep('savingProduct');
@@ -708,6 +779,22 @@ export function ProductForm({ product, title, subtitle }: ProductFormProps) {
                         <ProductVariantsSection
                             productSku={productSku}
                             productPrice={form.watch('price') || 0}
+                            productOriginalPrice={
+                                form.watch('originalPrice') || 0
+                            }
+                            onSetPriceForAll={(price) => {
+                                form.setValue('price', price, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                });
+                                setVariantState((vs) => ({
+                                    ...vs,
+                                    rows: vs.rows.map((r) => ({
+                                        ...r,
+                                        priceOverride: null,
+                                    })),
+                                }));
+                            }}
                             state={variantState}
                             onChange={setVariantState}
                             hasVariants={hasVariants}

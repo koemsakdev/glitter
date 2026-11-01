@@ -1,14 +1,15 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, Loader, Lock, Palette } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Check, Lock, Palette } from 'lucide-react';
+import { useState } from 'react';
 import { LoadingScreen } from '@/components/feedback/loading-screen';
 import {
     AssistantIcon,
     type AssistantIconId,
 } from '@/features/settings/components/assistant-icons';
 import { SettingsCard } from '@/features/settings/components/settings-shared';
+import { StorePhonePreview } from '@/features/settings/components/store-phone-preview';
 import {
     ASSISTANT_ICONS,
     type StoreAssistant,
@@ -262,19 +263,9 @@ export default function AssistantSettingsPage() {
     );
 }
 
-const STORE_URL = (
-    process.env.NEXT_PUBLIC_STORE_URL || 'http://localhost:3001'
-).replace(/\/$/, '');
-
-// The store is drawn at a real phone size, then scaled down to fit.
-const PHONE_W = 390;
-const PHONE_H = 800;
-const SCALE = 0.7;
-
 /**
  * Live preview: the REAL storefront in a phone frame, so what you see is
- * exactly what shoppers get. Changes are pushed into it instantly
- * (postMessage) — nothing reloads, and nothing is sent to the AI.
+ * exactly what shoppers get (nothing is sent to the AI).
  */
 function AssistantPreview({
     icon,
@@ -286,28 +277,13 @@ function AssistantPreview({
 }) {
     const { t } = useI18n();
     const [view, setView] = useState<'chat' | 'button'>('chat');
-    const [loaded, setLoaded] = useState(false);
-    const frameRef = useRef<HTMLIFrameElement>(null);
-
-    // First load uses the URL; later changes are messaged in.
-    const [src] = useState(
-        () =>
-            `${STORE_URL}/?aiPreview=chat&aiIcon=${icon}&aiColor=${encodeURIComponent(color)}`,
-    );
-
-    useEffect(() => {
-        frameRef.current?.contentWindow?.postMessage(
-            { type: 'glitter-ai-preview', view, icon, color },
-            STORE_URL,
-        );
-    }, [view, icon, color, loaded]);
-
     return (
-        <div className="overflow-hidden rounded-xl border bg-card">
-            <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-                <h3 className="text-sm font-semibold">
-                    {t('settings.assistant.preview')}
-                </h3>
+        <StorePhonePreview
+            title={t('settings.assistant.preview')}
+            query={`aiPreview=chat&aiIcon=${icon}&aiColor=${encodeURIComponent(color)}`}
+            message={{ type: 'glitter-ai-preview', view, icon, color }}
+            note={t('settings.assistant.previewNote')}
+            toolbar={
                 <div className="inline-flex rounded-lg bg-muted p-0.5 text-xs font-medium">
                     {(['chat', 'button'] as const).map((v) => (
                         <button
@@ -327,46 +303,7 @@ function AssistantPreview({
                         </button>
                     ))}
                 </div>
-            </div>
-
-            <div className="flex flex-col items-center gap-3 bg-muted/30 px-4 py-5">
-                {/* phone frame: dark bezel + a screen clipped to its corners */}
-                <div className="rounded-lg">
-                    <div
-                        className="relative overflow-hidden bg-white dark:bg-zinc-950"
-                        style={{
-                            width: PHONE_W * SCALE,
-                            height: PHONE_H * SCALE,
-                        }}
-                    >
-                        {!loaded && (
-                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white dark:bg-zinc-950">
-                                <Loader className="size-5 animate-spin text-muted-foreground" />
-                            </div>
-                        )}
-                        <iframe
-                            ref={frameRef}
-                            src={src}
-                            title={t('settings.assistant.preview')}
-                            onLoad={() => setLoaded(true)}
-                            className="absolute left-0 top-0 block origin-top-left border-0"
-                            style={{
-                                width: PHONE_W,
-                                height: PHONE_H,
-                                transform: `scale(${SCALE})`,
-                                // The store is another origin, so Chrome draws
-                                // it in its own layer and ignores the parent's
-                                // rounded clip — round the iframe itself
-                                // (pre-scale, so it matches the 3px screen).
-                                borderRadius: 3 / SCALE,
-                            }}
-                        />
-                    </div>
-                </div>
-                <p className="text-center text-xs text-muted-foreground">
-                    {t('settings.assistant.previewNote')}
-                </p>
-            </div>
-        </div>
+            }
+        />
     );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import type { Control } from 'react-hook-form';
-import { Controller } from 'react-hook-form';
+import { Controller, useWatch } from 'react-hook-form';
 import {
     Field,
     FieldDescription,
@@ -22,6 +22,10 @@ interface ProductFormPricingProps {
 
 export function ProductFormPricing({ control }: ProductFormPricingProps) {
     const { t } = useI18n();
+    const price = Number(useWatch({ control, name: 'price' }) ?? 0);
+    const before = Number(useWatch({ control, name: 'originalPrice' }) ?? 0);
+    const onSale = before > 0 && price > 0 && before > price;
+    const badSale = before > 0 && price > 0 && before <= price;
 
     function translateError(message: string | undefined): string {
         if (!message) return '';
@@ -125,6 +129,31 @@ export function ProductFormPricing({ control }: ProductFormPricingProps) {
                     )}
                 />
             </div>
+
+            {/* How the price shows in the store */}
+            {price > 0 && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+                    <span className="text-xs text-muted-foreground">
+                        {t('product.pricing.preview')}
+                    </span>
+                    {onSale && (
+                        <span className="text-muted-foreground line-through">
+                            ${before.toFixed(2)}
+                        </span>
+                    )}
+                    <span className="font-semibold">${price.toFixed(2)}</span>
+                    {onSale && (
+                        <span className="rounded-full bg-pink-100 px-2 py-0.5 text-xs font-semibold text-pink-700 dark:bg-pink-500/15 dark:text-pink-300">
+                            −{Math.round((1 - price / before) * 100)}%
+                        </span>
+                    )}
+                    {badSale && (
+                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                            {t('product.pricing.notASale')}
+                        </span>
+                    )}
+                </div>
+            )}
         </FieldGroup>
     );
 }

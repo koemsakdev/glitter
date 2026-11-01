@@ -17,7 +17,6 @@ import { DeliveryMethodFormDialog } from '@/features/settings/components/deliver
 import { PaymentOptionFormDialog } from '@/features/settings/components/payment-option-form-dialog';
 import { RegionFormDialog } from '@/features/settings/components/region-form-dialog';
 import {
-    ABA_PAYMENT_TYPES,
     type DeliveryMethod,
     type DeliveryRegion,
     type PaymentOption,
@@ -35,6 +34,7 @@ const PAYMENT_TYPE_LABEL: Record<PaymentOption['type'], TranslationKey> = {
     aba_khqr: 'settings.delivery.typeAbaKhqr',
     aba_ecommerce: 'settings.delivery.typeAbaEcom',
     cod: 'settings.delivery.typeCod',
+    manual_qr: 'settings.delivery.typeManualQr',
 };
 
 const RULE_LABEL: Record<DeliveryMethod['payment'], TranslationKey> = {
@@ -272,11 +272,9 @@ export function DeliveryConfigCard({
                 note={t('settings.delivery.paymentsNote')}
                 addLabel={t('settings.delivery.addPayment')}
                 saving={saving && touched === 'payments'}
+                // Always open: Bank QR options are unlimited (the form itself
+                // greys out ABA / Cash once one of each exists).
                 onAdd={() => setPaymentDialog({ editing: null })}
-                addDisabled={
-                    payments.some((p) => ABA_PAYMENT_TYPES.includes(p.type)) &&
-                    payments.some((p) => p.type === 'cod')
-                }
             >
                 {payments.map((p) => (
                     <Row

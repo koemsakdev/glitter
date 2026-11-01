@@ -206,16 +206,24 @@ export function getProductColumns({
             header: () => t('product.field.price'),
             cell: ({ row }) => {
                 const product = row.original;
+                // Real prices customers pay: variants with their own price
+                // count too (a range when they differ).
+                const prices = (product.variants ?? [])
+                    .map((v) => Number(v.effectivePrice))
+                    .filter((n) => Number.isFinite(n) && n > 0);
+                const min = prices.length ? Math.min(...prices) : product.price;
+                const max = prices.length ? Math.max(...prices) : product.price;
                 const original = product.originalPrice;
-                const hasDiscount =
-                    original !== null && original > product.price;
+                const hasDiscount = original !== null && original > min;
                 const pct = hasDiscount
-                    ? Math.round((1 - product.price / original) * 100)
+                    ? Math.round((1 - min / original) * 100)
                     : 0;
                 return (
                     <div className="whitespace-nowrap leading-tight">
                         <p className="font-semibold tabular-nums">
-                            {formatPrice(product.price)}
+                            {min === max
+                                ? formatPrice(min)
+                                : `${formatPrice(min)} – ${formatPrice(max)}`}
                         </p>
                         {hasDiscount && (
                             <p className="flex items-center justify-end gap-1 text-xs">

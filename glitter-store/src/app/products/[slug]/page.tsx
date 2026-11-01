@@ -7,6 +7,7 @@ import {
     Star,
     Truck,
 } from 'lucide-react';
+import { ProductPrice } from '@/components/product-price';
 import { AddToCart } from '@/components/add-to-cart';
 import { ProductCard } from '@/components/product-card';
 import { ProductGallery } from '@/components/product-gallery';
@@ -66,13 +67,6 @@ export default async function ProductDetailPage({
     const details = pick(lang, product.detailsEn ?? '', product.detailsKm ?? '');
 
     const images = product.images ?? [];
-    const hasDiscount =
-        product.originalPrice != null && product.originalPrice > product.price;
-    const discountPct = hasDiscount
-        ? Math.round(
-              (1 - product.price / (product.originalPrice as number)) * 100,
-          )
-        : 0;
     const inStock = product.totalStock > 0;
     const freeOver = config.delivery.freeOver;
 
@@ -193,22 +187,12 @@ export default async function ProductDetailPage({
                         )}
                     </div>
 
-                    {/* Price */}
-                    <div className="mt-5 flex flex-wrap items-baseline gap-3">
-                        <span className="text-3xl font-extrabold text-(--brand)">
-                            {formatPrice(product.price)}
-                        </span>
-                        {hasDiscount && (
-                            <>
-                                <span className="text-lg text-zinc-400 line-through">
-                                    {formatPrice(product.originalPrice)}
-                                </span>
-                                <span className="rounded-full bg-(--brand)/10 px-2 py-0.5 text-sm font-bold text-(--brand)">
-                                    -{discountPct}%
-                                </span>
-                            </>
-                        )}
-                    </div>
+                    {/* Price — follows the size / colour picked below */}
+                    <ProductPrice
+                        productId={product.id}
+                        price={product.price}
+                        originalPrice={product.originalPrice ?? null}
+                    />
 
                     {description && (
                         <p className="mt-4 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">

@@ -1,6 +1,6 @@
 'use client';
 
-import {Loader2, Sparkles} from 'lucide-react';
+import { Loader2, Bot } from 'lucide-react';
 import type {Control} from 'react-hook-form';
 import {Controller, useWatch} from 'react-hook-form';
 import {
@@ -404,7 +404,7 @@ function AiTextarea({
                 {isPending ? (
                     <Loader2 className="size-4 animate-spin"/>
                 ) : (
-                    <Sparkles className="size-4"/>
+                    <Bot className="size-4"/>
                 )}
             </button>
         </div>

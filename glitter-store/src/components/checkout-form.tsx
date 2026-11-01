@@ -19,13 +19,13 @@ import {
   Plus,
   ChevronsUpDown,
   QrCode,
-  Sparkles,
+  ScanLine,
+  Tag,
   Trash2,
   Loader2,
   Headphones,
   Lock,
   ShieldCheck,
-  Tag,
   Truck,
 } from "lucide-react";
 import {
@@ -59,6 +59,7 @@ import { AddressForm } from "@/components/checkout/address-form";
 import { Section } from "@/components/checkout/section";
 import { MethodCard } from "@/components/checkout/method-card";
 import { PayIcon } from "@/components/checkout/pay-icon";
+import { ManualQrPanel } from "@/components/checkout/manual-qr-panel";
 import {
   OrderReceiptScreen,
   type OrderInfo,
@@ -132,6 +133,10 @@ export function CheckoutForm({
   const [lng, setLng] = useState<number | null>(null);
   const [showMap, setShowMap] = useState(false);
   const [note, setNote] = useState("");
+  // Manual bank QR: the uploaded receipt + its transaction id.
+  const [proofUrl, setProofUrl] = useState("");
+  const [proofUploading, setProofUploading] = useState(false);
+  const [txRef, setTxRef] = useState("");
 
   // Selected delivery method + fee (needed by voucher validation below).
   const method = methods.find((m) => m.id === methodId);
@@ -494,6 +499,10 @@ export function CheckoutForm({
     color: string;
     Icon: typeof QrCode;
     iconUrl: string | null;
+    /** manual_qr only */
+    qrImageUrl?: string | null;
+    accountName?: string;
+    accountNumber?: string;
   }[] = [];
   if (allowsNow) {
     for (const o of onlineOptions) {
@@ -506,6 +515,24 @@ export function CheckoutForm({
         color: o.color || "#00529C",
         Icon: QrCode,
         iconUrl: fileUrl(o.iconUrl),
+      });
+    }
+    // Manual bank QR options (scan, then upload the receipt).
+    for (const o of payments.filter(
+      (p) => p.enabled && p.type === "manual_qr",
+    )) {
+      payMethods.push({
+        id: o.id,
+        now: true,
+        payType: "manual_qr",
+        title: pick(lang, o.nameEn, o.nameKm) || tr(lang, "mqTitle"),
+        desc: pick(lang, o.descEn, o.descKm) || tr(lang, "mqDesc"),
+        color: o.color || "#0f766e",
+        Icon: ScanLine,
+        iconUrl: fileUrl(o.iconUrl),
+        qrImageUrl: fileUrl(o.qrImageUrl),
+        accountName: o.accountName ?? "",
+        accountNumber: o.accountNumber ?? "",
       });
     }
   }
@@ -528,7 +555,29 @@ export function CheckoutForm({
   const selectedPay =
     payMethods.find((p) => p.id === payMethodId) ?? payMethods[0];
   const payNow = selectedPay?.now === true;
-  const usesKhqr = payNow;
+  const isManual = payNow && selectedPay?.payType === "manual_qr";
+  // ABA (automatic) — manual bank QR is checked by staff instead.
+  const usesKhqr = payNow && !isManual;
+
+  async function uploadReceipt(file: File) {
+    setProofUploading(true);
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await fetch(`${API_URL}/api/orders/payment-proof`, {
+        method: "POST",
+        body: fd,
+      });
+      if (!res.ok) throw new Error("upload");
+      const j = (await res.json()) as { url?: string };
+      setProofUrl(j.url ?? "");
+    } catch {
+      setError(tr(lang, "mqUploadFailed"));
+    } finally {
+      setProofUploading(false);
+    }
+  }
 
   // Payment options UI — reused inline on desktop and inside the mobile sheet.
   const payMethodsUI = payOnDeliveryOnly ? (
@@ -543,6 +592,7 @@ export function CheckoutForm({
       {tr(lang, "noPayMethod")}
     </p>
   ) : (
+    <div className="space-y-3">
     <div className="grid gap-2.5 md:grid-cols-2">
       {payMethods.map((pm) => {
         const active = selectedPay?.id === pm.id;
@@ -597,6 +647,20 @@ export function CheckoutForm({
           </button>
         );
       })}
+    </div>
+    {isManual && selectedPay && (
+      <ManualQrPanel
+        lang={lang}
+        option={selectedPay}
+        amount={grandTotal}
+        proofUrl={proofUrl}
+        uploading={proofUploading}
+        onUpload={uploadReceipt}
+        onClearProof={() => setProofUrl("")}
+        txRef={txRef}
+        onTxRef={setTxRef}
+      />
+    )}
     </div>
   );
 
@@ -670,6 +734,10 @@ export function CheckoutForm({
     if (isPickup && !branchId) return tr(lang, "branchRequired");
     if (!payOnDeliveryOnly && payMethods.length === 0)
       return tr(lang, "noPayMethod");
+    if (!payOnDeliveryOnly && isManual) {
+      if (!proofUrl) return tr(lang, "mqProofRequired");
+      if (!txRef.trim()) return tr(lang, "mqTxRequired");
+    }
     return null;
   }
 
@@ -708,12 +776,22 @@ export function CheckoutForm({
         deliveryAddress: needsAddress ? address.trim() : undefined,
         deliveryLat: needsAddress && lat != null ? lat : undefined,
         deliveryLng: needsAddress && lng != null ? lng : undefined,
-        paymentMethod: usesKhqr ? "khqr" : isPickup ? "on_pickup" : "cod",
-        paymentMethodName: usesKhqr
-          ? "ABA KHQR"
-          : isPickup
-            ? tr(lang, "payAtStore")
-            : tr(lang, "payOnDelivery"),
+        paymentMethod: isManual
+          ? "manual_qr"
+          : usesKhqr
+            ? "khqr"
+            : isPickup
+              ? "on_pickup"
+              : "cod",
+        paymentMethodName: isManual
+          ? selectedPay?.title
+          : usesKhqr
+            ? "ABA KHQR"
+            : isPickup
+              ? tr(lang, "payAtStore")
+              : tr(lang, "payOnDelivery"),
+        paymentProofUrl: isManual ? proofUrl : undefined,
+        paymentReference: isManual ? txRef.trim() : undefined,
         voucherCode: appliedCode ?? undefined,
         note: note.trim() || undefined,
         items: items.map((i) => ({
@@ -755,7 +833,9 @@ export function CheckoutForm({
         fee,
         discount,
         total: grandTotal,
-        paymentName: usesKhqr
+        paymentName: isManual
+          ? (selectedPay?.title ?? "")
+          : usesKhqr
           ? (selectedPay?.title ?? "ABA KHQR")
           : isPickup
             ? tr(lang, "payAtStore")
@@ -774,96 +854,94 @@ export function CheckoutForm({
         })),
       });
 
-      // Online ABA payment. Two modes:
-      //   aba_ecommerce → ABA's hosted checkout modal (checkout2-0.js).
-      //   aba_khqr      → our KHQR popup (QR image + ABA Mobile deeplink).
+      // Online ABA payment:
+      //   1. ABA's embedded checkout (JS bridge, checkout2-0.js) — only when
+      //      the merchant profile supports it (the API checks with ABA).
+      //   2. Otherwise our own KHQR dialog (QR image + ABA Mobile deeplink).
       if (useLiveKhqr && orderId) {
-        // ABA's hosted checkout popup (checkout2-0.js). Returns true if opened.
-        const startHostedCheckout = async (): Promise<boolean> => {
-          const qr = await fetch(`${API_URL}/api/payments/aba/checkout`, {
+        // 1 — embedded checkout. Returns true if ABA's popup opened.
+        const startBridge = async (): Promise<boolean> => {
+          const res = await fetch(`${API_URL}/api/payments/aba/checkout`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ orderId }),
           });
-          if (qr.ok) {
-            const qd = (await qr.json()) as {
-              data?: {
-                actionUrl: string;
-                fields: Record<string, string>;
-              };
+          if (!res.ok) return false;
+          const qd = (await res.json()) as {
+            data?: {
+              mode?: "bridge" | "qr";
+              actionUrl?: string;
+              fields?: Record<string, string>;
             };
-            if (qd.data?.actionUrl && qd.data.fields?.tran_id) {
-              await waitForAba();
-              const opened = openAbaCheckout(qd.data.actionUrl, qd.data.fields);
-              if (opened) {
-                setPaySheet(false);
-                setAbaPay({
-                  mode: "ecommerce",
-                  tranId: qd.data.fields.tran_id,
-                  orderNumber,
-                });
-                return true;
-              }
-            }
+          };
+          if (
+            qd.data?.mode !== "bridge" ||
+            !qd.data.actionUrl ||
+            !qd.data.fields?.tran_id
+          ) {
+            return false; // merchant can't use the bridge → our dialog
           }
-          return false;
+          await waitForAba();
+          // The bridge script may fail to load (network / blocker).
+          if (!openAbaCheckout(qd.data.actionUrl, qd.data.fields)) return false;
+          setPaySheet(false);
+          setAbaPay({
+            mode: "ecommerce",
+            tranId: qd.data.fields.tran_id,
+            orderNumber,
+          });
+          return true;
         };
 
-        if (selectedPay?.payType === "aba_ecommerce") {
-          if (await startHostedCheckout()) return;
-        } else {
-          // aba_khqr — generate a dynamic KHQR (image + deeplink).
+        // 2 — our KHQR dialog. Returns true if the QR was shown.
+        const startQrDialog = async (): Promise<boolean> => {
           const qr = await fetch(`${API_URL}/api/payments/aba/khqr`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ orderId }),
           });
-          if (qr.ok) {
-            const qd = (await qr.json()) as {
-              data?: {
-                tranId: string;
-                qrImage?: string;
-                deeplink?: string;
-                amount?: string;
-                currency?: string;
-                merchantName?: string;
-                expiresAt?: string;
-                lifetimeMinutes?: number;
-              };
+          if (!qr.ok) return false;
+          const qd = (await qr.json()) as {
+            data?: {
+              tranId: string;
+              qrImage?: string;
+              deeplink?: string;
+              amount?: string;
+              currency?: string;
+              merchantName?: string;
+              expiresAt?: string;
+              lifetimeMinutes?: number;
             };
-            if (qd.data?.tranId && qd.data.qrImage) {
-              const expiresAt =
-                qd.data.expiresAt ??
-                new Date(Date.now() + 5 * 60_000).toISOString();
-              setCancelConfirm(false);
-              setPaySheet(false);
-              setKhqrLeft(
-                Math.max(
-                  1,
-                  Math.round(
-                    (new Date(expiresAt).getTime() - Date.now()) / 1000,
-                  ),
-                ),
-              );
-              setAbaPay({
-                mode: "qr",
-                tranId: qd.data.tranId,
-                orderNumber,
-                qrImage: qd.data.qrImage,
-                deeplink: qd.data.deeplink ?? "",
-                amount: qd.data.amount ?? "",
-                currency: qd.data.currency ?? "USD",
-                merchantName: qd.data.merchantName ?? "",
-                expiresAt,
-              });
-              return;
-            }
-          }
-          // The KHQR API can be switched off for a merchant at ABA (code 32 —
-          // "Service is not enable"). Fall back to ABA's hosted checkout,
-          // which also offers KHQR, so the customer can still pay.
-          if (await startHostedCheckout()) return;
-        }
+          };
+          if (!qd.data?.tranId || !qd.data.qrImage) return false;
+          const expiresAt =
+            qd.data.expiresAt ??
+            new Date(Date.now() + 5 * 60_000).toISOString();
+          setCancelConfirm(false);
+          setPaySheet(false);
+          setKhqrLeft(
+            Math.max(
+              1,
+              Math.round((new Date(expiresAt).getTime() - Date.now()) / 1000),
+            ),
+          );
+          setAbaPay({
+            mode: "qr",
+            tranId: qd.data.tranId,
+            orderNumber,
+            qrImage: qd.data.qrImage,
+            deeplink: qd.data.deeplink ?? "",
+            amount: qd.data.amount ?? "",
+            currency: qd.data.currency ?? "USD",
+            merchantName: qd.data.merchantName ?? "",
+            expiresAt,
+          });
+          return true;
+        };
+
+        if (await startBridge()) return;
+        if (await startQrDialog()) return;
+
         // Payment couldn't be started — this is a pay-first order, so it
         // is NOT placed. Keep the cart, show an error, and let the unpaid
         // order auto-expire and release its reserved stock.
@@ -1030,9 +1108,9 @@ export function CheckoutForm({
     (!needsAddress || Boolean(address.trim()));
   const payDone = payOnDeliveryOnly || Boolean(selectedPay);
   const steps = [
+    { label: tr(lang, "coStepPay"), done: payDone },
     { label: tr(lang, "coStepDelivery"), done: regionDone && methodDone },
     { label: tr(lang, "coStepDetails"), done: infoDone },
-    { label: tr(lang, "coStepPay"), done: payDone },
   ];
   const currentStep = steps.findIndex((st) => !st.done);
 
@@ -1135,9 +1213,22 @@ export function CheckoutForm({
               </Section>
             </div>
 
-            {/* 1 — Delivery: region (where) + method (how) */}
+            {/* 1 — Payment (first). Desktop/tablet only: on phones it's chosen in the
+                bottom sheet opened by the Checkout button. */}
+            <div className="hidden md:block">
+              <Section
+                step={1}
+                title={tr(lang, "payment")}
+                description={tr(lang, "coPayHint")}
+                done={payDone}
+              >
+                {payMethodsUI}
+              </Section>
+            </div>
+
+            {/* 2 — Delivery: region (where) + method (how) */}
             <Section
-              step={1}
+              step={2}
               title={tr(lang, "coDelivery")}
               description={tr(lang, "coDeliveryHint")}
               done={regionDone && methodDone}
@@ -1340,9 +1431,9 @@ export function CheckoutForm({
               )}
             </Section>
 
-            {/* 4 — Customer info / address */}
+            {/* 3 — Customer info / address */}
             <Section
-              step={2}
+              step={3}
               title={tr(lang, "yourInfo")}
               description={tr(lang, "coInfoHint")}
               done={infoDone}
@@ -1490,18 +1581,6 @@ export function CheckoutForm({
               </div>
             </Section>
 
-            {/* 3 — Payment. Desktop/tablet only: on phones it's chosen in the
-                bottom sheet opened by the Checkout button. */}
-            <div className="hidden md:block">
-              <Section
-                step={3}
-                title={tr(lang, "payment")}
-                description={tr(lang, "coPayHint")}
-                done={payDone}
-              >
-                {payMethodsUI}
-              </Section>
-            </div>
           </div>
 
           {/* Summary */}
@@ -1578,7 +1657,7 @@ export function CheckoutForm({
                   )}
                   {voucherAuto && discount > 0 && !appliedCode && (
                     <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                      <Sparkles className="size-3" />
+                      <Tag className="size-3" />
                       {voucherName ?? tr(lang, "promoAuto")}
                     </p>
                   )}

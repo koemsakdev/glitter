@@ -33,28 +33,6 @@ const SIZES: Record<
     },
 };
 
-/** A small 4-point glitter sparkle. */
-function Sparkle({
-    className,
-    style,
-}: {
-    className?: string;
-    style?: React.CSSProperties;
-}) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            className={className}
-            style={style}
-        >
-            <path
-                d="M12 0c.7 5.7 2.6 7.6 8.3 8.3-5.7.7-7.6 2.6-8.3 8.3-.7-5.7-2.6-7.6-8.3-8.3C9.4 7.6 11.3 5.7 12 0z"
-                fill="currentColor"
-            />
-        </svg>
-    );
-}
 
 const RING_MASK = {
     WebkitMask:
@@ -65,7 +43,7 @@ const RING_MASK = {
 /**
  * Branded loading indicator for the Glitter shop. The (small) logo bobs and tilts
  * in 3D with a shimmer sweep, framed by two counter-rotating pink gradient rings,
- * a pulsing glow, sparkles that orbit and twinkle, and glitter that floats up.
+ * a pulsing glow and glitter dots that float up.
  */
 export function BrandedLoader({
     label,
@@ -89,15 +67,6 @@ export function BrandedLoader({
                 )}
                 style={{ perspective: '500px' }}
             >
-                {/* Orbiting sparkles — two layers spinning at different speeds/directions */}
-                <div className="absolute inset-0 animate-[spin_3.5s_linear_infinite]">
-                    <Sparkle className="absolute left-1/2 top-0 size-2.5 -translate-x-1/2 text-pink-400" />
-                </div>
-                <div className="absolute inset-0 animate-[glitter-orbit-rev_5s_linear_infinite]">
-                    <Sparkle className="absolute right-0 top-1/2 size-2 -translate-y-1/2 text-fuchsia-400" />
-                    <Sparkle className="absolute bottom-0 left-0 size-1.5 text-amber-300" />
-                </div>
-
                 {/* Pulsing glow */}
                 <div className="absolute inset-1.5 rounded-full bg-pink-400/40 blur-lg animate-[glitter-glow_2.2s_ease-in-out_infinite]" />
 
@@ -147,16 +116,6 @@ export function BrandedLoader({
                         />
                     </div>
                 </div>
-
-                {/* Twinkling sparkles (fixed positions) */}
-                <Sparkle
-                    className="absolute -top-0.5 right-1.5 size-2.5 text-pink-300 animate-[glitter-twinkle_1.6s_ease-in-out_infinite]"
-                    style={{ animationDelay: '200ms' }}
-                />
-                <Sparkle
-                    className="absolute -bottom-0.5 left-2 size-2 text-fuchsia-300 animate-[glitter-twinkle_1.9s_ease-in-out_infinite]"
-                    style={{ animationDelay: '650ms' }}
-                />
 
                 {/* Glitter dust floating up */}
                 <span

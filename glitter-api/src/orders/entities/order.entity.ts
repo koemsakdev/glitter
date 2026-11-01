@@ -273,6 +273,16 @@ export class OrderEntity {
   @Column({ type: 'text', nullable: true, name: 'payment_proof_url' })
   paymentProofUrl!: string | null;
 
+  /** Bank transaction / reference id the customer typed for a manual QR
+   * payment — staff match it with the receipt before confirming. */
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+    name: 'payment_reference',
+  })
+  paymentReference!: string | null;
+
   /** ABA PayWay transaction id used to generate/verify a KHQR payment. */
   @Index()
   @Column({

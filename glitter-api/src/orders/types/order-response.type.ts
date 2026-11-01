@@ -60,6 +60,8 @@ export interface OrderResponse {
   paymentMethod: OrderPaymentMethod | null;
   paymentMethodName: string | null;
   paymentProofUrl: string | null;
+  /** Transaction id the customer entered (manual QR payment). */
+  paymentReference: string | null;
   voucherCode: string | null;
   note: string | null;
   itemCount: number;

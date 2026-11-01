@@ -20,6 +20,7 @@ const TABS: { href: string; key: TranslationKey; adminOnly?: boolean }[] = [
   { href: `${BASE}/sections`, key: "settings.tab.sections" },
   { href: `${BASE}/navigation`, key: "settings.tab.navigation" },
   { href: `${BASE}/assistant`, key: "settings.tab.assistant", adminOnly: true },
+  { href: `${BASE}/maintenance`, key: "settings.tab.maintenance", adminOnly: true },
 ];
 
 export default function AppSettingsLayout({

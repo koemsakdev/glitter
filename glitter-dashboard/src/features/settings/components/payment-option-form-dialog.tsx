@@ -3,9 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Banknote,
+    Check,
     CircleCheck,
     CircleX,
-    CreditCard,
     Eye,
     EyeOff,
     FlaskConical,
@@ -16,6 +16,7 @@ import {
     PlugZap,
     Plus,
     QrCode,
+    ScanLine,
     Radio,
     Save,
     ShieldCheck,
@@ -23,21 +24,14 @@ import {
     Wallet,
     type LucideIcon,
 } from 'lucide-react';
-import {
-    useEffect,
-    useMemo,
-    useState,
-    type CSSProperties,
-    type ReactNode,
-} from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ResponsiveModal } from '@/components/responsive-modal';
 import { Button } from '@/components/ui/button';
-import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { IconUploader } from '@/features/settings/components/icon-uploader';
 import { BilingualField } from '@/features/settings/components/settings-shared';
+import { LogoPicker } from '@/features/settings/components/logo-picker';
 import {
     paymentConfigApi,
     type PaymentConfigInput,
@@ -69,16 +63,16 @@ const TYPES: {
         icon: QrCode,
     },
     {
-        value: 'aba_ecommerce',
-        labelKey: 'settings.delivery.typeAbaEcom',
-        hintKey: 'settings.pay.ecomHint',
-        icon: CreditCard,
-    },
-    {
         value: 'cod',
         labelKey: 'settings.delivery.typeCod',
         hintKey: 'settings.pay.codHint',
         icon: Banknote,
+    },
+    {
+        value: 'manual_qr',
+        labelKey: 'settings.delivery.typeManualQr',
+        hintKey: 'settings.pay.manualQrHint',
+        icon: ScanLine,
     },
 ];
 
@@ -133,22 +127,28 @@ export function PaymentOptionFormDialog({
     // it. Disable types that are already taken by another option.
     const abaTaken = siblings.some((p) => ABA_PAYMENT_TYPES.includes(p.type));
     const codTaken = siblings.some((p) => p.type === 'cod');
+    // Bank QR options are unlimited (one per bank); ABA and Cash, one each.
     const typeAvailable = (v: PaymentOptionType) =>
-        v === 'cod' ? !codTaken : !abaTaken;
+        v === 'manual_qr' ? true : v === 'cod' ? !codTaken : !abaTaken;
+    // There is one ABA option now (checkout picks ABA's embedded popup or our
+    // KHQR dialog by itself), so an older "E-Commerce" option edits as ABA.
     const [type, setType] = useState<PaymentOptionType>(
-        option?.type ??
+        (option?.type === 'aba_ecommerce' ? 'aba_khqr' : option?.type) ??
             TYPES.find((ty) => typeAvailable(ty.value))?.value ??
             'aba_khqr',
     );
     const [enabled, setEnabled] = useState(option?.enabled ?? true);
-    // Confirmation that the merchant has ABA eCommerce enabled (required for
-    // aba_ecommerce). Pre-confirmed when editing an existing eCommerce option.
-    const [ecomConfirmed, setEcomConfirmed] = useState(
-        option?.type === 'aba_ecommerce',
-    );
     const [saving, setSaving] = useState(false);
 
     const isAba = ABA_PAYMENT_TYPES.includes(type);
+    const isManual = type === 'manual_qr';
+    // Bank QR details (manual_qr).
+    const [qrImageUrl, setQrImageUrl] = useState(option?.qrImageUrl ?? '');
+    const [qrFile, setQrFile] = useState<File | null>(null);
+    const [accountName, setAccountName] = useState(option?.accountName ?? '');
+    const [accountNumber, setAccountNumber] = useState(
+        option?.accountNumber ?? '',
+    );
 
     // Private ABA credentials — one shared config (never in the public blob).
     const { data: cfg, isLoading: cfgLoading } = useQuery({
@@ -158,13 +158,11 @@ export function PaymentOptionFormDialog({
     });
     const [credLive, setCredLive] = useState(false);
     const [sandbox, setSandbox] = useState(true);
+    // ABA only needs the merchant ID + API key (the hash key) for checkout,
+    // KHQR and status checks — nothing else is asked.
     const [merchantId, setMerchantId] = useState('');
-    const [webhookUrl, setWebhookUrl] = useState('');
-    const [rsaPublicKey, setRsaPublicKey] = useState('');
     const [apiKey, setApiKey] = useState('');
-    const [rsaPrivateKey, setRsaPrivateKey] = useState('');
     const [showApiKey, setShowApiKey] = useState(false);
-    const [showRsaPrivate, setShowRsaPrivate] = useState(false);
     const [credHydrated, setCredHydrated] = useState(false);
 
     // Populate the credential fields (incl. secrets) once the private config
@@ -174,10 +172,7 @@ export function PaymentOptionFormDialog({
         setCredLive(cfg.enabled);
         setSandbox(cfg.sandbox);
         setMerchantId(cfg.merchantId);
-        setWebhookUrl(cfg.webhookUrl);
-        setRsaPublicKey(cfg.rsaPublicKey);
         setApiKey(cfg.apiKey);
-        setRsaPrivateKey(cfg.rsaPrivateKey);
     }
 
     // Live preview of the picked logo (before it's uploaded).
@@ -193,11 +188,9 @@ export function PaymentOptionFormDialog({
     const logoSrc = objectUrl ?? getFileUrl(iconUrl);
 
     const hasApiKey = Boolean(apiKey.trim()) || Boolean(cfg?.hasApiKey);
-    const hasPrivate =
-        Boolean(rsaPrivateKey.trim()) || Boolean(cfg?.hasRsaPrivateKey);
     const abaStatus: AbaStatus = !credLive
         ? 'off'
-        : merchantId.trim() && hasApiKey && hasPrivate
+        : merchantId.trim() && hasApiKey
           ? 'ready'
           : 'incomplete';
 
@@ -223,10 +216,9 @@ export function PaymentOptionFormDialog({
             });
             return;
         }
-        // ABA E-Commerce requires the merchant to have hosted checkout enabled.
-        if (type === 'aba_ecommerce' && !ecomConfirmed) {
+        if (isManual && !qrFile && !qrImageUrl) {
             toast({
-                title: t('settings.delivery.ecomRequired'),
+                title: t('settings.pay.qrRequired'),
                 variant: 'destructive',
             });
             return;
@@ -234,6 +226,11 @@ export function PaymentOptionFormDialog({
         setSaving(true);
         try {
             const finalIcon = file ? (await uploadImage(file, 0)).url : iconUrl;
+            const finalQr = isManual
+                ? qrFile
+                    ? (await uploadImage(qrFile, 0)).url
+                    : qrImageUrl
+                : '';
 
             // For ABA-based options, persist the private credentials too.
             if (isAba) {
@@ -241,12 +238,8 @@ export function PaymentOptionFormDialog({
                     enabled: credLive,
                     sandbox,
                     merchantId: merchantId.trim(),
-                    webhookUrl: webhookUrl.trim(),
-                    rsaPublicKey,
                 };
                 if (apiKey.trim()) input.apiKey = apiKey.trim();
-                if (rsaPrivateKey.trim())
-                    input.rsaPrivateKey = rsaPrivateKey.trim();
                 const fresh = await paymentConfigApi.update(input);
                 queryClient.setQueryData(PAY_CONFIG_KEY, fresh);
             }
@@ -261,6 +254,13 @@ export function PaymentOptionFormDialog({
                 color,
                 type,
                 enabled,
+                ...(isManual
+                    ? {
+                          qrImageUrl: finalQr,
+                          accountName: accountName.trim(),
+                          accountNumber: accountNumber.trim(),
+                      }
+                    : {}),
             });
         } catch (error) {
             toast({
@@ -280,7 +280,10 @@ export function PaymentOptionFormDialog({
             onOpenChange={(o) => !saving && onOpenChange(o)}
             className="sm:max-w-2xl"
         >
-            <div className="flex max-h-[90vh] flex-col">
+            {/* Fit inside the modal (85vh on desktop) / bottom sheet (screen
+                minus 6rem on phones): only the middle scrolls, so the title
+                and the Save / Cancel bar always stay in view. */}
+            <div className="flex max-h-[calc(100dvh-7.5rem)] flex-col min-[1027px]:max-h-[85vh]">
                 {/* Header + live checkout preview */}
                 <div className="space-y-4 border-b px-6 pb-5 pt-6">
                     <h2 className="text-xl font-bold tracking-tight">
@@ -352,8 +355,8 @@ export function PaymentOptionFormDialog({
                         title={t('settings.pay.secDisplay')}
                         hint={t('settings.pay.secDisplayHint')}
                     >
-                        <div className="grid gap-5 sm:grid-cols-[1fr_auto]">
-                            <IconUploader
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <LogoPicker
                                 value={iconUrl}
                                 file={file}
                                 onPick={(f) => {
@@ -361,35 +364,9 @@ export function PaymentOptionFormDialog({
                                     if (!f) setIconUrl('');
                                 }}
                                 label={t('settings.delivery.paymentLogo')}
-                                hint={t('settings.delivery.paymentLogoHint')}
+                                hint={t('settings.pay.logoHint')}
                             />
-                            <Field>
-                                <FieldLabel htmlFor="pay-color">
-                                    {t('settings.delivery.paymentColor')}
-                                </FieldLabel>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        id="pay-color"
-                                        type="color"
-                                        value={color}
-                                        onChange={(e) =>
-                                            setColor(e.target.value)
-                                        }
-                                        className="size-11 shrink-0 cursor-pointer rounded-lg border bg-background p-1"
-                                    />
-                                    <Input
-                                        value={color}
-                                        onChange={(e) =>
-                                            setColor(e.target.value)
-                                        }
-                                        className="w-28 font-mono uppercase"
-                                        maxLength={7}
-                                    />
-                                </div>
-                                <FieldDescription>
-                                    {t('settings.delivery.paymentColorHint')}
-                                </FieldDescription>
-                            </Field>
+                            <ColorPicker value={color} onChange={setColor} />
                         </div>
                         <BilingualField
                             label={t('settings.delivery.paymentName')}
@@ -422,7 +399,14 @@ export function PaymentOptionFormDialog({
                             {TYPES.map((ty) => {
                                 const taken =
                                     !typeAvailable(ty.value) &&
-                                    ty.value !== option?.type;
+                                    ty.value !== option?.type &&
+                                    !(
+                                        option &&
+                                        ABA_PAYMENT_TYPES.includes(
+                                            option.type,
+                                        ) &&
+                                        ty.value === 'aba_khqr'
+                                    );
                                 const active = type === ty.value;
                                 return (
                                     <button
@@ -470,28 +454,6 @@ export function PaymentOptionFormDialog({
                             })}
                         </div>
 
-                        {/* ABA E-Commerce requires a merchant with hosted checkout */}
-                        {type === 'aba_ecommerce' && (
-                            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
-                                <input
-                                    type="checkbox"
-                                    checked={ecomConfirmed}
-                                    onChange={(e) =>
-                                        setEcomConfirmed(e.target.checked)
-                                    }
-                                    className="mt-0.5 size-4 shrink-0 accent-amber-600"
-                                />
-                                <span className="text-sm">
-                                    <span className="block font-medium text-amber-800 dark:text-amber-200">
-                                        {t('settings.delivery.ecomConfirm')}
-                                    </span>
-                                    <span className="mt-0.5 block text-xs text-amber-700/80 dark:text-amber-300/70">
-                                        {t('settings.delivery.ecomConfirmHint')}
-                                    </span>
-                                </span>
-                            </label>
-                        )}
-
                         <ToggleRow
                             title={t('settings.pay.showAtCheckout')}
                             hint={t('settings.delivery.paymentsNote')}
@@ -500,7 +462,59 @@ export function PaymentOptionFormDialog({
                         />
                     </Section>
 
-                    {/* 3 — ABA account (only for ABA-based payment types) */}
+                    {/* 3 — Bank QR details (manual payment) */}
+                    {isManual && (
+                        <Section
+                            icon={ScanLine}
+                            title={t('settings.pay.manualSection')}
+                            hint={t('settings.pay.manualSectionHint')}
+                        >
+                            <div className="grid gap-5 sm:grid-cols-[auto_1fr]">
+                                <QrPicker
+                                    value={qrImageUrl}
+                                    file={qrFile}
+                                    onPick={(f) => {
+                                        setQrFile(f);
+                                        if (!f) setQrImageUrl('');
+                                    }}
+                                />
+                                <div className="space-y-4">
+                                    <Field>
+                                        <FieldLabel htmlFor="mq-name">
+                                            {t('settings.pay.accountName')}
+                                        </FieldLabel>
+                                        <Input
+                                            id="mq-name"
+                                            value={accountName}
+                                            onChange={(e) =>
+                                                setAccountName(e.target.value)
+                                            }
+                                            placeholder="GLITTER SHOP"
+                                        />
+                                    </Field>
+                                    <Field>
+                                        <FieldLabel htmlFor="mq-number">
+                                            {t('settings.pay.accountNumber')}
+                                        </FieldLabel>
+                                        <Input
+                                            id="mq-number"
+                                            value={accountNumber}
+                                            onChange={(e) =>
+                                                setAccountNumber(e.target.value)
+                                            }
+                                            placeholder="000 123 456"
+                                            className="font-mono"
+                                        />
+                                    </Field>
+                                    <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                                        {t('settings.pay.manualHowItWorks')}
+                                    </p>
+                                </div>
+                            </div>
+                        </Section>
+                    )}
+
+                    {/* 4 — ABA account (only for ABA-based payment types) */}
                     {isAba && (
                         <Section
                             icon={ShieldCheck}
@@ -584,10 +598,15 @@ export function PaymentOptionFormDialog({
 
                             {/* Keys */}
                             <div className="space-y-4 rounded-xl border bg-muted/20 p-4">
-                                <p className="flex items-center gap-2 text-sm font-semibold">
-                                    <KeyRound className="size-4 text-muted-foreground" />
-                                    {t('settings.pay.keys')}
-                                </p>
+                                <div>
+                                    <p className="flex items-center gap-2 text-sm font-semibold">
+                                        <KeyRound className="size-4 text-muted-foreground" />
+                                        {t('settings.pay.keys')}
+                                    </p>
+                                    <p className="mt-0.5 text-xs text-muted-foreground">
+                                        {t('settings.pay.keysHint')}
+                                    </p>
+                                </div>
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <Field>
                                         <FieldLabel htmlFor="aba-merchant">
@@ -636,79 +655,6 @@ export function PaymentOptionFormDialog({
                                                 )}
                                             />
                                         </div>
-                                    </Field>
-                                    <Field className="sm:col-span-2">
-                                        <FieldLabel htmlFor="aba-rsa-pub">
-                                            {t('settings.aba.rsaPublic')}
-                                        </FieldLabel>
-                                        <Textarea
-                                            id="aba-rsa-pub"
-                                            rows={2}
-                                            className="font-mono text-xs"
-                                            value={rsaPublicKey}
-                                            onChange={(e) =>
-                                                setRsaPublicKey(e.target.value)
-                                            }
-                                            placeholder="-----BEGIN PUBLIC KEY-----"
-                                        />
-                                    </Field>
-                                    <Field className="sm:col-span-2">
-                                        <FieldLabel
-                                            htmlFor="aba-rsa-priv"
-                                            className="flex items-center justify-between gap-2"
-                                        >
-                                            {t('settings.aba.rsaPrivate')}
-                                            <SecretChip set={hasPrivate} />
-                                        </FieldLabel>
-                                        <div className="relative">
-                                            <Textarea
-                                                id="aba-rsa-priv"
-                                                rows={3}
-                                                autoComplete="off"
-                                                className="pr-10 font-mono text-xs"
-                                                style={
-                                                    showRsaPrivate
-                                                        ? undefined
-                                                        : ({
-                                                              WebkitTextSecurity:
-                                                                  'disc',
-                                                          } as CSSProperties)
-                                                }
-                                                value={rsaPrivateKey}
-                                                onChange={(e) =>
-                                                    setRsaPrivateKey(
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                placeholder="-----BEGIN RSA PRIVATE KEY-----"
-                                            />
-                                            <EyeButton
-                                                shown={showRsaPrivate}
-                                                onToggle={() =>
-                                                    setShowRsaPrivate((s) => !s)
-                                                }
-                                                label={t(
-                                                    'settings.aba.toggleSecret',
-                                                )}
-                                                className="top-2"
-                                            />
-                                        </div>
-                                    </Field>
-                                    <Field className="sm:col-span-2">
-                                        <FieldLabel htmlFor="aba-webhook">
-                                            {t('settings.aba.webhook')}
-                                        </FieldLabel>
-                                        <Input
-                                            id="aba-webhook"
-                                            value={webhookUrl}
-                                            onChange={(e) =>
-                                                setWebhookUrl(e.target.value)
-                                            }
-                                            placeholder="https://your-domain.com/api/payments/aba/webhook"
-                                        />
-                                        <FieldDescription>
-                                            {t('settings.aba.webhookHint')}
-                                        </FieldDescription>
                                     </Field>
                                 </div>
                                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -927,6 +873,170 @@ function AbaConnectionTest() {
                     ))}
                 </ul>
             )}
+        </div>
+    );
+}
+
+const PAY_COLORS = [
+    '#015f7a',
+    '#e1232e',
+    '#16a34a',
+    '#2563eb',
+    '#7c3aed',
+    '#ec4899',
+    '#f59e0b',
+    '#18181b',
+];
+
+/** Accent colour: preset swatches, a custom swatch and the hex value. */
+function ColorPicker({
+    value,
+    onChange,
+}: {
+    value: string;
+    onChange: (v: string) => void;
+}) {
+    const { t } = useI18n();
+    const current = value.toLowerCase();
+    const custom = !PAY_COLORS.includes(current);
+    return (
+        <div className="space-y-2">
+            <p className="text-sm font-medium">
+                {t('settings.delivery.paymentColor')}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+                {PAY_COLORS.map((c) => (
+                    <button
+                        key={c}
+                        type="button"
+                        aria-label={c}
+                        onClick={() => onChange(c)}
+                        className={cn(
+                            'flex size-7 items-center justify-center rounded-full ring-1 ring-black/10 transition-transform hover:scale-110',
+                            current === c &&
+                                'ring-2 ring-foreground ring-offset-2 ring-offset-background',
+                        )}
+                        style={{ backgroundColor: c }}
+                    >
+                        {current === c && (
+                            <Check className="size-3.5 text-white" />
+                        )}
+                    </button>
+                ))}
+                {/* Any other colour: the swatch opens the system picker */}
+                <label
+                    className={cn(
+                        'relative flex size-7 cursor-pointer items-center justify-center overflow-hidden rounded-full ring-1 ring-black/10',
+                        custom &&
+                            'ring-2 ring-foreground ring-offset-2 ring-offset-background',
+                    )}
+                    style={{
+                        background: custom
+                            ? value
+                            : 'conic-gradient(#f43f5e,#f59e0b,#22c55e,#06b6d4,#6366f1,#d946ef,#f43f5e)',
+                    }}
+                    title={t('settings.pay.customColor')}
+                >
+                    <input
+                        type="color"
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        className="absolute inset-0 cursor-pointer opacity-0"
+                    />
+                    {custom && <Check className="size-3.5 text-white" />}
+                </label>
+            </div>
+            <div className="flex items-center gap-2">
+                <span
+                    className="size-5 shrink-0 rounded-md ring-1 ring-black/10"
+                    style={{ backgroundColor: value }}
+                />
+                <Input
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    maxLength={7}
+                    aria-label={t('settings.delivery.paymentColor')}
+                    className="h-8 w-28 font-mono text-xs uppercase"
+                />
+            </div>
+        </div>
+    );
+}
+
+/** The bank KHQR image for a manual payment option — a big square preview. */
+function QrPicker({
+    value,
+    file,
+    onPick,
+}: {
+    value: string;
+    file: File | null;
+    onPick: (file: File | null) => void;
+}) {
+    const { t } = useI18n();
+    const inputRef = useRef<HTMLInputElement>(null);
+    const objectUrl = useMemo(
+        () => (file ? URL.createObjectURL(file) : null),
+        [file],
+    );
+    useEffect(() => {
+        return () => {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [objectUrl]);
+    const src = objectUrl ?? getFileUrl(value);
+
+    return (
+        <div className="space-y-2">
+            <p className="text-sm font-medium">{t('settings.pay.qrImage')}</p>
+            <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="group relative flex size-40 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed bg-muted/30 transition hover:border-pink-300 dark:hover:border-pink-700"
+            >
+                {src ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                        src={src}
+                        alt=""
+                        className="size-full object-contain bg-white"
+                    />
+                ) : (
+                    <span className="flex flex-col items-center gap-1.5 text-xs text-muted-foreground">
+                        <ScanLine className="size-6" />
+                        {t('settings.pay.uploadQr')}
+                    </span>
+                )}
+            </button>
+            {src && (
+                <div className="flex gap-3 text-xs">
+                    <button
+                        type="button"
+                        onClick={() => inputRef.current?.click()}
+                        className="font-medium text-pink-600 hover:underline dark:text-pink-400"
+                    >
+                        {t('settings.banner.replace')}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onPick(null)}
+                        className="text-muted-foreground hover:text-destructive"
+                    >
+                        {t('common.delete')}
+                    </button>
+                </div>
+            )}
+            <input
+                ref={inputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = '';
+                    if (f) onPick(f);
+                }}
+            />
         </div>
     );
 }

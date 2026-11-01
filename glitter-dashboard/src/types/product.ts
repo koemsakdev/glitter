@@ -55,6 +55,8 @@ export interface Product {
     createdAt: string;
     updatedAt: string;
     images?: ProductImage[];
+    /** Variant prices (included in list/detail responses). */
+    variants?: Array<{ effectivePrice: number; priceOverride: number | null }>;
     branchStock?: number | null;
 }
 

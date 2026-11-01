@@ -135,7 +135,11 @@ export type DeliveryMethodType = 'delivery' | 'pickup';
 /** aba_khqr = ABA KHQR (QR + ABA Mobile deeplink) · aba_ecommerce = ABA hosted
  *  eCommerce checkout (card / ABA Pay / KHQR / wallets) · cod = pay on delivery
  *  / at pickup. */
-export type PaymentOptionType = 'aba_khqr' | 'aba_ecommerce' | 'cod';
+export type PaymentOptionType =
+    | 'aba_khqr'
+    | 'aba_ecommerce'
+    | 'cod'
+    | 'manual_qr';
 
 /** Payment option types that pay online via ABA PayWay (need credentials). */
 export const ABA_PAYMENT_TYPES: PaymentOptionType[] = [
@@ -157,6 +161,11 @@ export interface PaymentOption {
     color: string;
     type: PaymentOptionType;
     enabled: boolean;
+    /** manual_qr only: the shop's own bank KHQR image customers scan. */
+    qrImageUrl?: string;
+    /** manual_qr only: account name / number shown under the QR. */
+    accountName?: string;
+    accountNumber?: string;
 }
 
 /** A shipping region (admin-configurable). `id` is stable; the rest is editable. */
@@ -361,7 +370,9 @@ export function mergeDelivery(partial: unknown): StoreDelivery {
             ? 'cod'
             : ty === 'aba_ecommerce'
               ? 'aba_ecommerce'
-              : 'aba_khqr';
+              : ty === 'manual_qr'
+                ? 'manual_qr'
+                : 'aba_khqr';
     // Default each option from its OWN (normalised) type, so new fields fall
     // back to the right values regardless of position in the saved array.
     const defByType = (ty: PaymentOptionType): PaymentOption =>
@@ -381,6 +392,9 @@ export function mergeDelivery(partial: unknown): StoreDelivery {
                       color: p.color || def.color,
                       type,
                       enabled: p.enabled ?? def.enabled,
+                      qrImageUrl: p.qrImageUrl ?? '',
+                      accountName: p.accountName ?? '',
+                      accountNumber: p.accountNumber ?? '',
                   };
               })
             : DEFAULT_PAYMENTS.map((p) => ({ ...p }));
@@ -412,6 +426,16 @@ export const ASSISTANT_ICONS = [
 ] as const;
 export type AssistantIconId = (typeof ASSISTANT_ICONS)[number];
 
+/** While enabled, the storefront shows a maintenance screen instead of the
+ *  shop and the API refuses new online orders. */
+export interface StoreMaintenance {
+    enabled: boolean;
+    messageEn: string;
+    messageKm: string;
+    /** When the shop is expected back (ISO date-time), or null. */
+    endsAt: string | null;
+}
+
 export interface StoreAssistant {
     icon: AssistantIconId;
     /** Hex colour for the assistant; empty = use the store's theme colour. */
@@ -439,6 +463,8 @@ export interface StoreConfig {
     appearance: StoreAppearance;
     /** AI chat assistant look — admin-only (enforced by the API). */
     assistant: StoreAssistant;
+    /** Maintenance mode — admin-only (enforced by the API). */
+    maintenance: StoreMaintenance;
 
     announcementEnabled: boolean;
     announcementEn: string;
@@ -546,6 +572,7 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
     activeThemeId: 'default',
 
     assistant: { icon: 'buddy', color: '' },
+    maintenance: { enabled: false, messageEn: '', messageKm: '', endsAt: null },
     appearance: {
         fontScale: 'md',
         fontFamily: '',
@@ -804,6 +831,7 @@ export function mergeStoreConfig(partial: unknown): StoreConfig {
         socials,
         announcements,
         assistant: mergeAssistant(p.assistant),
+        maintenance: mergeMaintenance(p.maintenance),
         appearance: {
             ...DEFAULT_STORE_CONFIG.appearance,
             ...(p.appearance ?? {}),
@@ -840,5 +868,19 @@ function mergeAssistant(raw: unknown): StoreAssistant {
             typeof a.color === 'string' && /^#[0-9a-f]{6}$/i.test(a.color)
                 ? a.color
                 : '',
+    };
+}
+
+function mergeMaintenance(raw: unknown): StoreMaintenance {
+    const m = (raw ?? {}) as Partial<StoreMaintenance>;
+    const ends =
+        typeof m.endsAt === 'string' && !Number.isNaN(Date.parse(m.endsAt))
+            ? m.endsAt
+            : null;
+    return {
+        enabled: m.enabled === true,
+        messageEn: typeof m.messageEn === 'string' ? m.messageEn : '',
+        messageKm: typeof m.messageKm === 'string' ? m.messageKm : '',
+        endsAt: ends,
     };
 }

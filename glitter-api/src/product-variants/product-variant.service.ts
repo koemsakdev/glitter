@@ -18,6 +18,7 @@ import {
   ProductVariantOptionsResponse,
   ProductVariantResponse,
 } from './types/product-variant-response.type';
+import { assertVariantPrice } from '../products/price-rules';
 
 @Injectable()
 export class ProductVariantsService {
@@ -39,6 +40,12 @@ export class ProductVariantsService {
         `Product with ID ${dto.productId} not found`,
       );
     }
+
+    assertVariantPrice(
+      dto.priceOverride,
+      product,
+      [dto.size, dto.color].filter(Boolean).join(' · ') || dto.variantSku,
+    );
 
     // Reject if the caller is trying to create a null/null variant manually.
     // Default variants are managed automatically by ProductsService.
@@ -111,6 +118,14 @@ export class ProductVariantsService {
     if (product === null) {
       throw new BadRequestException(
         `Product with ID ${dto.productId} not found`,
+      );
+    }
+
+    for (const v of dto.variants) {
+      assertVariantPrice(
+        v.priceOverride,
+        product,
+        [v.size, v.color].filter(Boolean).join(' · ') || v.variantSku,
       );
     }
 
@@ -426,6 +441,12 @@ export class ProductVariantsService {
     }
 
     if (dto.priceOverride !== undefined) {
+      assertVariantPrice(
+        dto.priceOverride,
+        variant.product,
+        [variant.size, variant.color].filter(Boolean).join(' · ') ||
+          variant.variantSku,
+      );
       variant.priceOverride =
         dto.priceOverride !== null ? dto.priceOverride.toFixed(2) : null;
     }

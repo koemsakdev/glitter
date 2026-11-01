@@ -522,6 +522,18 @@ export function OrderDetailView({ id }: { id: string }) {
                                         </a>
                                     </DetailField>
                                 )}
+                                {order.paymentReference && (
+                                    <DetailField
+                                        label={t('order.payment.reference')}
+                                    >
+                                        <span className="inline-flex items-center gap-2 rounded-md bg-muted px-2 py-1 font-mono text-sm font-semibold">
+                                            {order.paymentReference}
+                                        </span>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            {t('order.payment.referenceHint')}
+                                        </p>
+                                    </DetailField>
+                                )}
                             </div>
                         </DetailSection>
                     )}

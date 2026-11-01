@@ -10,7 +10,6 @@ import {
     MapPin,
     Phone,
     ShieldCheck,
-    Sparkles,
     Star,
     Truck,
     type LucideIcon,
@@ -26,7 +25,7 @@ export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
 const HL_ICONS: Record<string, LucideIcon> = {
-    sparkles: Sparkles,
+    sparkles: Gem,
     truck: Truck,
     shield: ShieldCheck,
     heart: Heart,
@@ -132,7 +131,7 @@ export default async function AboutPage() {
             {story && (
                 <section className="mx-auto mt-14 max-w-2xl text-center">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-(--brand)/10 px-3 py-1 text-xs font-semibold text-(--brand)">
-                        <Sparkles className="size-3.5" />
+                        <Gem className="size-3.5" />
                         {tr(lang, 'aboutTitle')}
                     </span>
                     <h2 className="mt-4 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
@@ -152,7 +151,7 @@ export default async function AboutPage() {
                     </h2>
                     <div className="mt-6 grid gap-5 sm:grid-cols-3">
                         {highlights.map((h) => {
-                            const Icon = HL_ICONS[h.icon] ?? Sparkles;
+                            const Icon = HL_ICONS[h.icon] ?? Gem;
                             return (
                                 <div
                                     key={h.id}

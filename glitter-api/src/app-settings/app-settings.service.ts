@@ -20,9 +20,10 @@ export class AppSettingsService {
   ) {}
 
   /**
-   * The AI assistant's look (`assistant` in the storefront config) is
-   * admin-only, even though other staff with "storefront" permission may save
-   * the rest of the config. Throws if a non-admin tries to change it.
+   * Some storefront-config sections are admin-only — the AI assistant's look
+   * and maintenance mode — even though other staff with "storefront"
+   * permission may save the rest of the config. Throws if a non-admin tries
+   * to change one of them.
    */
   private assertAssistantUnchanged(
     actorRole: string | undefined,
@@ -33,22 +34,29 @@ export class AppSettingsService {
   ): void {
     if (actorRole === 'admin' || actorRole === undefined) return;
     if (group !== 'storefront' || key !== 'home_config') return;
-    const pick = (raw: string | null): string => {
+    const pick = (raw: string | null, section: string): string => {
       try {
-        const a = (JSON.parse(raw ?? '{}') as { assistant?: unknown })
-          .assistant as { icon?: string; color?: string } | undefined;
-        return JSON.stringify({
-          icon: a?.icon ?? 'buddy',
-          color: a?.color ?? '',
-        });
+        const v = (JSON.parse(raw ?? '{}') as Record<string, unknown>)[section];
+        return JSON.stringify(v ?? null);
       } catch {
-        return JSON.stringify({ icon: 'buddy', color: '' });
+        return 'null';
       }
     };
-    if (pick(before) !== pick(after)) {
-      throw new ForbiddenException(
-        'Only an admin can change the AI assistant settings',
-      );
+    const DEFAULTS: Record<string, string> = {
+      assistant: JSON.stringify({ icon: 'buddy', color: '' }),
+    };
+    for (const section of ['assistant', 'maintenance']) {
+      const norm = (raw: string | null) => {
+        const v = pick(raw, section);
+        return v === 'null' ? (DEFAULTS[section] ?? 'null') : v;
+      };
+      if (norm(before) !== norm(after)) {
+        throw new ForbiddenException(
+          section === 'maintenance'
+            ? 'Only an admin can change maintenance mode'
+            : 'Only an admin can change the AI assistant settings',
+        );
+      }
     }
   }
 

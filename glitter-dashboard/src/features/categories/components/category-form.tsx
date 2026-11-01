@@ -5,7 +5,7 @@ import {
     ImagePlus,
     Loader2,
     RotateCcw,
-    Sparkles,
+    Bot,
     Trash2,
 } from 'lucide-react';
 import { SafeImage as Image } from '@/components/ui/safe-image';
@@ -528,7 +528,7 @@ export function CategoryForm({
                                         {generateDescEn.isPending ? (
                                             <Loader2 className="size-4 animate-spin" />
                                         ) : (
-                                            <Sparkles className="size-4" />
+                                            <Bot className="size-4" />
                                         )}
                                     </button>
                                 </div>
@@ -565,7 +565,7 @@ export function CategoryForm({
                                         {generateDescKm.isPending ? (
                                             <Loader2 className="size-4 animate-spin" />
                                         ) : (
-                                            <Sparkles className="size-4" />
+                                            <Bot className="size-4" />
                                         )}
                                     </button>
                                 </div>

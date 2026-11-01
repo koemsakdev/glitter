@@ -186,6 +186,15 @@ export class CreateOrderDto {
   @MaxLength(500)
   paymentProofUrl?: string;
 
+  @ApiPropertyOptional({
+    description:
+      'Bank transaction / reference id from the receipt (manual QR payment)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  paymentReference?: string;
+
   @ApiProperty({ type: [OrderItemInputDto] })
   @IsArray()
   @ArrayMinSize(1)

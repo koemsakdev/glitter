@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { Gem } from 'lucide-react';
 import { BrandSearchGrid } from '@/components/brand-search-grid';
 import { fileUrl, getActiveBrands } from '@/lib/api';
 import { getLang } from '@/lib/lang';
@@ -26,7 +26,7 @@ export default async function BrandsPage() {
             {/* Header */}
             <div className="text-center">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-(--brand)/10 px-3 py-1 text-xs font-semibold text-(--brand)">
-                    <Sparkles className="size-3.5" />
+                    <Gem className="size-3.5" />
                     {tr(lang, 'brandsTitle')}
                 </span>
                 <h1 className="mt-3 text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">

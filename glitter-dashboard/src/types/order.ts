@@ -68,6 +68,8 @@ export interface Order {
     paymentMethod: string | null;
     paymentMethodName: string | null;
     paymentProofUrl: string | null;
+    /** Transaction id the customer entered (manual bank QR payment). */
+    paymentReference?: string | null;
     note: string | null;
     itemCount: number;
     items: OrderItem[];

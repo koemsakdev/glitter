@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ServiceUnavailableException,
   Injectable,
   Logger,
   NotFoundException,
@@ -132,6 +133,22 @@ export class OrdersService {
     private readonly notifications: NotificationsService,
     private readonly vouchers: VouchersService,
   ) {}
+
+  /** True while the storefront is in maintenance mode. */
+  private async isMaintenanceOn(): Promise<boolean> {
+    const row = await this.appSettingRepository.findOne({
+      where: { settingGroup: 'storefront', settingKey: 'home_config' },
+    });
+    if (!row) return false;
+    try {
+      const cfg = JSON.parse(row.settingValue) as {
+        maintenance?: { enabled?: boolean };
+      };
+      return cfg.maintenance?.enabled === true;
+    } catch {
+      return false;
+    }
+  }
 
   /**
    * Resolve a region + delivery method into a server-trusted fee (and validate
@@ -298,8 +315,27 @@ export class OrdersService {
     // Online: validate the delivery choice + compute the fee server-side. KHQR
     // orders are confirmed against ABA PayWay (real API), so no manual proof is
     // required here.
+    // Manual QR (shop's own bank KHQR): the customer must attach the receipt
+    // and its transaction id so staff can check it before confirming.
+    if (isOnline && dto.paymentMethod === 'manual_qr') {
+      if (!dto.paymentProofUrl) {
+        throw new BadRequestException('Please upload your payment receipt');
+      }
+      if (!dto.paymentReference?.trim()) {
+        throw new BadRequestException(
+          'Please enter the transaction ID from your receipt',
+        );
+      }
+    }
+
     let onlineShipping = 0;
     if (isOnline) {
+      // Maintenance mode (App settings → Maintenance): the store is closed.
+      if (await this.isMaintenanceOn()) {
+        throw new ServiceUnavailableException(
+          'The shop is under maintenance right now. Please try again a little later.',
+        );
+      }
       const { methods } = await this.loadDeliveryConfig();
       onlineShipping = this.resolveOnlineDelivery(
         methods,
@@ -500,6 +536,7 @@ export class OrdersService {
         paymentMethod: dto.paymentMethod ?? null,
         paymentMethodName: dto.paymentMethodName ?? null,
         paymentProofUrl: dto.paymentProofUrl ?? null,
+        paymentReference: dto.paymentReference?.trim() || null,
         voucherCode: voucher?.code ?? null,
         note: dto.note ?? null,
         stockHeld: isOnline && !isPrepay,
@@ -1088,6 +1125,7 @@ export class OrdersService {
       paymentMethod: order.paymentMethod,
       paymentMethodName: order.paymentMethodName,
       paymentProofUrl: order.paymentProofUrl,
+      paymentReference: order.paymentReference ?? null,
       voucherCode: order.voucherCode,
       note: order.note,
       itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
@@ -1149,6 +1187,7 @@ export class OrdersService {
       paymentMethod: order.paymentMethod,
       paymentMethodName: order.paymentMethodName,
       paymentProofUrl: order.paymentProofUrl,
+      paymentReference: order.paymentReference ?? null,
       voucherCode: order.voucherCode,
       note: order.note,
       itemCount: order.itemCount ?? 0,

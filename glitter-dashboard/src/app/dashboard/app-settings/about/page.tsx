@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Award, BarChart3, FileText, Gem, Gift, Headphones, Heart, Loader2, Pencil, Plus, Save, ShieldCheck, Sparkles, Star, Trash2, Truck, type LucideIcon } from 'lucide-react';
+import { Award, BarChart3, FileText, Gem, Gift, Headphones, Heart, Loader2, Pencil, Plus, Save, ShieldCheck, Star, Trash2, Truck, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/dialogs/confirm-dialog';
 import { ResponsiveModal } from '@/components/responsive-modal';
@@ -31,7 +31,6 @@ import { useToast } from '@/hooks/use-toast';
 const CONFIG_KEY = ['app-settings', 'store-config'] as const;
 
 const ICONS: Record<string, LucideIcon> = {
-    sparkles: Sparkles,
     truck: Truck,
     shield: ShieldCheck,
     heart: Heart,
@@ -201,7 +200,7 @@ export default function AboutSettingsPage() {
                 ) : (
                     <div className="divide-y">
                         {highlights.map((h) => {
-                            const Icon = ICONS[h.icon] ?? Sparkles;
+                            const Icon = ICONS[h.icon] ?? Star;
                             return (
                                 <div
                                     key={h.id}

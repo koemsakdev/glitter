@@ -48,9 +48,11 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { LiveChange } from '../realtime/live-change';
 
 @ApiTags('Inventory Branch')
 @ApiBearerAuth()
+@LiveChange('products')
 @Controller('inventory-branch')
 export class InventoryBranchController {
   constructor(private readonly service: InventoryBranchService) {}

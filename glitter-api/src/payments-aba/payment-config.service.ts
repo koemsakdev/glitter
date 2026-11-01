@@ -96,7 +96,15 @@ export class PaymentConfigService {
       merchantId: c.merchantId,
       apiKey: c.apiKey,
       rsaPrivateKey: c.rsaPrivateKey,
-      webhookUrl: c.webhookUrl,
+      // Where ABA reports paid orders. Not asked in the dashboard any more:
+      // a saved value still wins, else it's derived from the API's public
+      // address (ABA can't reach localhost — status polling covers that).
+      webhookUrl:
+        c.webhookUrl ||
+        process.env.ABA_WEBHOOK_URL?.trim() ||
+        (process.env.PUBLIC_API_URL?.trim()
+          ? `${process.env.PUBLIC_API_URL.trim().replace(/\/$/, '')}/api/payments/aba/webhook`
+          : ''),
       baseUrl: c.sandbox ? SANDBOX_BASE : PRODUCTION_BASE,
     };
   }

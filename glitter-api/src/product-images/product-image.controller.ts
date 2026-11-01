@@ -45,6 +45,7 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { LiveChange } from '../realtime/live-change';
 
 // Upload destination
 const PRODUCT_IMAGE_UPLOAD_DIR = path.join(
@@ -82,6 +83,7 @@ const fileFilter = (
 
 @ApiTags('Product Images')
 @ApiBearerAuth()
+@LiveChange('products')
 @Controller('product-images')
 export class ProductImagesController {
   constructor(private readonly productImagesService: ProductImagesService) {}

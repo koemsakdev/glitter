@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, Trash2, X } from 'lucide-react';
+import { Plus, Trash2, Wand2, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -17,6 +17,10 @@ import { VariantStockMatrix } from '@/features/products/components/variant-stock
 interface ProductVariantsSectionProps {
     productSku: string;
     productPrice: number;
+    /** "Price before discount" (0 = none): a colour can't cost more. */
+    productOriginalPrice?: number;
+    /** Make `price` the product's selling price and clear per-variant prices. */
+    onSetPriceForAll?: (price: number) => void;
     state: VariantEditorState;
     onChange: (state: VariantEditorState) => void;
     hasVariants: boolean;
@@ -35,6 +39,8 @@ const ROW_KEY = (size: string, hex: string) =>
 export function ProductVariantsSection({
     productSku,
     productPrice,
+    productOriginalPrice = 0,
+    onSetPriceForAll,
     state,
     onChange,
     hasVariants,
@@ -51,6 +57,48 @@ export function ProductVariantsSection({
     const [sizeInput, setSizeInput] = useState('');
     const [sizes, setSizes] = useState<string[]>([]);
     const [pickedColorIds, setPickedColorIds] = useState<string[]>([]);
+    // Quick fill: one price for every variant (like the stock "fill" helper).
+    const [fillPrice, setFillPrice] = useState<number | ''>('');
+
+    // Allowed range for a colour's own price.
+    const minPrice = productPrice;
+    const maxPrice = productOriginalPrice > 0 ? productOriginalPrice : null;
+    function rangeError(p: number): string | null {
+        if (p < minPrice)
+            return t('product.variant.belowSelling').replace(
+                '{price}',
+                minPrice.toFixed(2),
+            );
+        if (maxPrice !== null && p > maxPrice)
+            return t('product.variant.aboveBefore').replace(
+                '{price}',
+                maxPrice.toFixed(2),
+            );
+        return null;
+    }
+    // "Same price for all" sets the selling price, so it can't be above the
+    // "before discount" price.
+    const fillError =
+        fillPrice !== '' && maxPrice !== null && fillPrice > maxPrice
+            ? t('product.variant.aboveBefore').replace(
+                  '{price}',
+                  maxPrice.toFixed(2),
+              )
+            : null;
+
+    function applyPriceToAll(price: number | null) {
+        // One price for everything = the product's selling price; variants
+        // then simply follow it (no per-variant override to keep in sync).
+        if (price !== null && onSetPriceForAll) {
+            onSetPriceForAll(price);
+            setFillPrice('');
+            return;
+        }
+        onChange({
+            ...state,
+            rows: state.rows.map((r) => ({ ...r, priceOverride: price })),
+        });
+    }
 
     function addSize() {
         const v = sizeInput.trim();
@@ -262,6 +310,76 @@ export function ProductVariantsSection({
                         </Button>
                     </div>
 
+                    {/* Quick price fill for every variant */}
+                    {state.rows.length > 1 && (
+                        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
+                            <Wand2 className="size-4 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">
+                                {t('product.variant.fillPrice')}
+                            </span>
+                            <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                    $
+                                </span>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    min={0}
+                                    value={fillPrice}
+                                    onChange={(e) =>
+                                        setFillPrice(
+                                            e.target.value === ''
+                                                ? ''
+                                                : Number(e.target.value),
+                                        )
+                                    }
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            if (fillPrice !== '' && !fillError)
+                                                applyPriceToAll(fillPrice);
+                                        }
+                                    }}
+                                    aria-invalid={fillError ? true : undefined}
+                                    placeholder={productPrice.toFixed(2)}
+                                    className="h-8 w-28 pl-6"
+                                />
+                            </div>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={fillPrice === '' || Boolean(fillError)}
+                                onClick={() =>
+                                    fillPrice !== '' &&
+                                    applyPriceToAll(fillPrice)
+                                }
+                                className="h-8"
+                            >
+                                {t('product.stock.apply')}
+                            </Button>
+                            {state.rows.some(
+                                (r) => r.priceOverride !== null,
+                            ) && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        applyPriceToAll(null);
+                                        setFillPrice('');
+                                    }}
+                                    className="ml-auto text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
+                                >
+                                    {t('product.variant.useProductPrice')}
+                                </button>
+                            )}
+                            {fillError && (
+                                <p className="w-full text-xs text-destructive">
+                                    {fillError}
+                                </p>
+                            )}
+                        </div>
+                    )}
+
                     {/* Generated variant list */}
                     {state.rows.length > 0 && (
                         <div className="space-y-2">
@@ -313,7 +431,17 @@ export function ProductVariantsSection({
                                                 <Input
                                                     type="number"
                                                     step="0.01"
-                                                    min={0}
+                                                    min={minPrice}
+                                                    max={maxPrice ?? undefined}
+                                                    aria-invalid={
+                                                        row.priceOverride !==
+                                                            null &&
+                                                        rangeError(
+                                                            row.priceOverride,
+                                                        )
+                                                            ? true
+                                                            : undefined
+                                                    }
                                                     value={
                                                         row.priceOverride ?? ''
                                                     }
@@ -337,6 +465,16 @@ export function ProductVariantsSection({
                                                     className="h-9 pl-6"
                                                 />
                                             </div>
+                                            {row.priceOverride !== null &&
+                                                rangeError(
+                                                    row.priceOverride,
+                                                ) && (
+                                                    <p className="mt-1 text-[11px] text-destructive">
+                                                        {rangeError(
+                                                            row.priceOverride,
+                                                        )}
+                                                    </p>
+                                                )}
                                         </div>
                                     </div>
                                 </div>

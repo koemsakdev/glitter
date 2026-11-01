@@ -5,6 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { createHmac } from 'crypto';
+import * as QRCode from 'qrcode';
 import {
   PaymentConfigService,
   type PaymentCredentials,
@@ -184,6 +185,82 @@ export class AbaPaywayService {
    * the purchase API server-to-server — the plugin drives the iframe itself and
    * ABA notifies us of the result via the pushback webhook / status polling.
    */
+  /** Last answer of {@link jsBridgeStatus}, per credentials. */
+  private bridgeCache: {
+    key: string;
+    at: number;
+    result: { ok: boolean; detail: string };
+  } | null = null;
+
+  /**
+   * Can ABA's embedded checkout (the JS bridge, checkout2-0.js) open a KHQR
+   * for this merchant? ABA only allows it when the merchant profile is set
+   * to KHQR; a profile with every method (cards, deeplink, …) gets an error
+   * page inside ABA's popup, which the storefront can't read. So we ask ABA
+   * here first with a throw-away transaction and look at the answer: its
+   * checkout page means yes, a JSON error means no. Cached for 10 minutes
+   * (and per credentials, so changing them re-checks).
+   */
+  async jsBridgeStatus(
+    force = false,
+  ): Promise<{ ok: boolean; detail: string }> {
+    const creds = await this.requireCreds();
+    const key = createHmac('sha256', creds.apiKey)
+      .update(`${creds.merchantId}|${creds.sandbox}`)
+      .digest('hex');
+    if (
+      !force &&
+      this.bridgeCache?.key === key &&
+      Date.now() - this.bridgeCache.at < 10 * 60_000
+    ) {
+      return this.bridgeCache.result;
+    }
+
+    let result: { ok: boolean; detail: string };
+    try {
+      const { actionUrl, fields } = await this.generateCheckoutParams({
+        tranId: `B${Date.now().toString(36)}`.slice(0, 20),
+        amount: '0.01',
+      });
+      const form = new FormData();
+      for (const [k, v] of Object.entries(fields)) form.append(k, v);
+      const res = await fetch(actionUrl, {
+        method: 'POST',
+        body: form,
+        signal: AbortSignal.timeout(15_000),
+      });
+      const body = await res.text();
+      if (/<html/i.test(body) && /checkout/i.test(body)) {
+        result = { ok: true, detail: 'ABA embedded checkout opens on KHQR' };
+      } else {
+        let detail = `Unexpected response (HTTP ${res.status})`;
+        try {
+          const j = JSON.parse(body) as {
+            status?: { code?: string | number; message?: string };
+          };
+          const code = String(j.status?.code ?? '');
+          detail =
+            ABA_REASONS[code] ?? j.status?.message ?? `HTTP ${res.status}`;
+        } catch {
+          /* keep the generic reason */
+        }
+        result = { ok: false, detail };
+      }
+    } catch (e) {
+      result = { ok: false, detail: (e as Error).message };
+    }
+
+    this.bridgeCache = { key, at: Date.now(), result };
+    this.logger.log({
+      message: `ABA JS bridge ${result.ok ? 'available' : 'not available'}: ${result.detail}`,
+      event: {
+        action: 'aba.js_bridge_check',
+        outcome: result.ok ? 'success' : 'failure',
+      },
+    });
+    return result;
+  }
+
   async generateCheckoutParams(params: {
     tranId: string;
     amount: string;
@@ -195,68 +272,17 @@ export class AbaPaywayService {
     fields: Record<string, string>;
   }> {
     const creds = await this.requireCreds();
-    const reqTime = this.reqTime();
-    const currency = params.currency ?? 'USD';
-    // MUST be empty so ABA returns its HTML checkout interface (the modal with
-    // KHQR / cards / Alipay / WeChat tabs). A specific value makes the purchase
-    // endpoint return raw JSON (the QR-API style) instead of the checkout page.
-    const paymentOption = '';
-    const type = 'purchase';
-    const returnUrl = creds.webhookUrl
-      ? Buffer.from(creds.webhookUrl).toString('base64')
-      : '';
-    const firstname = params.firstName ?? '';
-    const phone = params.phone ?? '';
-    const returnParams = params.tranId;
-
-    // Exact hash field order from official ABA Purchase API PHP sample (24 fields).
-    // ABA recomputes this over the SAME order using the values it receives, so
-    // every field we sign with a value must be POSTed with that same value.
-    const hash = this.hash(
-      [
-        reqTime, // req_time
-        creds.merchantId, // merchant_id
-        params.tranId, // tran_id
-        params.amount, // amount
-        '', // items
-        '', // shipping
-        firstname, // firstname
-        '', // lastname
-        '', // email
-        phone, // phone
-        type, // type
-        paymentOption, // payment_option
-        returnUrl, // return_url
-        '', // cancel_url
-        '', // continue_success_url
-        '', // return_deeplink
-        currency, // currency
-        '', // custom_fields
-        returnParams, // return_params
-        '', // payout
-        '', // lifetime
-        '', // additional_params
-        '', // google_pay_token
-        '', // skip_success_page
-      ],
-      creds.apiKey,
-    );
-
-    const fields: Record<string, string> = {
-      req_time: reqTime,
-      merchant_id: creds.merchantId,
-      tran_id: params.tranId,
+    // `abapay_khqr` opens ABA's checkout straight on the KHQR (no "Choose
+    // way to pay" step). An empty value would list every method enabled on
+    // the merchant profile and make the shopper pick again.
+    const fields = this.purchaseFields(creds, {
+      tranId: params.tranId,
       amount: params.amount,
-      currency,
-      type,
-      payment_option: paymentOption,
-      return_params: returnParams,
-      hash,
-    };
-    if (firstname) fields.firstname = firstname;
-    if (phone) fields.phone = phone;
-    if (returnUrl) fields.return_url = returnUrl;
-
+      currency: params.currency ?? 'USD',
+      paymentOption: 'abapay_khqr',
+      firstName: params.firstName,
+      phone: params.phone,
+    });
     return {
       actionUrl: `${creds.baseUrl}/api/payment-gateway/v1/payments/purchase`,
       fields,
@@ -264,10 +290,164 @@ export class AbaPaywayService {
   }
 
   /**
-   * Generate a dynamic KHQR for a transaction. `tranId` must be unique and
-   * <= 20 chars (we derive it from the order number).
+   * Signed fields for the Purchase API (multipart form). The hash covers the
+   * 24 fields in ABA's documented order; every signed value is also sent.
+   */
+  private purchaseFields(
+    creds: PaymentCredentials & { baseUrl: string },
+    p: {
+      tranId: string;
+      amount: string;
+      currency: string;
+      paymentOption: string;
+      firstName?: string;
+      phone?: string;
+      lifetime?: string;
+    },
+  ): Record<string, string> {
+    const reqTime = this.reqTime();
+    const type = 'purchase';
+    const returnUrl = creds.webhookUrl
+      ? Buffer.from(creds.webhookUrl).toString('base64')
+      : '';
+    const firstname = p.firstName ?? '';
+    const phone = p.phone ?? '';
+    const lifetime = p.lifetime ?? '';
+    const returnParams = p.tranId;
+    const hash = this.hash(
+      [
+        reqTime, // req_time
+        creds.merchantId, // merchant_id
+        p.tranId, // tran_id
+        p.amount, // amount
+        '', // items
+        '', // shipping
+        firstname, // firstname
+        '', // lastname
+        '', // email
+        phone, // phone
+        type, // type
+        p.paymentOption, // payment_option
+        returnUrl, // return_url
+        '', // cancel_url
+        '', // continue_success_url
+        '', // return_deeplink
+        p.currency, // currency
+        '', // custom_fields
+        returnParams, // return_params
+        '', // payout
+        lifetime, // lifetime
+        '', // additional_params
+        '', // google_pay_token
+        '', // skip_success_page
+      ],
+      creds.apiKey,
+    );
+    const fields: Record<string, string> = {
+      req_time: reqTime,
+      merchant_id: creds.merchantId,
+      tran_id: p.tranId,
+      amount: p.amount,
+      currency: p.currency,
+      type,
+      payment_option: p.paymentOption,
+      return_params: returnParams,
+      hash,
+    };
+    if (firstname) fields.firstname = firstname;
+    if (phone) fields.phone = phone;
+    if (returnUrl) fields.return_url = returnUrl;
+    if (lifetime) fields.lifetime = lifetime;
+    return fields;
+  }
+
+  /**
+   * Dynamic KHQR for an order (QR to scan + ABA Mobile deeplink).
+   *
+   * Uses the Purchase API with `payment_option = abapay_khqr_deeplink` — the
+   * KHQR option merchants get by default (it returns `qr_string`,
+   * `abapay_deeplink` and `checkout_qr_url`). The QR image is drawn here from
+   * `qr_string`. Falls back to the separate generate-qr API only if that
+   * fails (that API must be enabled per merchant by ABA).
    */
   async generateKhqr(params: {
+    tranId: string;
+    amount: string;
+    currency?: string;
+    lifetimeMinutes?: number;
+    firstName?: string;
+    phone?: string;
+  }): Promise<KhqrResult> {
+    const creds = await this.requireCreds();
+    const currency = params.currency ?? 'USD';
+    const lifetimeMinutes = params.lifetimeMinutes ?? KHQR_LIFETIME_MIN;
+    const fields = this.purchaseFields(creds, {
+      tranId: params.tranId,
+      amount: params.amount,
+      currency,
+      paymentOption: 'abapay_khqr_deeplink',
+      firstName: params.firstName,
+      phone: params.phone,
+      lifetime: String(lifetimeMinutes),
+    });
+    const form = new FormData();
+    Object.entries(fields).forEach(([k, v]) => form.append(k, v));
+
+    let json: {
+      qr_string?: string;
+      abapay_deeplink?: string;
+      checkout_qr_url?: string;
+      status?: { code?: string | number; message?: string };
+    };
+    try {
+      json = await this.post(
+        'aba.khqr_deeplink',
+        `${creds.baseUrl}/api/payment-gateway/v1/payments/purchase`,
+        form,
+        {
+          tranId: params.tranId,
+          amount: params.amount,
+          currency,
+          sandbox: creds.sandbox,
+          merchantId: creds.merchantId,
+        },
+      );
+    } catch {
+      return this.generateKhqrViaQrApi(params);
+    }
+
+    const code = String(json.status?.code ?? '');
+    if ((code !== '0' && code !== '00') || !json.qr_string) {
+      this.logger.warn({
+        message: `ABA KHQR (deeplink) refused (code ${code || '—'}); trying the QR API`,
+        aba: { tran_id: params.tranId, code },
+      });
+      return this.generateKhqrViaQrApi(params);
+    }
+
+    const qrImage = await QRCode.toDataURL(json.qr_string, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 480,
+    });
+    return {
+      tranId: params.tranId,
+      qrString: json.qr_string,
+      qrImage,
+      deeplink: json.abapay_deeplink ?? '',
+      amount: params.amount,
+      currency,
+      merchantName: readEmvField(json.qr_string, '59'),
+      lifetimeMinutes,
+      expiresAt: new Date(Date.now() + lifetimeMinutes * 60_000).toISOString(),
+    };
+  }
+
+  /**
+   * Older route: the separate generate-qr API (needs to be enabled by ABA
+   * for the merchant — code 32 otherwise).
+   */
+  private async generateKhqrViaQrApi(params: {
     tranId: string;
     amount: string; // e.g. "10.50"
     currency?: string; // USD | KHR
@@ -450,42 +630,16 @@ export class AbaPaywayService {
       });
     }
 
-    // 3. Hosted checkout (used by "ABA KHQR E-Commerce").
-    try {
-      const { actionUrl, fields } = await this.generateCheckoutParams({
-        tranId: `${tranId}H`,
-        amount: '0.01',
-      });
-      const form = new FormData();
-      for (const [k, v] of Object.entries(fields)) form.append(k, v);
-      const res = await fetch(actionUrl, {
-        method: 'POST',
-        body: form,
-        signal: AbortSignal.timeout(15_000),
-      });
-      const body = await res.text();
-      const isPage = /<html/i.test(body) && /checkout/i.test(body);
-      let detail = 'Hosted checkout page opens';
-      if (!isPage) {
-        try {
-          const j = JSON.parse(body) as {
-            status?: { code?: string | number; message?: string };
-          };
-          const code = String(j.status?.code ?? '');
-          detail =
-            ABA_REASONS[code] ?? j.status?.message ?? `HTTP ${res.status}`;
-        } catch {
-          detail = `Unexpected response (HTTP ${res.status})`;
-        }
-      }
-      checks.push({ id: 'hosted_checkout', ok: isPage, detail });
-    } catch (e) {
-      checks.push({
-        id: 'hosted_checkout',
-        ok: false,
-        detail: (e as Error).message,
-      });
-    }
+    // 3. ABA embedded checkout (JS bridge). When it isn't available the
+    //    storefront uses its own KHQR dialog instead (check 2).
+    const bridge = await this.jsBridgeStatus(true);
+    checks.push({
+      id: 'hosted_checkout',
+      ok: bridge.ok,
+      detail: bridge.ok
+        ? bridge.detail
+        : `${bridge.detail} — checkout will use the KHQR dialog instead`,
+    });
 
     this.logger.log({
       message: `ABA connection test: ${checks.map((c) => `${c.id}=${c.ok ? 'ok' : 'fail'}`).join(', ')}`,
@@ -601,10 +755,12 @@ export class AbaPaywayService {
     };
     let res: Response;
     try {
+      // The Purchase API takes multipart/form-data; the others take JSON.
+      const isForm = body instanceof FormData;
       res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        headers: isForm ? undefined : { 'Content-Type': 'application/json' },
+        body: isForm ? body : JSON.stringify(body),
         signal: AbortSignal.timeout(15_000),
       });
     } catch (err) {

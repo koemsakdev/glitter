@@ -8,6 +8,7 @@ import { useCart } from '@/lib/cart';
 import { useLang } from '@/lib/lang-context';
 import { colorLabel, tr, type Lang } from '@/lib/locale';
 import { cn } from '@/lib/utils';
+import { setPickedPrice } from '@/components/product-price';
 import type { Product, ProductVariant } from '@/lib/types';
 
 /** A color string that's really a hex code shouldn't be shown to customers. */
@@ -59,12 +60,13 @@ export function AddToCart({
     const hasSizes = sizes.length > 0;
     const hasColors = colors.length > 0;
 
-    const firstInStock = variants.find((v) => v.quantityInStock > 0) ?? variants[0];
+    const firstInStock =
+        variants.find((v) => v.quantityInStock > 0) ?? variants[0];
     const [size, setSize] = useState<string | null>(
-        hasSizes ? firstInStock?.size ?? null : null,
+        hasSizes ? (firstInStock?.size ?? null) : null,
     );
     const [color, setColor] = useState<string | null>(
-        hasColors ? firstInStock?.color ?? null : null,
+        hasColors ? (firstInStock?.color ?? null) : null,
     );
     const [qty, setQty] = useState(1);
     const [error, setError] = useState('');
@@ -85,16 +87,20 @@ export function AddToCart({
     const price = selected?.effectivePrice ?? product.price;
     const maxQty = selected?.quantityInStock ?? 0;
 
-    // Size is the primary axis — always show every size. Colors are shown for
-    // the currently selected size (or all colors when the product has no size).
+    // Let the price near the title follow the picked size / colour.
+    useEffect(() => {
+        setPickedPrice(product.id, selected ? Number(price) : null);
+    }, [product.id, selected, price]);
+    useEffect(() => () => setPickedPrice(product.id, null), [product.id]);
+
+    // Show EVERY colour (like the dashboard). Colours not made in the
+    // selected size are faded; tapping one switches to a size that has it.
     const displayedSizes = sizes;
-    const displayedColors = colors.filter((c) =>
-        variants.some(
-            (v) =>
-                v.color === c.key &&
-                (!hasSizes || size == null || v.size === size),
-        ),
-    );
+    const displayedColors = colors;
+    const colorInSize = (c: string) =>
+        !hasSizes ||
+        size == null ||
+        variants.some((v) => v.color === c && v.size === size);
 
     // A size is available if any of its variants is in stock (any color).
     const sizeInStock = (s: string) =>
@@ -111,7 +117,10 @@ export function AddToCart({
     function pickSize(s: string) {
         setError('');
         setSize(s);
-        if (hasColors && !variants.some((v) => v.size === s && v.color === color)) {
+        if (
+            hasColors &&
+            !variants.some((v) => v.size === s && v.color === color)
+        ) {
             const match =
                 variants.find((v) => v.size === s && v.quantityInStock > 0) ??
                 variants.find((v) => v.size === s);
@@ -122,6 +131,12 @@ export function AddToCart({
     function pickColor(c: string) {
         setError('');
         setColor(c);
+        if (hasSizes && !colorInSize(c)) {
+            const match =
+                variants.find((v) => v.color === c && v.quantityInStock > 0) ??
+                variants.find((v) => v.color === c);
+            if (match?.size) setSize(match.size);
+        }
     }
 
     function handleAdd() {
@@ -195,131 +210,137 @@ export function AddToCart({
 
     return (
         <>
-        <div className="mt-6 space-y-5">
-            {/* Size */}
-            {hasSizes && (
-                <div>
-                    <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                        {tr(lang, 'size')}
-                    </h2>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        {displayedSizes.map((s) => {
-                            const active = s === size;
-                            const oos = !sizeInStock(s);
-                            return (
-                                <button
-                                    key={s}
-                                    type="button"
-                                    onClick={() => pickSize(s)}
-                                    className={cn(
-                                        'flex min-w-11 items-center justify-center rounded-xl border px-4 py-2.5 text-sm font-bold transition-all active:scale-95',
-                                        active
-                                            ? 'border-(--brand) bg-(--brand) text-white shadow-md shadow-(--brand)/25'
-                                            : 'border-zinc-200 bg-white text-zinc-700 hover:border-(--brand) hover:text-(--brand) dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200',
-                                        oos &&
-                                            'cursor-not-allowed border-zinc-100 text-zinc-300 line-through hover:border-zinc-100 hover:text-zinc-300 dark:border-zinc-800 dark:text-zinc-600 dark:hover:border-zinc-800',
-                                    )}
-                                >
-                                    {s}
-                                </button>
-                            );
-                        })}
+            <div className="mt-6 space-y-5">
+                {/* Size */}
+                {hasSizes && (
+                    <div>
+                        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                            {tr(lang, 'size')}
+                        </h2>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            {displayedSizes.map((s) => {
+                                const active = s === size;
+                                const oos = !sizeInStock(s);
+                                return (
+                                    <button
+                                        key={s}
+                                        type="button"
+                                        onClick={() => pickSize(s)}
+                                        className={cn(
+                                            'flex min-w-11 items-center justify-center rounded-xl border px-4 py-2.5 text-sm font-bold transition-all active:scale-95',
+                                            active
+                                                ? 'border-(--brand) bg-(--brand) text-white shadow-md shadow-(--brand)/25'
+                                                : 'border-zinc-200 bg-white text-zinc-700 hover:border-(--brand) hover:text-(--brand) dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200',
+                                            oos &&
+                                                'cursor-not-allowed border-zinc-100 text-zinc-300 line-through hover:border-zinc-100 hover:text-zinc-300 dark:border-zinc-800 dark:text-zinc-600 dark:hover:border-zinc-800',
+                                        )}
+                                    >
+                                        {s}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Color */}
-            {hasColors && (
-                <div>
-                    <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                        {tr(lang, 'color')}
-                        {selectedColorName && (
-                            <span className="ml-1.5 font-normal text-zinc-500 dark:text-zinc-400">
-                                {selectedColorName}
-                            </span>
-                        )}
-                    </h2>
-                    <div className="mt-2 flex flex-wrap gap-2.5">
-                        {displayedColors.map((c) => {
-                            const active = c.key === color;
-                            const oos = !colorInStock(c.key);
-                            return (
-                                <button
-                                    key={c.key}
-                                    type="button"
-                                    title={colorLabel(lang, c.name) || undefined}
-                                    onClick={() => pickColor(c.key)}
-                                    className={cn(
-                                        'relative flex size-9 items-center justify-center rounded-full border border-black/15 shadow-sm transition-all hover:scale-110 dark:border-white/30',
-                                        active &&
-                                            'ring-2 ring-(--brand) ring-offset-2 ring-offset-white dark:ring-offset-zinc-950',
-                                        oos && 'opacity-40',
-                                    )}
-                                    style={{ backgroundColor: c.hex }}
-                                >
-                                    {active && (
-                                        <Check className="size-4 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.7)]" />
-                                    )}
-                                    {oos && (
-                                        <span className="absolute h-px w-full rotate-45 bg-zinc-400" />
-                                    )}
-                                </button>
-                            );
-                        })}
+                {/* Color */}
+                {hasColors && (
+                    <div>
+                        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                            {tr(lang, 'color')}
+                            {selectedColorName && (
+                                <span className="ml-1.5 font-normal text-zinc-500 dark:text-zinc-400">
+                                    {selectedColorName}
+                                </span>
+                            )}
+                        </h2>
+                        <div className="mt-2 flex flex-wrap gap-2.5">
+                            {displayedColors.map((c) => {
+                                const active = c.key === color;
+                                const otherSize = !colorInSize(c.key);
+                                const oos = !otherSize && !colorInStock(c.key);
+                                return (
+                                    <button
+                                        key={c.key}
+                                        type="button"
+                                        title={
+                                            colorLabel(lang, c.name) ||
+                                            undefined
+                                        }
+                                        onClick={() => pickColor(c.key)}
+                                        className={cn(
+                                            'relative flex size-9 items-center justify-center rounded-full border border-black/15 shadow-sm transition-all hover:scale-110 dark:border-white/30',
+                                            active &&
+                                                'ring-2 ring-(--brand) ring-offset-2 ring-offset-white dark:ring-offset-zinc-950',
+                                            oos && 'opacity-40',
+                                            otherSize &&
+                                                'opacity-35 saturate-50 hover:opacity-70',
+                                        )}
+                                        style={{ backgroundColor: c.hex }}
+                                    >
+                                        {active && (
+                                            <Check className="size-4 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.7)]" />
+                                        )}
+                                        {oos && (
+                                            <span className="absolute h-px w-full rotate-45 bg-zinc-400" />
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Quantity + add to cart — inline on desktop; on mobile this row is
+                {/* Quantity + add to cart — inline on desktop; on mobile this row is
                 hidden and the fixed dock below takes over. */}
-            <div className="hidden flex-wrap items-center gap-3 pt-1 md:flex">
-                {qtyStepper}
-                <button
-                    type="button"
-                    onClick={handleAdd}
-                    disabled={!canAdd}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-full bg-(--brand) px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-all hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:px-12"
-                >
-                    <ShoppingBag className="size-4.5" />
-                    {addLabel}
-                </button>
+                <div className="hidden flex-wrap items-center gap-3 pt-1 md:flex">
+                    {qtyStepper}
+                    <button
+                        type="button"
+                        onClick={handleAdd}
+                        disabled={!canAdd}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-full bg-(--brand) px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-all hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:px-12"
+                    >
+                        <ShoppingBag className="size-4.5" />
+                        {addLabel}
+                    </button>
+                </div>
+
+                {error && (
+                    <p className="text-sm font-medium text-red-600 dark:text-red-400">
+                        {error}
+                    </p>
+                )}
+                {added && (
+                    <p className="text-sm font-medium text-emerald-600">
+                        {tr(lang, 'added')} ·{' '}
+                        <Link href="/checkout" className="underline">
+                            {tr(lang, 'viewCart')}
+                        </Link>
+                    </p>
+                )}
             </div>
 
-            {error && (
-                <p className="text-sm font-medium text-red-600 dark:text-red-400">
-                    {error}
-                </p>
-            )}
-            {added && (
-                <p className="text-sm font-medium text-emerald-600">
-                    {tr(lang, 'added')} ·{' '}
-                    <Link href="/checkout" className="underline">
-                        {tr(lang, 'viewCart')}
-                    </Link>
-                </p>
-            )}
-        </div>
-
-        {/* Mobile fixed dock — portaled to the body so `position: fixed` isn't
+            {/* Mobile fixed dock — portaled to the body so `position: fixed` isn't
             trapped by the page-transition transform. */}
-        {mounted &&
-            createPortal(
-                <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200/80 bg-white/90 px-4 pb-[calc(env(safe-area-inset-bottom)+0.7rem)] pt-3 backdrop-blur-xl md:hidden dark:border-zinc-800/80 dark:bg-zinc-950/90">
-                    <div className="mx-auto flex max-w-md items-center gap-3">
-                        {qtyStepper}
-                        <button
-                            type="button"
-                            onClick={handleAdd}
-                            disabled={!canAdd}
-                            className="flex flex-1 items-center justify-center gap-2 rounded-full bg-(--brand) px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            <ShoppingBag className="size-4.5" />
-                            {addLabel}
-                        </button>
-                    </div>
-                </div>,
-                document.body,
-            )}
+            {mounted &&
+                createPortal(
+                    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200/80 bg-white/90 px-4 pb-[calc(env(safe-area-inset-bottom)+0.7rem)] pt-3 backdrop-blur-xl md:hidden dark:border-zinc-800/80 dark:bg-zinc-950/90">
+                        <div className="mx-auto flex max-w-md items-center gap-3">
+                            {qtyStepper}
+                            <button
+                                type="button"
+                                onClick={handleAdd}
+                                disabled={!canAdd}
+                                className="flex flex-1 items-center justify-center gap-2 rounded-full bg-(--brand) px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-(--brand)/25 transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <ShoppingBag className="size-4.5" />
+                                {addLabel}
+                            </button>
+                        </div>
+                    </div>,
+                    document.body,
+                )}
         </>
     );
 }

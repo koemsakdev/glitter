@@ -10,6 +10,8 @@ import { MobileBottomNav } from '@/components/mobile-bottom-nav';
 import { CartToast } from '@/components/cart-toast';
 import { ChatWidget } from '@/components/assistant/chat-widget';
 import { LiveUpdates } from '@/components/live-updates';
+import { MaintenanceScreen } from '@/components/maintenance-screen';
+import { MaintenancePreview } from '@/components/maintenance-preview';
 import { PageTransition } from '@/components/page-transition';
 import { CartProvider } from '@/lib/cart';
 import { AuthProvider } from '@/lib/auth';
@@ -122,6 +124,17 @@ export default async function RootLayout({
                     fontFamily: font.stack || undefined,
                 }}
             >
+                {config.maintenance.enabled ? (
+                    // Maintenance mode: only the "back soon" screen. The live
+                    // connection stays on, so the shop returns by itself
+                    // when an admin switches maintenance off.
+                    <LanguageProvider initial={lang}>
+                        <AuthProvider>
+                            <LiveUpdates />
+                            <MaintenanceScreen config={config} lang={lang} />
+                        </AuthProvider>
+                    </LanguageProvider>
+                ) : (
                 <LanguageProvider initial={lang}>
                 <StoreLogoProvider logoUrl={fileUrl(config.logoUrl)}>
                 <AuthProvider>
@@ -163,11 +176,13 @@ export default async function RootLayout({
                             assistant={config.assistant}
                         />
                         <CartToast lang={lang} />
+                        <MaintenancePreview config={config} lang={lang} />
                         </CartProvider>
                     </WishlistProvider>
                 </AuthProvider>
                 </StoreLogoProvider>
                 </LanguageProvider>
+                )}
             </body>
         </html>
     );

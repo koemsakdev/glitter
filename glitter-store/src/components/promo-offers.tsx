@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BadgePercent, Check, Clock, Copy, Sparkles } from 'lucide-react';
+import { BadgePercent, Check, Clock, Copy, Gift } from 'lucide-react';
 import { pick, tr, type Lang } from '@/lib/locale';
 import type { PublicPromo } from '@/lib/api';
 
@@ -121,7 +121,7 @@ export function PromoOffers({
                                         </button>
                                     ) : (
                                         <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
-                                            <Sparkles className="size-3.5" />
+                                            <Gift className="size-3.5" />
                                             {tr(lang, 'autoApplies')}
                                         </span>
                                     )}

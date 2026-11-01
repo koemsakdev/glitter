@@ -48,6 +48,12 @@ export class PaymentsAbaController {
     summary: 'Get signed form fields for the ABA checkout popup',
   })
   async checkout(@Body() dto: CreateKhqrDto) {
+    // Only use ABA's embedded checkout when the merchant supports it;
+    // otherwise tell the storefront to show its own KHQR dialog.
+    const bridge = await this.aba.jsBridgeStatus();
+    if (!bridge.ok) {
+      return { data: { mode: 'qr' as const, reason: bridge.detail } };
+    }
     const payable = await this.orders.getKhqrPayable(dto.orderId);
     const result = await this.aba.generateCheckoutParams({
       tranId: payable.tranId,
@@ -56,7 +62,7 @@ export class PaymentsAbaController {
       firstName: payable.firstName,
       phone: payable.phone,
     });
-    return { data: result };
+    return { data: { mode: 'bridge' as const, ...result } };
   }
 
   @Public()

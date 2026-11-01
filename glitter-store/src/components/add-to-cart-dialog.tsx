@@ -71,10 +71,10 @@ export function AddToCartDialog({
     // Default to the first available variant (same as the detail page), so the
     // customer sees a valid pick they can then change.
     const [size, setSize] = useState<string | null>(
-        hasSizes ? firstInStock?.size ?? null : null,
+        hasSizes ? (firstInStock?.size ?? null) : null,
     );
     const [color, setColor] = useState<string | null>(
-        hasColors ? firstInStock?.color ?? null : null,
+        hasColors ? (firstInStock?.color ?? null) : null,
     );
     const [qty, setQty] = useState(1);
     const [error, setError] = useState('');
@@ -90,13 +90,13 @@ export function AddToCartDialog({
     const maxQty = selected?.quantityInStock ?? 0;
     const canAdd = !!selected && selected.quantityInStock > 0;
 
-    const displayedColors = colors.filter((c) =>
-        variants.some(
-            (v) =>
-                v.color === c.key &&
-                (!hasSizes || size == null || v.size === size),
-        ),
-    );
+    // Show EVERY colour (like the dashboard). Colours not made in the
+    // selected size are faded; tapping one switches to a size that has it.
+    const displayedColors = colors;
+    const colorInSize = (c: string) =>
+        !hasSizes ||
+        size == null ||
+        variants.some((v) => v.color === c && v.size === size);
     const sizeInStock = (s: string) =>
         variants.some((v) => v.size === s && v.quantityInStock > 0);
     const colorInStock = (c: string) =>
@@ -124,6 +124,12 @@ export function AddToCartDialog({
     function pickColor(c: string) {
         setError('');
         setColor(c);
+        if (hasSizes && !colorInSize(c)) {
+            const match =
+                variants.find((v) => v.color === c && v.quantityInStock > 0) ??
+                variants.find((v) => v.color === c);
+            if (match?.size) setSize(match.size);
+        }
     }
 
     function handleAdd() {
@@ -220,7 +226,9 @@ export function AddToCartDialog({
                                     </span>
                                 ) : (
                                     <>
-                                        <StarRating value={product.averageRating} />
+                                        <StarRating
+                                            value={product.averageRating}
+                                        />
                                         <span className="text-xs text-zinc-400">
                                             ({product.reviewCount})
                                         </span>
@@ -314,7 +322,9 @@ export function AddToCartDialog({
                                 <div className="mt-2 flex flex-wrap gap-2.5">
                                     {displayedColors.map((c) => {
                                         const active = c.key === color;
-                                        const oos = !colorInStock(c.key);
+                                        const otherSize = !colorInSize(c.key);
+                                        const oos =
+                                            !otherSize && !colorInStock(c.key);
                                         return (
                                             <button
                                                 key={c.key}
@@ -329,8 +339,12 @@ export function AddToCartDialog({
                                                     active &&
                                                         'ring-2 ring-(--brand) ring-offset-2 ring-offset-white dark:ring-offset-zinc-950',
                                                     oos && 'opacity-40',
+                                                    otherSize &&
+                                                        'opacity-35 saturate-50 hover:opacity-70',
                                                 )}
-                                                style={{ backgroundColor: c.hex }}
+                                                style={{
+                                                    backgroundColor: c.hex,
+                                                }}
                                             >
                                                 {active && (
                                                     <Check className="size-4 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.7)]" />

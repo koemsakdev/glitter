@@ -26,6 +26,7 @@ import {
   ProductResponse,
 } from './types/product-response.type';
 import { RealtimeService } from '../realtime/realtime.service';
+import { assertSellingPrice } from './price-rules';
 
 /** Minimal product shape for the fast search palette. */
 export interface ProductSearchItem {
@@ -73,6 +74,7 @@ export class ProductsService {
     if (brand === null) {
       throw new BadRequestException(`Brand with ID ${dto.brandId} not found`);
     }
+    assertSellingPrice(dto.price, dto.originalPrice);
 
     const existingSku = await this.productRepository.findOne({
       where: { sku: dto.sku },
@@ -566,6 +568,14 @@ export class ProductsService {
     if (product === null) {
       throw new NotFoundException(`Product with ID ${id} not found`);
     }
+    assertSellingPrice(
+      dto.price ?? Number(product.price),
+      dto.originalPrice !== undefined
+        ? dto.originalPrice
+        : product.originalPrice === null
+          ? null
+          : Number(product.originalPrice),
+    );
 
     if (dto.categoryId && dto.categoryId !== product.categoryId) {
       const category = await this.categoryRepository.findOne({

@@ -5,7 +5,7 @@ import {
     Loader,
     Plus,
     Search,
-    Sparkles,
+    BadgePercent,
     Ticket,
     X,
 } from 'lucide-react';
@@ -261,7 +261,7 @@ export default function PromotionsPage() {
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
-                                                        <Sparkles className="size-3" />
+                                                        <BadgePercent className="size-3" />
                                                         {t('voucher.automatic')}
                                                     </span>
                                                 )}

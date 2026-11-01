@@ -14,7 +14,6 @@ import {
     Share2,
     Shirt,
     ShoppingBag,
-    Sparkles,
     Star,
     Store,
     Tag,
@@ -32,7 +31,8 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
     tag: Tag,
     'badge-percent': BadgePercent,
     gem: Gem,
-    sparkles: Sparkles,
+    // Older saves may use 'sparkles' — shown as a star (not offered any more).
+    sparkles: Star,
     star: Star,
     heart: Heart,
     gift: Gift,
@@ -47,7 +47,9 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
     flame: Flame,
 };
 
-export const NAV_ICON_NAMES = Object.keys(NAV_ICONS);
+export const NAV_ICON_NAMES = Object.keys(NAV_ICONS).filter(
+    (n) => n !== 'sparkles',
+);
 
 /** Built-in default icon per nav id (shown when no custom icon is chosen). */
 export const DEFAULT_NAV_ICON: Record<string, LucideIcon> = {

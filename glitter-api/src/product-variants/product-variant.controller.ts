@@ -40,9 +40,11 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles, RequirePermission } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { LiveChange } from '../realtime/live-change';
 
 @ApiTags('Product Variants')
 @ApiBearerAuth()
+@LiveChange('products')
 @Controller('product-variants')
 export class ProductVariantsController {
   constructor(private readonly variantsService: ProductVariantsService) {}
