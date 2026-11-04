@@ -220,14 +220,11 @@ export class BrandsService {
 
     // Handle logo upload
     if (logoFile) {
-      if (logoFile) {
-        if (brand.logoUrl) {
-          await this.deleteLogoFile(brand.logoUrl);
-        }
-        const optimizedFilename = await this.optimizer.optimize(logoFile.path);
-        brand.logoUrl = `/upload/brands/${optimizedFilename}`;
+      if (brand.logoUrl) {
+        await this.deleteLogoFile(brand.logoUrl);
       }
-      brand.logoUrl = `/upload/brands/${logoFile.filename}`;
+      const optimizedFilename = await this.optimizer.optimize(logoFile.path);
+      brand.logoUrl = `/upload/brands/${optimizedFilename}`;
     } else if (dto.clearLogo === true) {
       if (brand.logoUrl) {
         await this.deleteLogoFile(brand.logoUrl);
