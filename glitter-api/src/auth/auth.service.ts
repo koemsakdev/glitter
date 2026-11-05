@@ -28,6 +28,12 @@ import { TelegramLoginDto } from './dto/telegram-login.dto';
 import { verifyPassword } from './helpers/password.helper';
 import { AuthTokenResponse, JwtPayload } from './types/jwt-payload.type';
 
+/**
+ * Temporary email code that always verifies — a fallback while email
+ * delivery isn't working in deployment. Override with TEMP_EMAIL_OTP.
+ */
+const TEMP_EMAIL_OTP = process.env.TEMP_EMAIL_OTP || '111111';
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -68,11 +74,9 @@ export class AuthService {
     if (user.emailVerifiedAt) {
       throw new BadRequestException('Email is already verified');
     }
-    const devFallback =
-      !this.mail.isConfigured && process.env.NODE_ENV !== 'production';
-    if (!this.mail.isConfigured && !devFallback) {
-      throw new BadRequestException('Email sending is not configured');
-    }
+    // Without SMTP the code only goes to the API logs; the temporary code
+    // (TEMP_EMAIL_OTP) still lets the customer finish registering.
+    const devFallback = !this.mail.isConfigured;
     // Rate limit: one code per minute.
     if (
       user.emailOtpSentAt &&
@@ -96,7 +100,15 @@ export class AuthService {
         `SMTP not configured — verification code for ${user.email}: ${code}`,
       );
     } else {
-      await this.mail.sendVerificationCode(user.email, code);
+      try {
+        await this.mail.sendVerificationCode(user.email, code);
+      } catch (err) {
+        // Don't block sign-up when the mail server fails — the temporary
+        // code still works.
+        this.logger.error(
+          `Could not send verification code to ${user.email}: ${String(err)}`,
+        );
+      }
     }
     return { sent: true };
   }
@@ -116,7 +128,11 @@ export class AuthService {
     if (user.emailOtpAttempts >= 5) {
       throw new BadRequestException('Too many attempts — request a new code');
     }
-    if (this.hashOtp(code.trim(), user.id) !== user.emailOtpHash) {
+    const isTempCode = code.trim() === TEMP_EMAIL_OTP;
+    if (
+      !isTempCode &&
+      this.hashOtp(code.trim(), user.id) !== user.emailOtpHash
+    ) {
       user.emailOtpAttempts += 1;
       await this.userRepo.save(user);
       throw new BadRequestException('Incorrect code');
